@@ -1,0 +1,21 @@
+{
+  "current_goal": "You First Gersh Influencer Insights Platform v1",
+  "goal_of_current_change": "Project foundations: constitution, CLAUDE.md, agent-harness setup",
+  "phase": "foundations",
+  "last_updated": "2026-07-06",
+  "completed": [
+    "CONSTITUTION.md written",
+    "CLAUDE.md written",
+    "agent-harness/ copied and adapted from /Users/JackEllis/ui/agent-harness"
+  ],
+  "in_progress": [
+    "Planner pass for feature_001 (Instagram + trend scraper, Phase 1)"
+  ],
+  "blocked": [],
+  "deferred": [],
+  "next_actions": [
+    "Write agent-harness/spec.md and featurelist.json for the Phase 1 scraper feature",
+    "Design Supabase schema",
+    "Build scraper/ Python package"
+  ]
+}

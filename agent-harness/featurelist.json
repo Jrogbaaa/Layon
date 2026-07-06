@@ -1,0 +1,32 @@
+{
+  "features": [
+    {
+      "id": "feature_001",
+      "name": "Daily Instagram + trend scraper pipeline",
+      "goal": "Scrape the 6-influencer Instagram roster and 2 trend-report sources daily, persisting snapshots to Supabase.",
+      "why_it_matters": "Foundation for metrics, dashboards, and recommendations — nothing downstream works without reliable daily data.",
+      "non_goals": [
+        "No recommendations generation (Phase 2)",
+        "No web platform/dashboard (Phase 3)",
+        "No influencer-brand matching",
+        "No cloud-hosted scheduler, launchd only",
+        "No private-account access"
+      ],
+      "status": "planned",
+      "priority": "high",
+      "owner_agent": "generator",
+      "acceptance_criteria": [
+        "Supabase schema matches scraper/schema.sql (influencers, profile_snapshots, post_snapshots, trend_snapshots, recommendations)",
+        "Manual scraper run produces profile_snapshots + post_snapshots rows for all 6 roster handles",
+        "Trend scraper produces one trend_snapshots row per source per day, idempotent same-day re-run",
+        "A broken influencer handle logs and skips without aborting the run",
+        "A broken trend source logs and skips without aborting the run",
+        "Config lives in .env / influencers.txt, never hardcoded",
+        "launchd LaunchAgent plist runs the pipeline once daily and skips same-day re-runs",
+        "pytest suite passes for scraper pure-logic (metrics, idempotency guard, error-skip)"
+      ],
+      "dependencies": [],
+      "notes": "First harness feature for this project. Spec file: agent-harness/spec.md."
+    }
+  ]
+}
