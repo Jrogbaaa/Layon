@@ -2,8 +2,6 @@ import logging
 import time
 from datetime import date, datetime
 
-import instaloader
-
 from . import config, db, instagram_scraper, recommendations, trend_scraper
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -27,9 +25,7 @@ def run_instagram_scrape(client) -> None:
         logger.warning("No influencers in %s — nothing to scrape.", config.INFLUENCERS_FILE)
         return
 
-    loader = instaloader.Instaloader(download_pictures=False, download_videos=False,
-                                      download_video_thumbnails=False, save_metadata=False,
-                                      compress_json=False)
+    loader = instagram_scraper.build_loader()
 
     for i, handle in enumerate(roster):
         try:

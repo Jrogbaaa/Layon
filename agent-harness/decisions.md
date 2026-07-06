@@ -78,4 +78,30 @@ per-feature archive directories.
 `git show`.
 
 **Tradeoffs:** History requires git, not in-tree browsing. (Adopted from the same
-pattern used in the user's `/Users/JackEllis/ui` project.)
+pattern used in the user's `/Users/JackEllis/ui/agent-harness` setup.)
+
+### 2026-07-06 — Instagram scraping paused: Instaloader is currently broken against Instagram
+
+**Decision:** Added authenticated-session support to the scraper (`IG_USERNAME` +
+`instagram_scraper.build_loader()`, session created once via
+`instaloader --login=<user>`), but a live run still fails for every profile —
+including verified-real accounts like `cristiano` — with Instagram returning `200 OK`
+but an empty GraphQL body, which Instaloader misreports as
+`ProfileNotExistsException`. Confirmed via web research this is a known, currently
+**unresolved** Instaloader bug
+([instaloader/instaloader#2682](https://github.com/instaloader/instaloader/issues/2682)),
+not a bug in this codebase or a wrong handle. An unmerged community fix exists
+(PR #2652) but has no official release. User chose to pause Instagram scraping here
+rather than adopt the unstable PR branch or switch to a paid scraping API immediately.
+
+**Reason:** This is an external, unresolved library/Instagram-API incompatibility
+affecting all Instaloader users right now, not something fixable by more code in this
+repo. Trend scraping and the Supabase/Gemini pipeline around it are unaffected and
+confirmed working against the real Supabase project.
+
+**Tradeoffs:** The Instagram side of the pipeline cannot produce real data until either
+(a) Instaloader ships an official fix, (b) the user accepts the unmerged PR #2652
+branch's stability risk, or (c) the project switches to a paid scraping API (e.g.
+Apify). `instagram_scraper.py` and `run_daily.py`'s error-handling/session-loading code
+is correct and tested (27/27 pytest passing with mocks) and needs no rework once the
+underlying blocker is resolved — only the scraping call itself is affected.

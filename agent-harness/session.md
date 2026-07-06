@@ -7,48 +7,50 @@ metrics + Gemini creative recommendations, password-gated Next.js platform.
 
 ## Current State
 
-**Built, verified with mocks/manual browser driving, pending live credential
-verification.** All three pillars are implemented:
+**Paused on a real external blocker: Instagram profile scraping doesn't work right
+now, for anyone, via Instaloader.**
 
-- `scraper/` — Instaloader-based Instagram scraper + trend-report scraper + Supabase
-  writer + Gemini recommendation generator, orchestrated by `run_daily.py` with a
-  once-per-day guard. 24/24 pytest tests pass (all mocked).
-- `scraper/com.youfirstgersh.dailyscraper.plist` + `install_launchagent.sh` — daily
-  `launchd` scheduling, not yet installed (needs real credentials first).
-- `platform/` — Next.js app, password-gated via `proxy.ts` (Next 16's renamed
-  Middleware) checking an HMAC-signed session cookie. Roster, per-influencer, and
-  trends pages read from Supabase server-side. Verified end-to-end in a real browser
-  via Playwright MCP tools: wrong password rejected, correct password (`LAYCC`) grants
-  access, session persists, logout works, unauthenticated redirect works, unknown
-  influencer 404s. `next build`/`tsc`/`eslint` all clean.
+What's confirmed working against the real, live Supabase project (not mocks):
+- Schema applied, all 5 tables reachable.
+- Trend scraper: wrote real rows for both configured trend sources.
+- Gemini API key: confirmed working with a real `generate_content` call.
+- Platform: password gate, session persistence, logout, 404s — all verified in a real
+  browser via Playwright MCP.
 
-## What's NOT yet done
+What's blocked: **Instagram scraping fails for every handle**, including
+verified-real, massively public accounts (`cristiano`), even with an authenticated
+session (`beautifullfootball`, logged in via `instaloader --login`). Instagram returns
+`200 OK` with an empty GraphQL body; Instaloader misreports this as
+`ProfileNotExistsException`. Confirmed via web research this is
+[instaloader/instaloader#2682](https://github.com/instaloader/instaloader/issues/2682),
+a known, currently unresolved upstream bug — not a bug in this codebase, not a wrong
+handle. An unmerged fix (PR #2652) exists with no official release.
 
-- No live run against real Instagram, Supabase, or Gemini — blocked on the user
-  creating a Supabase project and providing `SUPABASE_URL`/`SUPABASE_SERVICE_KEY`, plus
-  a `GOOGLE_API_KEY`.
-- No checked-in Playwright suite for `platform/` yet (this session used manual
-  MCP-driven browser verification instead — see `findings.md`).
-- The Evaluator pass in `findings.md` was same-session, not a separate subagent per
-  `contract.md` — treat it as provisional.
+User was offered three paths (paid scraping API, unmerged PR branch, or pause) and
+chose to **pause here** rather than commit to either workaround yet.
 
 ## Next Action
 
-Once the user provides Supabase + Google credentials: run the scraper manually, verify
-real Supabase rows, install the LaunchAgent, then point the platform at the same
-Supabase project and verify real data renders. See `progress.json.next_actions`.
+Wait for the user's decision on how to handle the Instagram blocker (see
+`decisions.md` 2026-07-06 entry and `progress.json.next_actions`). No further scraper
+work should start until that's resolved — the code itself (session loading, per-handle
+error isolation, metrics, recommendations) is correct and doesn't need changes for this
+issue.
 
 ## Important Context
 
 - One active harness session at a time.
 - Harness files are git-tracked — never write API keys, Supabase service keys, or
   scraped personal data into them.
+- `scraper/.env` and `platform/.env.local` now hold real credentials (Supabase, Gemini,
+  IG_USERNAME) — both gitignored, confirmed not committed.
 - Trivial changes (one-liners, typos, renames) skip the harness.
 
-## Files Changed
+## Files Changed (this session, since last commit)
 
-`CONSTITUTION.md`, `CLAUDE.md`, `agent-harness/*`; `scraper/*` (new package);
-`platform/*` (new Next.js app).
+`scraper/youfirst_scraper/config.py`, `instagram_scraper.py`, `run_daily.py` (added
+`IG_USERNAME` + `build_loader()`); `scraper/tests/test_instagram_scraper.py` (3 new
+tests); `scraper/.env.example`, `scraper/README.md` (login instructions).
 
 ---
 

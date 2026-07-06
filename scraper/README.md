@@ -17,6 +17,20 @@ Run the Supabase schema once against your project (SQL Editor, or `supabase db p
 
 Edit `influencers.txt` to change the roster.
 
+### Instagram login (required — anonymous scraping is blocked)
+
+Instagram aggressively blocks not-logged-in scraping (403 on public GraphQL queries).
+Create a reusable session once, interactively, in your own terminal — this codebase
+never sees or stores your password:
+
+```bash
+.venv/bin/instaloader --login=YOUR_INSTAGRAM_USERNAME
+```
+
+This prompts for your password (and 2FA if enabled) and saves a session file under
+`~/.config/instaloader/`. Then set `IG_USERNAME=YOUR_INSTAGRAM_USERNAME` in `.env`.
+Use a dedicated agency account rather than a personal one if possible.
+
 ## Run manually
 
 ```bash
