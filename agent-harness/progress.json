@@ -1,21 +1,31 @@
 {
   "current_goal": "You First Gersh Influencer Insights Platform v1",
-  "goal_of_current_change": "Project foundations: constitution, CLAUDE.md, agent-harness setup",
-  "phase": "foundations",
+  "goal_of_current_change": "Build all three v1 pillars: daily scraper pipeline, metrics + Gemini recommendations, password-gated platform",
+  "phase": "built_pending_live_verification",
   "last_updated": "2026-07-06",
   "completed": [
-    "CONSTITUTION.md written",
-    "CLAUDE.md written",
-    "agent-harness/ copied and adapted from /Users/JackEllis/ui/agent-harness"
+    "CONSTITUTION.md, CLAUDE.md, agent-harness/ (foundations)",
+    "scraper/schema.sql (Supabase schema)",
+    "scraper/youfirst_scraper/ package: config, db, instagram_scraper, trend_scraper, run_daily (feature_001), 12 pytest tests passing",
+    "scraper/youfirst_scraper/metrics.py + recommendations.py (feature_002), 12 more pytest tests passing (24 total)",
+    "scraper/com.youfirstgersh.dailyscraper.plist + install_launchagent.sh (daily launchd scheduling)",
+    "platform/ Next.js app (feature_003): password gate via proxy.ts + signed session cookie, roster/influencer/trends pages, Supabase server-only data layer",
+    "platform verified manually via Playwright MCP: wrong password rejected, correct password (LAYCC) grants access, session persists across pages, logout works, unauthenticated redirect works, unknown influencer handle 404s",
+    "next build, tsc, eslint all clean for platform/; 24/24 pytest passing for scraper/"
   ],
-  "in_progress": [
-    "Planner pass for feature_001 (Instagram + trend scraper, Phase 1)"
+  "in_progress": [],
+  "blocked": [
+    "Live end-to-end run against real Instagram/Supabase/Gemini — needs the user to create a Supabase project and provide SUPABASE_URL/SUPABASE_SERVICE_KEY, and a Google API key (GOOGLE_API_KEY)"
   ],
-  "blocked": [],
-  "deferred": [],
+  "deferred": [
+    "Checked-in Playwright test suite for platform/ (contract.md expects one; this session used manual MCP browser verification instead)",
+    "Fresh-context (separate subagent) Evaluator pass — this session's findings.md pass was same-session, see its Note on Evaluator Independence"
+  ],
   "next_actions": [
-    "Write agent-harness/spec.md and featurelist.json for the Phase 1 scraper feature",
-    "Design Supabase schema",
-    "Build scraper/ Python package"
+    "User creates Supabase project, runs scraper/schema.sql, provides SUPABASE_URL/SUPABASE_SERVICE_KEY and GOOGLE_API_KEY",
+    "Run scraper/.venv/bin/python -m youfirst_scraper.run_daily manually once, confirm real data in Supabase",
+    "Run scraper/install_launchagent.sh to schedule the daily run",
+    "Point platform/.env.local at the same Supabase project, run npm run dev, confirm real data renders",
+    "Deploy platform/ to Vercel with the same env vars"
   ]
 }

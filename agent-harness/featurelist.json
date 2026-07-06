@@ -12,7 +12,7 @@
         "No cloud-hosted scheduler, launchd only",
         "No private-account access"
       ],
-      "status": "planned",
+      "status": "built_pending_live_verification",
       "priority": "high",
       "owner_agent": "generator",
       "acceptance_criteria": [
@@ -26,7 +26,55 @@
         "pytest suite passes for scraper pure-logic (metrics, idempotency guard, error-skip)"
       ],
       "dependencies": [],
-      "notes": "First harness feature for this project. Spec file: agent-harness/spec.md."
+      "notes": "24/24 pytest passing with mocks (config guard, error-skip behavior). Not yet run against real Instagram/Supabase (blocked on user creating a Supabase project). Spec file: agent-harness/spec.md."
+    },
+    {
+      "id": "feature_002",
+      "name": "Metrics + Gemini creative recommendations",
+      "goal": "Compute rule-based engagement/growth/format/cadence metrics per influencer, then generate a personalized Gemini recommendation grounded in those metrics plus the latest trend_snapshots.",
+      "why_it_matters": "Raw scraped rows aren't useful on their own; the agency and talent need metrics summarized and creative recommendations that reference real trend context, not generic advice.",
+      "non_goals": [
+        "No dashboard UI (Phase 3)",
+        "No influencer-brand matching",
+        "No recommendations without at least one profile_snapshots history point (need deltas)"
+      ],
+      "status": "built_pending_live_verification",
+      "priority": "high",
+      "owner_agent": "generator",
+      "acceptance_criteria": [
+        "metrics.py computes engagement rate, follower delta, format performance breakdown, posting cadence from snapshot rows, covered by pytest with fixed input/output",
+        "recommendations.py builds a Gemini prompt from an influencer's metrics + recent posts + latest trend_snapshots, in Spanish and English",
+        "Recommendation text stored in recommendations table with model name and timestamp",
+        "run_daily.py calls recommendation generation once per influencer after the scrape, skipping gracefully if Gemini call fails for one influencer",
+        "Gemini API key read from env, never hardcoded"
+      ],
+      "dependencies": ["feature_001"],
+      "notes": "24/24 pytest passing with mocks. Not yet run against real Gemini (blocked on Google API key). Spec captured inline in this entry rather than a separate spec.md revision, per user's request to move quickly through phases."
+    },
+    {
+      "id": "feature_003",
+      "name": "Password-gated Next.js platform (roster, influencer dashboard, trends)",
+      "goal": "Give agency staff and talent a hosted, password-gated web platform to view roster metrics, per-influencer dashboards with follower growth and creative recommendations, and trend reports.",
+      "why_it_matters": "Raw data and recommendations sitting only in Supabase aren't accessible to non-technical staff or the talent themselves; a simple shared-password site makes the pipeline's output usable day to day.",
+      "non_goals": [
+        "No per-user accounts / email login",
+        "No influencer-brand matching",
+        "No editing/writing back to Supabase from the platform (read-only)"
+      ],
+      "status": "built_pending_live_verification",
+      "priority": "high",
+      "owner_agent": "generator",
+      "acceptance_criteria": [
+        "Single shared password (LAYCC via SITE_PASSWORD env) gates every route except /login, enforced in proxy.ts",
+        "Session cookie is HMAC-signed with SESSION_SECRET, httpOnly, not forgeable without the secret",
+        "Roster page lists all influencers with latest follower count and delta",
+        "Per-influencer page shows follower growth chart, engagement rate, format performance, and latest recommendation",
+        "Trends page lists latest scraped trend_snapshots",
+        "Supabase service key only used in server-only modules, never sent to the client",
+        "next build/tsc/eslint all pass"
+      ],
+      "dependencies": ["feature_001", "feature_002"],
+      "notes": "Built ahead of its own Planner spec at the user's explicit request to move quickly through all phases in one session. Verified manually via Playwright MCP browser driving (login/logout/wrong-password/404/session-persistence all confirmed) rather than a checked-in Playwright test suite — see findings.md Missing Requirements."
     }
   ]
 }

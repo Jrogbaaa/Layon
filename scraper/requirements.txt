@@ -1,0 +1,7 @@
+instaloader>=4.13
+supabase>=2.6
+requests>=2.31
+beautifulsoup4>=4.12
+python-dotenv>=1.0
+google-genai>=0.3
+pytest>=8.0

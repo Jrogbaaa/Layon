@@ -1,0 +1,20 @@
+# Python
+scraper/.venv/
+scraper/__pycache__/
+scraper/**/__pycache__/
+scraper/.env
+scraper/.last_run
+scraper/logs/
+*.pyc
+
+# Node / Next.js
+platform/node_modules/
+platform/.next/
+platform/.env
+platform/.env.local
+
+# OS
+.DS_Store
+
+# Playwright MCP debug artifacts
+.playwright-mcp/

@@ -36,7 +36,8 @@ this flow — see the Triviality Threshold in contract.md.
 - `scraper/` — Python: Instaloader-based Instagram scraper, trend-report scraper,
   Gemini-based recommendation generator, Supabase writes. Run daily via `launchd`.
 - `platform/` — Next.js dashboard (App Router + Tailwind), deployed to Vercel. Password-
-  gated (`LAYCC`), reads from Supabase server-side.
+  gated (`LAYCC`) via `proxy.ts` (Next.js 16 renamed Middleware to Proxy — same
+  mechanism, new filename/export), reads from Supabase server-side.
 - `agent-harness/` — Planner/Generator/Evaluator process state and prompts.
 - `docs/superpowers/specs/` — design docs from brainstorming sessions.
 
