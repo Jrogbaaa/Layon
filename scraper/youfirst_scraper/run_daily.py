@@ -65,7 +65,9 @@ def run_recommendations(client) -> None:
                 logger.info("No profile history yet for %s — skipping recommendation", handle)
                 continue
             posts = db.get_recent_posts(client, influencer["id"])
-            content = recommendations.generate_recommendation(handle, profile_snapshots, posts, trends)
+            content = recommendations.generate_recommendation(
+                handle, profile_snapshots, posts, trends, influencer.get("persona")
+            )
             db.insert_recommendation(client, influencer["id"], recommendations.GEMINI_MODEL, content)
             logger.info("Generated recommendation for %s", handle)
         except Exception:

@@ -70,7 +70,7 @@ def insert_trend_snapshot(client: Client, source_url: str, title: str | None, co
 
 
 def list_influencers(client: Client) -> list[dict]:
-    result = client.table("influencers").select("id, handle").eq("active", True).execute()
+    result = client.table("influencers").select("id, handle, persona").eq("active", True).execute()
     return result.data
 
 

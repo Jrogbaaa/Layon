@@ -75,6 +75,32 @@
       ],
       "dependencies": ["feature_001", "feature_002"],
       "notes": "Built ahead of its own Planner spec at the user's explicit request to move quickly through all phases in one session. Verified manually via Playwright MCP browser driving (login/logout/wrong-password/404/session-persistence all confirmed) rather than a checked-in Playwright test suite — see findings.md Missing Requirements."
+    },
+    {
+      "id": "feature_004",
+      "name": "On-brand, Spanish-market creative recommendations",
+      "goal": "Tailor each influencer's Gemini recommendations to their persona (elite presenter, comedian, MotoGP athlete, ...) and ground them in Spanish-market trend sources instead of US-centric ones.",
+      "why_it_matters": "Recommendations currently give every influencer the same trend context from US-leaning sources; the agency's audience is Spain and each talent has a distinct brand that generic advice violates.",
+      "non_goals": [
+        "No JS-rendered trend sources (requests + BeautifulSoup only)",
+        "No new source types (APIs/RSS) — URL scraping only",
+        "No platform UI for viewing/editing persona",
+        "No profile images (separate upcoming spec)",
+        "No per-influencer trend-source targeting"
+      ],
+      "status": "built_and_live_verified",
+      "priority": "high",
+      "owner_agent": "generator",
+      "acceptance_criteria": [
+        "config.TREND_SOURCES holds exactly the 4 Spanish-market URLs from spec.md (newengen.com removed, modash.io kept, garajedoce/lagahe/venizecomunicacion added) — done",
+        "influencers table has nullable persona text column (schema.sql + live alter table), seeded for all 5 roster handles per spec.md — done",
+        "build_prompt includes persona + Spain/Spanish-audience instruction, adapts trends to persona rather than forcing off-brand formats, keeps bilingual output, and degrades gracefully when persona is null — done",
+        "run_daily.py/db.py pass persona from the influencer row into generate_recommendation — done",
+        "pytest covers persona-in-prompt, Spain-audience-in-prompt, null-persona fallback, and len(TREND_SOURCES) == 4; all existing tests pass — done, 31/31",
+        "One live run_daily produces 4 trend_snapshots rows and at least one persona-reflecting recommendation — done: 3 new sources scraped live (modash already scraped that day), antonlofer recommendation generated and stored referencing the new sources by name and staying on-persona"
+      ],
+      "dependencies": ["feature_001", "feature_002"],
+      "notes": "Spec: agent-harness/spec.md (rewritten for this change 2026-07-06). All 3 new source URLs verified scrapable with the existing scrape_trend_source on 2026-07-06. Personas sourced from user input plus public research. Live-verified end to end same session; no separate Evaluator subagent pass run (see contract.md note on Evaluator Independence, same pattern as feature_003)."
     }
   ]
 }

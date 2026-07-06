@@ -5,6 +5,7 @@ create table if not exists influencers (
   id bigint generated always as identity primary key,
   handle text not null unique,
   display_name text,
+  persona text,
   active boolean not null default true,
   created_at timestamptz not null default now()
 );

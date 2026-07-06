@@ -13,7 +13,7 @@ answer three questions for each influencer on the roster:
 
 ## Roster (v1)
 
-`dante_caro`, `mariavalero`, `antonlofer`, `cristinapedroche`, `ferminadueleguer`, `mariaacosta`
+`dante_caro`, `mariavalero`, `antonlofer`, `cristipedroche`, `ferminaldeguer_54`
 
 ## The Three Pillars
 

@@ -2,54 +2,67 @@
 
 ## Goal of This Change
 
-Build the Phase 1 daily data pipeline: scrape the 6-influencer Instagram roster and the
-2 trend-report sources, and persist everything to Supabase.
+Make creative recommendations on-brand per influencer and grounded in Spanish-market
+trend sources: add a `persona` column to `influencers`, switch `TREND_SOURCES` to
+Spanish-market reports, and rework the Gemini prompt to tailor recommendations to each
+influencer's persona and a Spain/Spanish-speaking audience.
 
 ## Why This Matters
 
-This is the foundation the other two pillars (recommendations, dashboard) depend on.
-Without reliable daily snapshots, there are no metrics to show and no fresh trend
-context to ground creative recommendations in.
+Recommendations currently read the same trend context for every influencer and lean on
+US-centric sources. A polished TV presenter should not be told to do meme dances; a
+comedian should get trends adapted into sketch formats. The agency's audience is Spain,
+not the USA — the trend inputs and the prompt must reflect both.
 
 ## Intended User
 
-Developer (this pipeline has no direct UI — it's the data layer). Indirect beneficiary:
-agency staff and talent, who will read the resulting data via the platform in a later
-phase.
+Agency staff and talent reading recommendations on the platform. The change itself is in
+the scraper pipeline (`scraper/`).
 
 ## Success Criteria
 
-1. Supabase schema exists (`influencers`, `profile_snapshots`, `post_snapshots`,
-   `trend_snapshots`, `recommendations`) matching `scraper/schema.sql`.
-2. `scraper/` Python package, run manually, produces one `profile_snapshots` row and up
-   to ~12 `post_snapshots` rows per handle in `influencers.txt` (the 6 roster handles),
-   using Instaloader.
-3. A separate trend scraper fetches both trend URLs and stores one `trend_snapshots` row
-   per source per run.
-4. Re-running the same day does not duplicate `trend_snapshots` rows for the same source
-   (idempotent per day); profile/post snapshots are append-only (time series by design).
-5. If one influencer handle fails (typo, private, rate-limited), the run logs the failure
-   and continues with the remaining handles — it does not abort the whole run.
-6. If one trend source fails, the run logs it and continues with the Instagram scrape
-   (and vice versa).
-7. Config (Supabase URL/key, roster list) lives in `.env` / `influencers.txt`, never
-   hardcoded.
-8. A `launchd` LaunchAgent plist exists that runs the pipeline once daily
-   (`StartCalendarInterval`) and skips re-running if it already ran today.
-9. pytest suite exists for the scraper's pure logic (metric calculations, idempotency
-   guard, error-skip behavior) using mocked Instaloader/requests/Supabase calls.
+1. `config.TREND_SOURCES` contains exactly these 4 Spanish-market URLs (newengen.com
+   removed):
+   - `https://www.modash.io/content-library/country/spanish-examples` (kept)
+   - `https://www.garajedoce.com/blog/estudio-iab-spain-redes-sociales/`
+   - `https://lagahe.com/blog/novedades-instagram-2026-hashtags/`
+   - `https://venizecomunicacion.com/tendencias-en-redes-sociales-2026-instagram-ante-el-gran-reto-de-la-saturacion/`
+   All 3 new URLs verified scrapable (HTTP 200, clean text via existing
+   `scrape_trend_source`) on 2026-07-06.
+2. `influencers` table gains a nullable `persona text` column (`schema.sql` updated plus
+   a one-off `alter table` applied to live Supabase), seeded for the 5 roster handles:
+   - `cristipedroche` — elite/polished TV presenter; premium, aspirational content; no
+     meme dances or low-fi trends
+   - `antonlofer` — comedian; adapt trends into comedic sketches, not serious/aesthetic
+     formats
+   - `dante_caro` — comedy creator (ex-Vine, Madrid); parodies and humor videos
+   - `mariavalero` — comedian/actress (Valencia); relatable everyday-life and
+     relationship sketches
+   - `ferminaldeguer_54` — MotoGP rider; athlete content: racing, training,
+     behind-the-scenes paddock life
+3. `recommendations.build_prompt` includes the influencer's persona and instructs the
+   model to (a) only suggest formats/trends that fit the persona, adapting trends rather
+   than forcing off-brand formats, and (b) target a Spain/Spanish-speaking audience, not
+   a US one. Bilingual Spanish/English output is kept. When `persona` is null the prompt
+   omits the persona section and still works.
+4. `run_daily.py` / `db.py` pass persona from the influencer row into
+   `generate_recommendation` — trend snapshot fetch already scales via
+   `len(config.TREND_SOURCES)` (no change needed there beyond the config edit).
+5. pytest: prompt-builder tests assert persona text and Spain-audience instruction appear
+   in the prompt (and that a null persona degrades gracefully); a config test locks
+   `len(TREND_SOURCES) == 4`. All existing tests still pass.
+6. Live check: one manual `run_daily` produces 4 `trend_snapshots` rows (one per source)
+   and a recommendation for at least one influencer that reflects their persona.
 
 ## Non-Goals / Out of Scope
 
-- No recommendations generation yet (Phase 2 — separate spec).
-- No web platform / dashboard yet (Phase 3 — separate spec).
-- No influencer-brand matching (permanently out of scope, see CONSTITUTION.md).
-- No cloud-hosted scheduler — `launchd` only, per CONSTITUTION.md.
-- No Instagram login/session persistence beyond what Instaloader needs for public-profile
-  scraping (no attempt to access private accounts).
-- No retry-with-backoff beyond simple conservative delays between requests.
+- No JS-rendered sources (Google Trends explore etc.) — the scraper is requests +
+  BeautifulSoup only.
+- No new source types (APIs, RSS) — URL scraping only.
+- No platform UI changes for persona (display/editing) — separate spec if wanted.
+- No profile images feature — queued as its own spec after this one.
+- No per-influencer trend-source targeting — all influencers share the same 4 sources.
 
 ## Open Questions
 
-None — scope confirmed with the user (Instaloader, Supabase, Gemini for later phases,
-launchd daily schedule, the two named trend URLs).
+None — sources, personas, and prompt behavior confirmed with the user on 2026-07-06.

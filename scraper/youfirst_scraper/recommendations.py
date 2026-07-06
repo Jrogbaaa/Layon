@@ -9,7 +9,9 @@ logger = logging.getLogger(__name__)
 GEMINI_MODEL = "gemini-2.5-flash"
 
 
-def build_prompt(handle: str, computed_metrics: dict, posts: list[dict], trends: list[dict]) -> str:
+def build_prompt(
+    handle: str, computed_metrics: dict, posts: list[dict], trends: list[dict], persona: str | None = None
+) -> str:
     trend_text = "\n\n".join(
         f"Source: {t['source_url']}\nTitle: {t.get('title') or 'N/A'}\n{t['content_text'][:1500]}"
         for t in trends
@@ -17,10 +19,18 @@ def build_prompt(handle: str, computed_metrics: dict, posts: list[dict], trends:
 
     top_captions = "\n".join(f"- {p.get('caption') or '(no caption)'}" for p in posts[:5])
 
+    persona_section = (
+        f"\nInfluencer persona/brand: {persona}\n"
+        "Only suggest formats and trend adaptations that fit this persona — adapt trends "
+        "to match their brand rather than forcing an off-brand format.\n"
+        if persona
+        else ""
+    )
+
     return f"""You are a social media strategist for a talent agency's Instagram influencer.
 
 Influencer: @{handle}
-
+{persona_section}
 Metrics (from real scraped data):
 - Engagement rate: {computed_metrics['engagement_rate_pct']}%
 - Follower change since last snapshot: {computed_metrics['follower_delta']}
@@ -33,15 +43,20 @@ Recent post captions:
 Current Instagram trend reports:
 {trend_text}
 
+The target audience is Spain / Spanish-speaking, not the USA — recommendations should fit
+Spanish social media culture and trends, not US ones.
+
 Write 3-5 specific, actionable creative recommendations for this influencer's next posts,
 in both Spanish and English. Reference the specific metric or trend that motivated each
 recommendation. Do not give generic advice ("post more consistently") without tying it to
 the data above."""
 
 
-def generate_recommendation(handle: str, profile_snapshots: list[dict], posts: list[dict], trends: list[dict]) -> str:
+def generate_recommendation(
+    handle: str, profile_snapshots: list[dict], posts: list[dict], trends: list[dict], persona: str | None = None
+) -> str:
     computed_metrics = metrics.compute_metrics(profile_snapshots, posts)
-    prompt = build_prompt(handle, computed_metrics, posts, trends)
+    prompt = build_prompt(handle, computed_metrics, posts, trends, persona)
 
     client = genai.Client(api_key=config.GOOGLE_API_KEY)
     response = client.models.generate_content(model=GEMINI_MODEL, contents=prompt)

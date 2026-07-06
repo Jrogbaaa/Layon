@@ -34,6 +34,42 @@ def test_build_prompt_handles_no_trends_or_posts():
     assert "(no recent posts)" in prompt
 
 
+def test_build_prompt_includes_persona_when_given():
+    computed_metrics = {
+        "engagement_rate_pct": 0.0,
+        "follower_delta": 0,
+        "format_performance": {},
+        "posting_cadence_days": 0.0,
+    }
+    prompt = recommendations.build_prompt(
+        "antonlofer", computed_metrics, [], [], persona="Comedian — adapt trends into sketches"
+    )
+    assert "Comedian — adapt trends into sketches" in prompt
+    assert "off-brand format" in prompt
+
+
+def test_build_prompt_omits_persona_section_when_none():
+    computed_metrics = {
+        "engagement_rate_pct": 0.0,
+        "follower_delta": 0,
+        "format_performance": {},
+        "posting_cadence_days": 0.0,
+    }
+    prompt = recommendations.build_prompt("handle", computed_metrics, [], [], persona=None)
+    assert "persona/brand" not in prompt
+
+
+def test_build_prompt_targets_spanish_audience():
+    computed_metrics = {
+        "engagement_rate_pct": 0.0,
+        "follower_delta": 0,
+        "format_performance": {},
+        "posting_cadence_days": 0.0,
+    }
+    prompt = recommendations.build_prompt("handle", computed_metrics, [], [])
+    assert "Spain / Spanish-speaking" in prompt
+
+
 def test_generate_recommendation_calls_gemini_with_built_prompt():
     profile_snapshots = [{"followers": 1000}, {"followers": 1100}]
     posts = [{"post_type": "reel", "likes": 10, "comments": 1, "posted_at": "2026-07-01T00:00:00Z", "caption": "hi"}]
