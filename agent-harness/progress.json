@@ -1,7 +1,7 @@
 {
   "current_goal": "You First Gersh Influencer Insights Platform v1",
   "goal_of_current_change": "Build all three v1 pillars: daily scraper pipeline, metrics + Gemini recommendations, password-gated platform",
-  "phase": "live_verification_partial_instagram_blocked",
+  "phase": "instagram_unblocked_live_verification",
   "last_updated": "2026-07-06",
   "completed": [
     "CONSTITUTION.md, CLAUDE.md, agent-harness/ (foundations)",
@@ -12,21 +12,21 @@
     "platform/ Next.js app (feature_003): password gate via proxy.ts + signed session cookie, roster/influencer/trends pages, Supabase server-only data layer",
     "platform verified manually via Playwright MCP: wrong password rejected, correct password (LAYCC) grants access, session persists across pages, logout works, unauthenticated redirect works, unknown influencer handle 404s",
     "LIVE run against real Supabase + Gemini: trend scraper successfully wrote 2 real trend_snapshots rows for both configured sources; Gemini API key confirmed working with a real generate_content call",
-    "Instagram login session created for beautifullfootball via instaloader --login (session file, no password stored in repo)"
+    "Instagram scraping blocker resolved: replaced instaloader --login session with one built from live cookies extracted from the user's authenticated beautifullfootball session in Comet browser (browser_cookie3 + macOS Keychain); fixed instagram_scraper.py to read comment counts from the timeline edge directly instead of Instaloader's broken post.comments fallback fetch",
+    "LIVE run_daily against real Supabase: 6/6 roster handles scraped successfully after correcting ferminadueleguer -> ferminaldeguer_54 (dante_caro, mariavalero, antonlofer, ferminaldeguer_54: 12 real posts each; cristinapedroche, mariaacosta: profile only, 0 public posts); real profile_snapshots, post_snapshots, and recommendations rows written for all 6; 27/27 pytest passing",
+    "platform/.env.local confirmed already pointed at the same Supabase project as scraper/.env; verified real data renders end-to-end via Playwright: Roster page lists all 6 influencers with real follower counts, influencer detail page (ferminaldeguer_54) shows real stats, engagement rate, post-format breakdown, and full bilingual Gemini recommendation"
   ],
   "in_progress": [],
-  "blocked": [
-    "Instagram profile scraping fails for ALL handles, including verified-real accounts (cristiano) — confirmed this is instaloader/instaloader#2682, a known unresolved upstream bug (Instagram returns 200 OK with an empty GraphQL body, misreported as ProfileNotExistsException). Not fixable by code changes here. User chose to pause rather than adopt the unmerged PR #2652 branch or switch to a paid scraping API. See decisions.md 2026-07-06 entry."
-  ],
+  "blocked": [],
   "deferred": [
     "Checked-in Playwright test suite for platform/ (contract.md expects one; this session used manual MCP browser verification instead)",
     "Fresh-context (separate subagent) Evaluator pass — this session's findings.md pass was same-session, see its Note on Evaluator Independence",
-    "Install the launchd LaunchAgent — no point until Instagram scraping works",
-    "Point platform/.env.local at real data and verify rendering — no real influencer data exists yet, only trend_snapshots"
+    "Install the launchd LaunchAgent",
+    "Deploy platform to Vercel"
   ],
   "next_actions": [
-    "User decides how to resolve the Instagram scraping blocker: wait for an official Instaloader fix, accept the unmerged PR #2652 branch, or switch to a paid scraping API (e.g. Apify)",
-    "Once Instagram scraping works: re-run scraper/.venv/bin/python -m youfirst_scraper.run_daily, confirm real profile/post/recommendation rows in Supabase",
-    "Then: install_launchagent.sh, point platform/.env.local at the same project, verify real data renders, deploy to Vercel"
+    "Install the launchd LaunchAgent (install_launchagent.sh) now that scraping works",
+    "Deploy platform to Vercel",
+    "Watch for the browser-cookie session degrading over time (known upstream risk) — if run_daily starts failing again, re-extract cookies from a fresh browser login before considering Apify"
   ]
 }

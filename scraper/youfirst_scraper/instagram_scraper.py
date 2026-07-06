@@ -49,6 +49,17 @@ def _post_type(post: instaloader.Post) -> str:
     return "photo"
 
 
+def _comment_count(post: instaloader.Post) -> int:
+    """Read the comment count from the timeline edge data directly.
+
+    Instaloader's post.comments property expects edge_media_to_parent_comment,
+    which isn't present on this endpoint's response shape, so it falls back to a
+    per-post metadata fetch that currently fails upstream. The timeline edge
+    already carries the count under a plain "comments" key.
+    """
+    return post._node.get("comments", 0)
+
+
 def scrape_profile(loader: instaloader.Instaloader, handle: str) -> dict:
     """Fetch profile stats and recent posts for one handle.
 
@@ -71,7 +82,7 @@ def scrape_profile(loader: instaloader.Instaloader, handle: str) -> dict:
                 "shortcode": post.shortcode,
                 "post_type": _post_type(post),
                 "likes": post.likes,
-                "comments": post.comments,
+                "comments": _comment_count(post),
                 "caption": post.caption,
                 "posted_at": post.date_utc.isoformat() + "Z",
             }

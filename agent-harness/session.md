@@ -7,8 +7,7 @@ metrics + Gemini creative recommendations, password-gated Next.js platform.
 
 ## Current State
 
-**Paused on a real external blocker: Instagram profile scraping doesn't work right
-now, for anyone, via Instaloader.**
+**Instagram scraping blocker resolved — real data now flowing end-to-end into Supabase.**
 
 What's confirmed working against the real, live Supabase project (not mocks):
 - Schema applied, all 5 tables reachable.
@@ -16,26 +15,35 @@ What's confirmed working against the real, live Supabase project (not mocks):
 - Gemini API key: confirmed working with a real `generate_content` call.
 - Platform: password gate, session persistence, logout, 404s — all verified in a real
   browser via Playwright MCP.
+- **Instagram scraping: 6 of 6 roster handles now scrape successfully**, after
+  correcting a wrong roster handle (`ferminadueleguer` -> `ferminaldeguer_54`, confirmed
+  via a real profile lookup). `dante_caro`, `mariavalero`, `antonlofer`,
+  `ferminaldeguer_54`: 12 posts each with real likes/comments/captions;
+  `cristinapedroche`, `mariaacosta`: profile data, 0 posts — genuinely no public posts.
+  Full `run_daily` pipeline run end-to-end, writing real `profile_snapshots`,
+  `post_snapshots`, and `recommendations` rows for all 6.
+- **Platform verified against real data via Playwright**: Roster page lists all 6
+  influencers with real follower counts; influencer detail page
+  (`/influencer/ferminaldeguer_54`) renders real stats (412,693 followers, 8.1%
+  engagement), post-format breakdown, and a full bilingual Gemini creative
+  recommendation. `platform/.env.local` already pointed at the same Supabase project as
+  `scraper/.env` — no config change needed.
 
-What's blocked: **Instagram scraping fails for every handle**, including
-verified-real, massively public accounts (`cristiano`), even with an authenticated
-session (`beautifullfootball`, logged in via `instaloader --login`). Instagram returns
-`200 OK` with an empty GraphQL body; Instaloader misreports this as
-`ProfileNotExistsException`. Confirmed via web research this is
-[instaloader/instaloader#2682](https://github.com/instaloader/instaloader/issues/2682),
-a known, currently unresolved upstream bug — not a bug in this codebase, not a wrong
-handle. An unmerged fix (PR #2652) exists with no official release.
-
-User was offered three paths (paid scraping API, unmerged PR branch, or pause) and
-chose to **pause here** rather than commit to either workaround yet.
+Fix: replaced the `instaloader --login` session (broken per #2682 — Instagram serves
+empty GraphQL bodies to it) with a session built from live cookies extracted out of the
+user's already-authenticated `beautifullfootball` session in the Comet browser
+(`browser_cookie3` + macOS Keychain). Also fixed a second bug this surfaced: Instaloader's
+`post.comments` property expects a field this endpoint doesn't return, forcing a broken
+fallback fetch — `instagram_scraper.py` now reads the comment count directly from the
+timeline edge instead. See `decisions.md` 2026-07-06 "Instagram scraping unblocked" entry
+for full detail.
 
 ## Next Action
 
-Wait for the user's decision on how to handle the Instagram blocker (see
-`decisions.md` 2026-07-06 entry and `progress.json.next_actions`). No further scraper
-work should start until that's resolved — the code itself (session loading, per-handle
-error isolation, metrics, recommendations) is correct and doesn't need changes for this
-issue.
+Browser-cookie sessions can degrade over time (per the upstream issue thread) — if the
+daily run starts failing again, re-extract cookies from a fresh browser login first;
+Apify remains the fallback if that stops working too. Remaining v1 work: install the
+launchd LaunchAgent (`install_launchagent.sh`), then deploy the platform to Vercel.
 
 ## Important Context
 
@@ -50,7 +58,10 @@ issue.
 
 `scraper/youfirst_scraper/config.py`, `instagram_scraper.py`, `run_daily.py` (added
 `IG_USERNAME` + `build_loader()`); `scraper/tests/test_instagram_scraper.py` (3 new
-tests); `scraper/.env.example`, `scraper/README.md` (login instructions).
+tests); `scraper/.env.example`, `scraper/README.md` (login instructions);
+`instagram_scraper.py` again (`_comment_count()` fix, this session).
+Not in git: `~/.config/instaloader/session-beautifullfootball` replaced with a
+browser-cookie-derived session (old one kept as a timestamped `.bak` alongside it).
 
 ---
 

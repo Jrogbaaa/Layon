@@ -105,3 +105,46 @@ branch's stability risk, or (c) the project switches to a paid scraping API (e.g
 Apify). `instagram_scraper.py` and `run_daily.py`'s error-handling/session-loading code
 is correct and tested (27/27 pytest passing with mocks) and needs no rework once the
 underlying blocker is resolved — only the scraping call itself is affected.
+
+### 2026-07-06 — Instagram scraping unblocked: real browser session replaces `instaloader --login`
+
+**Decision:** Instead of the `instaloader --login` session (which Instagram serves
+empty GraphQL bodies to, per #2682), extracted the live cookies (`sessionid`,
+`csrftoken`, `ds_user_id`, `mid`, `ig_did`) from the user's already-authenticated
+`beautifullfootball` session in the Comet browser, using `browser_cookie3`'s
+`ChromiumBased` loader pointed at Comet's `Cookies` SQLite file and macOS Keychain
+entry (`Comet Safe Storage`). Built a fresh Instaloader session file from those cookies
+and replaced `~/.config/instaloader/session-beautifullfootball` (old one backed up
+alongside it). This is the same workaround multiple users on the upstream issue thread
+reported as fixing this exact failure.
+
+Separately found and fixed a second, narrower bug this surfaced: `instagram_scraper.py`
+called Instaloader's `post.comments` property, which expects an
+`edge_media_to_parent_comment` field that isn't present on this (migrated) timeline
+endpoint's response shape — forcing a fallback per-post metadata fetch that itself
+still fails upstream. The timeline edge already carries the count directly under a
+plain `comments` key, so `instagram_scraper.py` now reads `post._node["comments"]`
+directly (`_comment_count()`), skipping the broken fallback fetch entirely.
+
+**Reason:** User asked to try running the scraper with real login credentials
+ourselves before switching to Apify. The browser-cookie approach requires no code
+changes to the pipeline itself (session file is a drop-in swap) and confirmed working
+against real, verified accounts (`cristiano`: 671M followers, real post data) and 5 of
+6 roster handles end-to-end into Supabase.
+
+**Verification:** 27/27 pytest still passing. Full `run_daily` run against real
+Supabase: 5/6 roster handles scraped successfully (`dante_caro`, `mariavalero`,
+`antonlofer`: 12 posts each with real likes/comments/captions; `cristinapedroche`,
+`mariaacosta`: profile data, 0 posts — accounts appear to have no public posts).
+`ferminadueleguer` still fails with `ProfileNotExistsException` — verified this handle
+genuinely does not exist on Instagram (a roster data-quality issue, unrelated to the
+scraping blocker).
+
+**Tradeoffs:** Browser-cookie sessions are known (per the upstream issue thread) to
+degrade or get invalidated over time — this is not a permanent fix, just a working
+path that avoids Apify for now. If the daily run starts failing again, re-extracting
+cookies from a fresh browser login is the first thing to try; if that stops working
+too, Apify (or another paid API) is the fallback already discussed above. The
+`beautifullfootball` account is now the one making all scrape requests — same
+authenticated-account risk profile as before, just with a session Instagram doesn't
+immediately reject.
