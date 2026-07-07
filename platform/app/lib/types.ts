@@ -2,6 +2,7 @@ export type Influencer = {
   id: number;
   handle: string;
   display_name: string | null;
+  avatar_url: string | null;
 };
 
 export type ProfileSnapshot = {

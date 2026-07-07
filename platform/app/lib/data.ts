@@ -16,7 +16,7 @@ export async function getRoster(): Promise<RosterEntry[]> {
 
   const { data: influencers } = await client
     .from("influencers")
-    .select("id, handle, display_name")
+    .select("id, handle, display_name, avatar_url")
     .eq("active", true)
     .order("handle");
 
@@ -56,7 +56,7 @@ export async function getInfluencerDashboard(handle: string): Promise<Influencer
 
   const { data: influencer } = await client
     .from("influencers")
-    .select("id, handle, display_name")
+    .select("id, handle, display_name, avatar_url")
     .eq("handle", handle)
     .single();
 
