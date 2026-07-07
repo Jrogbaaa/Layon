@@ -2,37 +2,38 @@
 
 ## Current Goal
 
-feature_007 — content-grounded recommendation bullets + roster attention alerts.
+feature_008 — visual redesign, "Fresh Current" theme.
 
 ## Current State
 
 **Built by Generator, pending independent Evaluator pass.**
 
-- `content_analysis.py` (new): Gemini watches/listens to top-post video (or thumbnail),
-  stores `{summary, topic, format, hook}` in new `post_content` table.
-- `recommendations.py` rewritten: prompt grounded in top-performing posts + content
-  summaries instead of recent captions; trend-report section removed; output is
-  Spanish-only structured JSON bullets with a raw-text fallback on malformed JSON.
-- `metrics.py`: added `engagement_drop` / `posting_gap` warning signals with a
-  `severity` field alongside existing "good" highlights.
-- `run_daily.py` wired: content analysis runs per-influencer after snapshot insert;
-  recommendations step no longer fetches trend_snapshots.
-- Frontend: `RecommendationContent.tsx` renders JSON bullets as a short list with
-  Instagram links, falls back to markdown for legacy prose rows (verified live against
-  mariavalero's existing bilingual-prose row). Roster page adds a "Needs attention"
-  strip + per-card badges from recent highlights.
-- Tests: scraper pytest 62/62 (new test_content_analysis.py, extended
-  test_recommendations.py/test_metrics.py/test_run_daily.py). Platform: tsc/eslint/build
-  clean, Playwright 5/5 against the running dev server.
-- **Not yet done:** no live `run_daily` run against real Instagram/Gemini/Supabase for
-  this feature — the JSON-bullet path is only verified via mocked pytest, not a real
-  Gemini call. Deferred pending user go-ahead (cost + Instagram scraping risk).
+- `app/globals.css`: new semantic tokens (`canvas`, `card`, `border`, `ink`, `muted`,
+  `accent`, `accent-2`, `positive(-soft)`, `negative(-soft)`) via Tailwind v4 `@theme`;
+  `.card` helper class; fixed the dead Arial override so the loaded font actually
+  applies.
+- `app/layout.tsx`: swapped Geist/Geist Mono for Plus Jakarta Sans (`--font-display`) +
+  Inter (`--font-body`).
+- Swept every page/component off inline `neutral-*`/`amber-*`/`emerald-*`/`red-4*`
+  classes onto the new tokens: `Nav.tsx`, `(app)/layout.tsx`, `(app)/page.tsx`,
+  `influencer/[handle]/page.tsx`, `trends/page.tsx`, `login/page.tsx`,
+  `RecentPostsTable.tsx`, `RecommendationContent.tsx`, `HighlightContent.tsx`.
+- `FollowerChart.tsx`: Recharts grid/axis/tooltip colors updated, line now uses a
+  teal→sky gradient stroke.
+- Login page carries the signature moment: gradient wordmark + gradient CTA button.
+- Verification: `npm run build` clean, `npm run lint` clean, Playwright 5/5 passing,
+  scraper pytest 64/64 passing (unaffected, confirming the change stayed
+  platform-only). Visually verified roster + influencer detail pages against a running
+  dev server via Playwright screenshots — matches the selected mockup direction.
+- Five directions were mocked up as an interactive HTML artifact and reviewed with the
+  user before build; "Fresh Current" was explicitly selected over Madrid Editorial,
+  Studio Ink, Ledger, and Sol.
 
 ## Next Action
 
 Spawn the Evaluator as an independent subagent (per `agent-harness/prompts/evaluator.md`)
 to review this diff against `spec.md`/`featurelist.json`/`contract.md`/`rubric.md`,
-re-run pytest + Playwright itself, and write `agent-harness/findings.md`.
+re-run the same checks itself, and write `agent-harness/findings.md`.
 
 ---
 

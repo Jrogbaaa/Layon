@@ -20,7 +20,7 @@ export function HighlightContent({ content }: { content: string }) {
         href={`https://www.instagram.com/p/${shortcode}/`}
         target="_blank"
         rel="noopener noreferrer"
-        className="text-amber-500 hover:underline"
+        className="text-accent hover:underline"
       >
         {shortcode}
       </a>,

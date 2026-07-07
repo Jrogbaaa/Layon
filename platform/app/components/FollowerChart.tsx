@@ -12,7 +12,7 @@ export function FollowerChart({ history }: { history: ProfileSnapshot[] }) {
 
   if (dayCount < MIN_DAYS) {
     return (
-      <p className="text-sm text-neutral-500">
+      <p className="text-sm text-muted">
         Collecting daily data — chart unlocks after {MIN_DAYS} daily scrapes ({dayCount} of {MIN_DAYS}).
       </p>
     );
@@ -26,15 +26,21 @@ export function FollowerChart({ history }: { history: ProfileSnapshot[] }) {
   return (
     <ResponsiveContainer width="100%" height={220}>
       <LineChart data={data}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#262626" />
-        <XAxis dataKey="date" stroke="#737373" fontSize={12} />
-        <YAxis stroke="#737373" fontSize={12} width={60} tickFormatter={(v) => formatCount(v)} />
+        <defs>
+          <linearGradient id="followerLine" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#18c8a8" />
+            <stop offset="100%" stopColor="#2e8ff0" />
+          </linearGradient>
+        </defs>
+        <CartesianGrid strokeDasharray="3 3" stroke="#e1e7ed" />
+        <XAxis dataKey="date" stroke="#6b7684" fontSize={12} />
+        <YAxis stroke="#6b7684" fontSize={12} width={60} tickFormatter={(v) => formatCount(v)} />
         <Tooltip
-          contentStyle={{ background: "#171717", border: "1px solid #404040", borderRadius: 8 }}
-          labelStyle={{ color: "#e5e5e5" }}
+          contentStyle={{ background: "#ffffff", border: "1px solid #e1e7ed", borderRadius: 8 }}
+          labelStyle={{ color: "#12181f" }}
           formatter={(value) => [typeof value === "number" ? value.toLocaleString() : value, "Followers"]}
         />
-        <Line type="monotone" dataKey="followers" stroke="#f59e0b" strokeWidth={2} dot={false} />
+        <Line type="monotone" dataKey="followers" stroke="url(#followerLine)" strokeWidth={2.5} dot={false} />
       </LineChart>
     </ResponsiveContainer>
   );
