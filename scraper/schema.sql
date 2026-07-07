@@ -6,9 +6,12 @@ create table if not exists influencers (
   handle text not null unique,
   display_name text,
   persona text,
+  avatar_url text,
   active boolean not null default true,
   created_at timestamptz not null default now()
 );
+
+alter table influencers add column if not exists avatar_url text;
 
 create table if not exists profile_snapshots (
   id bigint generated always as identity primary key,

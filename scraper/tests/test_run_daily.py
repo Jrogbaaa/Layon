@@ -62,6 +62,101 @@ def test_run_instagram_scrape_skips_failing_handle_and_continues(monkeypatch):
     assert client_calls == ["good_handle"]
 
 
+def test_run_instagram_scrape_uploads_avatar(monkeypatch):
+    monkeypatch.setattr(run_daily.config, "load_roster", lambda: ["good_handle"])
+    monkeypatch.setattr(run_daily.config, "PROFILE_REQUEST_DELAY_SECONDS", 0)
+
+    monkeypatch.setattr(
+        run_daily.instagram_scraper,
+        "scrape_profile",
+        lambda loader, handle: {
+            "profile": {
+                "followers": 1,
+                "following": 2,
+                "media_count": 3,
+                "bio": "",
+                "avatar_source_url": "https://instagram.example/pic.jpg",
+            },
+            "posts": [],
+        },
+    )
+
+    monkeypatch.setattr(run_daily.db, "get_or_create_influencer", lambda c, h: 7)
+    monkeypatch.setattr(run_daily.db, "insert_profile_snapshot", lambda c, i, p: None)
+    monkeypatch.setattr(run_daily.db, "insert_post_snapshots", lambda c, i, p: None)
+    monkeypatch.setattr(run_daily.db, "get_analyzed_shortcodes", lambda c, i: set())
+    monkeypatch.setattr(run_daily.content_analysis, "analyze_posts", lambda posts, analyzed: [])
+    monkeypatch.setattr(run_daily.db, "insert_post_content", lambda c, i, a: None)
+    monkeypatch.setattr(run_daily.db, "get_profile_snapshots", lambda c, i: [])
+    monkeypatch.setattr(run_daily.db, "get_all_post_snapshots", lambda c, i: [])
+    monkeypatch.setattr(run_daily.db, "insert_highlights", lambda c, i, h: None)
+
+    fake_response = MagicMock()
+    fake_response.content = b"fake-image-bytes"
+    fake_response.raise_for_status = lambda: None
+    monkeypatch.setattr(run_daily.requests, "get", lambda url, timeout=None: fake_response)
+
+    upload_calls = []
+    monkeypatch.setattr(
+        run_daily.db,
+        "upload_avatar",
+        lambda c, handle, image_bytes: upload_calls.append((handle, image_bytes)) or "https://cdn.example/good_handle.jpg",
+    )
+    avatar_update_calls = []
+    monkeypatch.setattr(
+        run_daily.db,
+        "update_influencer_avatar",
+        lambda c, influencer_id, url: avatar_update_calls.append((influencer_id, url)),
+    )
+
+    with patch("instaloader.Instaloader"):
+        run_daily.run_instagram_scrape(MagicMock())
+
+    assert upload_calls == [("good_handle", b"fake-image-bytes")]
+    assert avatar_update_calls == [(7, "https://cdn.example/good_handle.jpg")]
+
+
+def test_run_instagram_scrape_continues_when_avatar_download_fails(monkeypatch):
+    monkeypatch.setattr(run_daily.config, "load_roster", lambda: ["good_handle"])
+    monkeypatch.setattr(run_daily.config, "PROFILE_REQUEST_DELAY_SECONDS", 0)
+
+    monkeypatch.setattr(
+        run_daily.instagram_scraper,
+        "scrape_profile",
+        lambda loader, handle: {
+            "profile": {
+                "followers": 1,
+                "following": 2,
+                "media_count": 3,
+                "bio": "",
+                "avatar_source_url": "https://instagram.example/pic.jpg",
+            },
+            "posts": [],
+        },
+    )
+
+    monkeypatch.setattr(run_daily.db, "get_or_create_influencer", lambda c, h: 7)
+    monkeypatch.setattr(run_daily.db, "insert_profile_snapshot", lambda c, i, p: None)
+    monkeypatch.setattr(run_daily.db, "insert_post_snapshots", lambda c, i, p: None)
+    monkeypatch.setattr(run_daily.db, "get_analyzed_shortcodes", lambda c, i: set())
+    monkeypatch.setattr(run_daily.content_analysis, "analyze_posts", lambda posts, analyzed: [])
+    monkeypatch.setattr(run_daily.db, "insert_post_content", lambda c, i, a: None)
+    monkeypatch.setattr(run_daily.db, "get_profile_snapshots", lambda c, i: [])
+    monkeypatch.setattr(run_daily.db, "get_all_post_snapshots", lambda c, i: [])
+    highlight_calls = []
+    monkeypatch.setattr(run_daily.db, "insert_highlights", lambda c, i, h: highlight_calls.append(i))
+
+    def raise_network_error(url, timeout=None):
+        raise Exception("network error")
+
+    monkeypatch.setattr(run_daily.requests, "get", raise_network_error)
+
+    with patch("instaloader.Instaloader"):
+        run_daily.run_instagram_scrape(MagicMock())
+
+    assert highlight_calls == [7]
+
+
 def test_run_trend_scrape_skips_already_scraped_source(monkeypatch):
     monkeypatch.setattr(run_daily.config, "TREND_SOURCES", ["https://example.com/a"])
     monkeypatch.setattr(run_daily.db, "trend_source_scraped_today", lambda c, url: True)

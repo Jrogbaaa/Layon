@@ -87,6 +87,7 @@ def scrape_profile(
         "following": profile.followees,
         "media_count": profile.mediacount,
         "bio": profile.biography,
+        "avatar_source_url": profile.profile_pic_url,
     }
 
     limit = post_limit if post_limit is not None else config.POSTS_PER_INFLUENCER

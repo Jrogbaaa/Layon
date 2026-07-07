@@ -2,6 +2,8 @@ import logging
 import time
 from datetime import date, datetime
 
+import requests
+
 from . import config, content_analysis, db, instagram_scraper, metrics, recommendations, trend_scraper
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -31,6 +33,17 @@ def run_instagram_scrape(client) -> None:
         try:
             result = instagram_scraper.scrape_profile(loader, handle)
             influencer_id = db.get_or_create_influencer(client, handle)
+
+            avatar_source_url = result["profile"].get("avatar_source_url")
+            if avatar_source_url:
+                try:
+                    response = requests.get(avatar_source_url, timeout=10)
+                    response.raise_for_status()
+                    avatar_url = db.upload_avatar(client, handle, response.content)
+                    db.update_influencer_avatar(client, influencer_id, avatar_url)
+                except Exception:
+                    logger.exception("Failed to update avatar for %s — continuing", handle)
+
             db.insert_profile_snapshot(client, influencer_id, result["profile"])
             db.insert_post_snapshots(client, influencer_id, result["posts"])
 

@@ -78,3 +78,21 @@ def test_build_loader_anonymous_when_no_username(monkeypatch):
 
     fake_loader.load_session_from_file.assert_not_called()
     assert loader is fake_loader
+
+
+def test_scrape_profile_includes_avatar_source_url(monkeypatch):
+    fake_profile = MagicMock()
+    fake_profile.followers = 100
+    fake_profile.followees = 10
+    fake_profile.mediacount = 5
+    fake_profile.biography = "bio"
+    fake_profile.profile_pic_url = "https://instagram.example/pic.jpg"
+    fake_profile.get_posts.return_value = []
+
+    monkeypatch.setattr(
+        instagram_scraper.instaloader.Profile, "from_username", lambda ctx, handle: fake_profile
+    )
+
+    result = instagram_scraper.scrape_profile(MagicMock(), "somehandle")
+
+    assert result["profile"]["avatar_source_url"] == "https://instagram.example/pic.jpg"

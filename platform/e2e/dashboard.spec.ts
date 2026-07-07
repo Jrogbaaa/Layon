@@ -44,6 +44,16 @@ test("influencer page renders creative recommendations section", async ({ page }
   await expect(page.getByRole("heading", { name: "Creative recommendations" })).toBeVisible();
 });
 
+test("influencer detail page renders an avatar next to the handle", async ({ page }) => {
+  await login(page);
+
+  const firstCard = page.locator('a[href^="/influencer/"]').first();
+  await firstCard.click();
+  await expect(page.getByRole("link", { name: "← Roster" })).toBeVisible();
+
+  await expect(page.locator("main img, main div.rounded-full").first()).toBeVisible();
+});
+
 test("roster page loads without crashing when highlight data exists", async ({ page }) => {
   await login(page);
 
@@ -51,4 +61,11 @@ test("roster page loads without crashing when highlight data exists", async ({ p
   // Attention strip is conditional on live warning-severity highlights existing;
   // just confirm the page renders roster cards regardless.
   await expect(page.locator('a[href^="/influencer/"]').first()).toBeVisible();
+});
+
+test("roster cards render an avatar for each influencer", async ({ page }) => {
+  await login(page);
+
+  const firstCard = page.locator('a[href^="/influencer/"]').first();
+  await expect(firstCard.locator("img, div.rounded-full").first()).toBeVisible();
 });
