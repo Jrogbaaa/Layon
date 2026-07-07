@@ -1,3 +1,94 @@
+# Findings — feature_008 Visual Redesign ("Fresh Current")
+
+## Verdict: PASS
+
+**Evaluator:** separate subagent pass (fresh context, per contract.md/evaluator.md).
+
+## Restated Goal / Non-Goals / Acceptance Criteria
+
+**Goal:** Replace the platform's ad-hoc dark neutral/amber theme with a single
+deliberate light identity — centralized `@theme` tokens instead of scattered
+`neutral-*`/`amber-*`/`emerald-*`/`red-4*` literals, working Plus Jakarta Sans + Inter
+fonts (fixing a dead Arial override), consistent token usage across Nav/roster/
+influencer detail/trends/login, an updated Recharts palette with a gradient line, and a
+gradient wordmark/CTA as the login page's signature accent.
+
+**Non-goals:** no new pages/features; no auth/session changes; no dark-mode toggle; no
+changes to scraper/, metrics calculations, or recommendation generation.
+
+**Acceptance criteria** (featurelist.json `feature_008`, 8 items): centralized color
+tokens replacing all inline old-theme literals; working font-loading (no Arial
+override); every page/component on the new tokens with zero leftover old classes;
+updated FollowerChart hex values with a gradient line; login page gradient signature;
+`npm run build`/`lint` passing; Playwright suite passing unmodified; scraper pytest
+suite unaffected; visual verification against a running dev server.
+
+## Goal Alignment: PASS
+
+The change is squarely scoped to styling — a `git diff main --stat` scope check showed
+only `platform/app/**` plus expected `agent-harness/*` bookkeeping changed, zero
+`scraper/` files touched. `grep -rn "neutral-\|amber-\|emerald-\|red-4" platform/app`
+returned zero matches, confirming full migration off the old theme.
+
+## Tests (run independently by the Evaluator, not trusted from the Generator)
+
+| Suite | Result |
+|-------|--------|
+| `scraper/` `.venv/bin/python -m pytest -q` | 64/64 pass |
+| `platform/` `npm run build` | pass |
+| `platform/` `npm run lint` | pass |
+| `platform/` `npx playwright test` (against running dev server) | 5/5 pass |
+
+## Independent File Verification
+
+1. `globals.css` defines exactly the required tokens (`canvas`, `card`, `border`,
+   `ink`, `muted`, `accent`, `accent-2`, `positive`/`positive-soft`,
+   `negative`/`negative-soft`) via `@theme inline`, plus a `.card` helper. Body
+   font-family resolves through `--font-sans: var(--font-body)` — Arial override gone.
+2. `layout.tsx` loads Plus Jakarta Sans (`--font-display`) + Inter (`--font-body`) from
+   `next/font/google`; no Geist remains.
+3. Spot-checked `Nav.tsx`, `FollowerChart.tsx`, `login/page.tsx`,
+   `influencer/[handle]/page.tsx` — consistent token usage, nothing half-migrated.
+   `FollowerChart.tsx`'s Recharts colors updated with a teal (`#18c8a8`) → sky
+   (`#2e8ff0`) gradient line. Login page has the gradient wordmark + gradient CTA.
+
+## Critical Issues
+
+None found.
+
+## Bugs / Gaps
+
+None. No critical bugs, no scope drift, no leftover old-theme classes, no
+privacy/secret exposure.
+
+## Rubric Scores
+
+| Area | Score |
+|---|---|
+| 0. Goal Alignment | 5 |
+| 1. Requirement Fit | 5 |
+| 2. Simplicity | 5 |
+| 3. User Workflow | 5 |
+| 4. Data Integrity | 5 |
+| 5. Error Handling | 5 |
+| 6. Security / Privacy | 5 |
+| 7. Maintainability | 5 |
+
+**Average: 5.0**
+
+## Verdict Detail
+
+**Did this accomplish the stated goal?** Yes. All 8 acceptance criteria verified
+against actual file contents (not just descriptions), all automated checks green, and
+the change is a maintainability improvement over the prior scattered-literal approach
+with no new failure surface and no data/auth paths touched.
+
+## Recommended Next Generator Task
+
+None required — ready to merge as-is.
+
+---
+
 # Findings — feature_007 Content-Grounded Recommendation Bullets + Roster Attention Alerts
 
 ## Verdict: PASS (with follow-ups)

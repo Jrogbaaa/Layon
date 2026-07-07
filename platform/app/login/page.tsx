@@ -7,15 +7,17 @@ export default function LoginPage() {
   const [state, formAction, pending] = useActionState(login, undefined);
 
   return (
-    <div className="flex flex-1 items-center justify-center bg-neutral-950 px-4">
-      <form
-        action={formAction}
-        className="w-full max-w-sm rounded-2xl border border-neutral-800 bg-neutral-900 p-8 shadow-xl"
-      >
-        <h1 className="mb-1 text-xl font-semibold text-neutral-50">You First Gersh</h1>
-        <p className="mb-6 text-sm text-neutral-400">Influencer Insights Platform</p>
+    <div className="flex flex-1 items-center justify-center bg-canvas px-4">
+      <form action={formAction} className="card w-full max-w-sm p-8">
+        <h1 className="font-display mb-1 text-xl font-bold tracking-tight text-ink">
+          You First{" "}
+          <span className="bg-gradient-to-r from-accent-2 to-accent bg-clip-text text-transparent">
+            Gersh
+          </span>
+        </h1>
+        <p className="mb-6 text-sm text-muted">Influencer Insights Platform</p>
 
-        <label htmlFor="password" className="mb-2 block text-sm text-neutral-300">
+        <label htmlFor="password" className="mb-2 block text-sm font-medium text-ink">
           Password
         </label>
         <input
@@ -24,15 +26,15 @@ export default function LoginPage() {
           type="password"
           required
           autoFocus
-          className="mb-4 w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-neutral-50 outline-none focus:border-amber-500"
+          className="mb-4 w-full rounded-lg border border-border bg-canvas px-3 py-2 text-ink outline-none focus:border-accent"
         />
 
-        {state?.error && <p className="mb-4 text-sm text-red-400">{state.error}</p>}
+        {state?.error && <p className="mb-4 text-sm text-negative">{state.error}</p>}
 
         <button
           type="submit"
           disabled={pending}
-          className="w-full rounded-lg bg-amber-500 px-3 py-2 font-medium text-neutral-950 transition hover:bg-amber-400 disabled:opacity-50"
+          className="w-full rounded-lg bg-gradient-to-r from-accent-2 to-accent px-3 py-2 font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
         >
           {pending ? "Checking..." : "Enter"}
         </button>

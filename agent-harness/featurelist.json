@@ -172,7 +172,7 @@
         "No language toggle - Spanish only",
         "No third-party scraping API (Apify) migration - fetch/analyze kept separate for a future swap, not built now"
       ],
-      "status": "in_progress",
+      "status": "built_and_verified",
       "priority": "high",
       "owner_agent": "generator",
       "acceptance_criteria": [
@@ -186,7 +186,34 @@
         "pytest green including new content-analysis and alert-threshold tests; Playwright covers bullet rendering + fallback + roster badges"
       ],
       "dependencies": ["feature_001", "feature_002", "feature_005", "feature_006"],
-      "notes": "Spec: agent-harness/spec.md (rewritten 2026-07-07). User confirmed scope, Spanish-only bullets, and full video+audio analysis on 2026-07-07."
+      "notes": "Spec: agent-harness/spec.md (rewritten 2026-07-07). User confirmed scope, Spanish-only bullets, and full video+audio analysis on 2026-07-07. Merged via PR #1 (2026-07-07)."
+    },
+    {
+      "id": "feature_008",
+      "name": "Visual redesign — \"Fresh Current\" theme",
+      "goal": "Replace the platform's ad-hoc dark neutral/amber theme with a single deliberate light visual identity (\"Fresh Current\"): cool light canvas, white shadowed cards, a teal-to-sky gradient accent used sparingly, Plus Jakarta Sans (display) + Inter (body), and Kolsquare-grade bold/scannable metric presentation.",
+      "why_it_matters": "The prior theme was generic inline neutral-950/amber-500 Tailwind classes with no central tokens, a dead Arial override hiding the loaded fonts, and no distinct visual identity. The agency wants a clean, confident, intuitive dashboard that reads its numbers as clearly as reference tools like Kolsquare.",
+      "non_goals": [
+        "No new pages or features - visual layer only, same data/behavior",
+        "No auth/session model changes",
+        "No dark mode / theme toggle - single fixed light theme",
+        "No changes to scraper/, metrics calculations, or recommendation generation"
+      ],
+      "status": "built_and_verified",
+      "priority": "medium",
+      "owner_agent": "generator",
+      "acceptance_criteria": [
+        "globals.css defines semantic color tokens (canvas, card, border, ink, muted, accent, accent-2, positive, negative) via Tailwind v4 @theme, replacing all inline neutral-*/amber-*/emerald-*/red-4* literals",
+        "Root layout loads Plus Jakarta Sans (--font-display) and Inter (--font-body); body font-family actually uses the loaded font (no more hardcoded Arial override)",
+        "Nav, roster, influencer detail, trends, and login pages all use the new tokens; no leftover neutral-*/amber-* classes anywhere in app/",
+        "FollowerChart (Recharts) hardcoded hex values updated to the new palette with a gradient line",
+        "Login page gets the gradient wordmark + gradient CTA as the direction's signature element",
+        "npm run build, npm run lint, and existing Playwright suite (5/5) all pass",
+        "scraper pytest suite unaffected (64/64 passing) - confirms no cross-boundary changes",
+        "Roster and influencer detail pages visually verified against a running dev server via Playwright screenshots"
+      ],
+      "dependencies": ["feature_006"],
+      "notes": "Five directions were mocked up as an HTML artifact and reviewed with the user before build; \"Fresh Current\" was selected. Spec: agent-harness/spec.md (this entry). Built and verified 2026-07-07."
     }
   ]
 }

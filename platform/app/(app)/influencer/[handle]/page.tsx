@@ -31,14 +31,14 @@ export default async function InfluencerPage({ params }: { params: Promise<{ han
 
   return (
     <div>
-      <Link href="/" className="mb-4 inline-block text-sm text-neutral-400 hover:text-neutral-200">
+      <Link href="/" className="mb-4 inline-block text-sm text-muted hover:text-ink">
         ← Roster
       </Link>
 
-      <h1 className="mb-8 text-2xl font-semibold">
+      <h1 className="font-display mb-8 text-2xl font-bold tracking-tight">
         @{influencer.handle}
         {influencer.display_name ? (
-          <span className="ml-2 text-lg font-normal text-neutral-400">{influencer.display_name}</span>
+          <span className="ml-2 text-lg font-normal text-muted">{influencer.display_name}</span>
         ) : null}
       </h1>
 
@@ -57,44 +57,44 @@ export default async function InfluencerPage({ params }: { params: Promise<{ han
         />
       </div>
 
-      <section className="mb-8 rounded-2xl border border-neutral-800 bg-neutral-900 p-6">
-        <h2 className="mb-4 text-lg font-medium">Follower growth</h2>
+      <section className="card mb-8 p-6">
+        <h2 className="mb-4 text-lg font-semibold">Follower growth</h2>
         <FollowerChart history={profileHistory} />
       </section>
 
-      <section className="mb-8 rounded-2xl border border-neutral-800 bg-neutral-900 p-6">
-        <h2 className="mb-4 text-lg font-medium">Performance by format</h2>
+      <section className="card mb-8 p-6">
+        <h2 className="mb-4 text-lg font-semibold">Performance by format</h2>
         {Object.keys(formatBreakdown).length === 0 ? (
-          <p className="text-sm text-neutral-500">No post data yet.</p>
+          <p className="text-sm text-muted">No post data yet.</p>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {Object.entries(formatBreakdown).map(([type, stats]) => (
-              <div key={type} className="rounded-xl border border-neutral-800 bg-neutral-950 p-4">
-                <p className="text-sm capitalize text-neutral-400">{type}</p>
-                <p className="mt-1 text-2xl font-semibold">{stats.avgEngagementRate}%</p>
-                <p className="text-xs text-neutral-500">avg engagement rate</p>
-                <p className="mt-3 text-sm text-neutral-300">
+              <div key={type} className="rounded-xl border border-border bg-canvas p-4">
+                <p className="text-sm capitalize text-muted">{type}</p>
+                <p className="font-display mt-1 text-2xl font-bold">{stats.avgEngagementRate}%</p>
+                <p className="text-xs text-muted">avg engagement rate</p>
+                <p className="mt-3 text-sm text-ink">
                   {formatCount(stats.avgInteractions)} avg interactions
                 </p>
                 {stats.avgViews != null ? (
-                  <p className="text-sm text-neutral-400">{formatCount(stats.avgViews)} avg views</p>
+                  <p className="text-sm text-muted">{formatCount(stats.avgViews)} avg views</p>
                 ) : null}
-                <p className="mt-2 text-xs text-neutral-500">based on {stats.count} posts</p>
+                <p className="mt-2 text-xs text-muted">based on {stats.count} posts</p>
               </div>
             ))}
           </div>
         )}
       </section>
 
-      <section className="mb-8 rounded-2xl border border-neutral-800 bg-neutral-900 p-6">
-        <h2 className="mb-4 text-lg font-medium">Recent posts</h2>
+      <section className="card mb-8 p-6">
+        <h2 className="mb-4 text-lg font-semibold">Recent posts</h2>
         <RecentPostsTable posts={recentPosts} followers={followers} />
       </section>
 
-      <section className="mb-8 rounded-2xl border border-neutral-800 bg-neutral-900 p-6">
-        <h2 className="mb-4 text-lg font-medium">Highlights</h2>
+      <section className="card mb-8 p-6">
+        <h2 className="mb-4 text-lg font-semibold">Highlights</h2>
         {highlights.length === 0 ? (
-          <p className="text-sm text-neutral-500">
+          <p className="text-sm text-muted">
             No standout highlights yet — growth-over-time insights need a few days of daily captures.
           </p>
         ) : (
@@ -102,7 +102,7 @@ export default async function InfluencerPage({ params }: { params: Promise<{ han
             {highlights.map((highlight) => (
               <li
                 key={`${highlight.captured_at}-${highlight.content.slice(0, 24)}`}
-                className="rounded-xl border border-neutral-800 bg-neutral-950 px-4 py-3 text-sm leading-relaxed text-neutral-200"
+                className="rounded-xl border border-border bg-canvas px-4 py-3 text-sm leading-relaxed text-ink"
               >
                 <HighlightContent content={highlight.content} />
               </li>
@@ -111,18 +111,18 @@ export default async function InfluencerPage({ params }: { params: Promise<{ han
         )}
       </section>
 
-      <section className="rounded-2xl border border-neutral-800 bg-neutral-900 p-6">
-        <h2 className="mb-4 text-lg font-medium">Creative recommendations</h2>
+      <section className="card p-6">
+        <h2 className="mb-4 text-lg font-semibold">Creative recommendations</h2>
         {latestRecommendation ? (
           <>
-            <p className="mb-3 text-xs text-neutral-500">
+            <p className="mb-3 text-xs text-muted">
               Generated {new Date(latestRecommendation.generated_at).toLocaleString()} ·{" "}
               {latestRecommendation.model}
             </p>
             <RecommendationContent content={latestRecommendation.content} />
           </>
         ) : (
-          <p className="text-sm text-neutral-500">
+          <p className="text-sm text-muted">
             No recommendation generated yet — needs at least one daily scrape run.
           </p>
         )}
@@ -143,13 +143,13 @@ function Stat({
   tone?: "positive" | "negative" | "neutral";
 }) {
   const toneClass =
-    tone === "positive" ? "text-emerald-400" : tone === "negative" ? "text-red-400" : "text-neutral-50";
+    tone === "positive" ? "text-positive" : tone === "negative" ? "text-negative" : "text-ink";
 
   return (
-    <div className="rounded-2xl border border-neutral-800 bg-neutral-900 p-4">
-      <p className="text-xs text-neutral-400">{label}</p>
-      <p className={`mt-1 text-xl font-semibold ${toneClass}`}>{value}</p>
-      {subtext ? <p className="mt-1 text-xs text-neutral-500">{subtext}</p> : null}
+    <div className="card p-4">
+      <p className="text-xs font-medium uppercase tracking-wide text-muted">{label}</p>
+      <p className={`font-display mt-1 text-xl font-bold ${toneClass}`}>{value}</p>
+      {subtext ? <p className="mt-1 text-xs text-muted">{subtext}</p> : null}
     </div>
   );
 }

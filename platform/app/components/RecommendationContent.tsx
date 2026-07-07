@@ -21,15 +21,15 @@ export function RecommendationContent({ content }: { content: string }) {
     return (
       <ul className="space-y-3">
         {bullets.map((bullet, i) => (
-          <li key={i} className="rounded-xl border border-neutral-800 bg-neutral-950 px-4 py-3">
-            <p className="text-sm font-medium text-neutral-100">{bullet.text}</p>
-            {bullet.reason ? <p className="mt-1 text-xs text-neutral-400">{bullet.reason}</p> : null}
+          <li key={i} className="rounded-xl border border-border bg-canvas px-4 py-3">
+            <p className="text-sm font-medium text-ink">{bullet.text}</p>
+            {bullet.reason ? <p className="mt-1 text-xs text-muted">{bullet.reason}</p> : null}
             {bullet.shortcode ? (
               <a
                 href={`https://www.instagram.com/p/${bullet.shortcode}/`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-1 inline-block text-xs text-amber-500 hover:underline"
+                className="mt-1 inline-block text-xs text-accent hover:underline"
               >
                 Ver post →
               </a>
@@ -41,7 +41,7 @@ export function RecommendationContent({ content }: { content: string }) {
   }
 
   return (
-    <div className="prose prose-invert prose-sm max-w-none prose-headings:font-medium prose-headings:text-neutral-100 prose-p:text-neutral-200 prose-li:text-neutral-200 prose-strong:text-neutral-100">
+    <div className="prose prose-sm max-w-none prose-headings:font-medium prose-headings:text-ink prose-p:text-ink prose-li:text-ink prose-strong:text-ink">
       <ReactMarkdown>{content}</ReactMarkdown>
     </div>
   );

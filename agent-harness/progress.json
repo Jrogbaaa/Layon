@@ -8,12 +8,20 @@
     "manual": "influencer page verified on localhost:3000 — back link, format cards with %, recent posts table, chart hidden with progress note"
   },
   "feature_007": {
-    "status": "built_pending_evaluator_review",
-    "pytest": "62/62 passed (scraper/)",
+    "status": "built_and_verified",
+    "pytest": "62/62 passed (scraper/) at merge time",
     "playwright": "5/5 passed (platform/, against running localhost:3000)",
     "build": "pass",
     "lint": "pass",
     "tsc": "pass",
-    "manual": "roster + influencer page (mariavalero) verified on localhost:3000 — attention strip renders, legacy prose recommendation falls back to markdown correctly. New JSON-bullet path not yet exercised against a real Gemini call — no live run_daily executed for this feature (would spend Gemini quota, download real reel video, and hit Instagram; deferred pending user go-ahead)."
+    "manual": "roster + influencer page (mariavalero) verified on localhost:3000 — attention strip renders, legacy prose recommendation falls back to markdown correctly. New JSON-bullet path not yet exercised against a real Gemini call. Merged via PR #1 (2026-07-07)."
+  },
+  "feature_008": {
+    "status": "built_pending_evaluator_review",
+    "pytest": "64/64 passed (scraper/, unaffected — confirms platform-only change)",
+    "playwright": "5/5 passed (platform/, against running localhost:3000)",
+    "build": "pass",
+    "lint": "pass",
+    "manual": "Roster and influencer detail pages screenshotted against a running dev server via Playwright — gradient wordmark, card shadows, teal/sky accent, bold metric numbers all render as designed. Login page gradient CTA verified. No leftover neutral-*/amber-* classes in app/ (grep-verified)."
   }
 }

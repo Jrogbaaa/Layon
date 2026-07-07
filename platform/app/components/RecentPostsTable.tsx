@@ -9,14 +9,14 @@ export function RecentPostsTable({
   followers: number;
 }) {
   if (posts.length === 0) {
-    return <p className="text-sm text-neutral-500">No post data yet.</p>;
+    return <p className="text-sm text-muted">No post data yet.</p>;
   }
 
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-left text-sm">
         <thead>
-          <tr className="border-b border-neutral-800 text-xs text-neutral-500">
+          <tr className="border-b border-border text-xs text-muted">
             <th className="pb-3 pr-4 font-medium">Date</th>
             <th className="pb-3 pr-4 font-medium">Format</th>
             <th className="pb-3 pr-4 font-medium">Likes</th>
@@ -28,27 +28,27 @@ export function RecentPostsTable({
         </thead>
         <tbody>
           {posts.map((post) => (
-            <tr key={post.shortcode} className="border-b border-neutral-800/60">
-              <td className="py-3 pr-4 text-neutral-300">
+            <tr key={post.shortcode} className="border-b border-border/60">
+              <td className="py-3 pr-4 text-muted">
                 {new Date(post.posted_at).toLocaleDateString("en-US", {
                   month: "short",
                   day: "numeric",
                   year: "numeric",
                 })}
               </td>
-              <td className="py-3 pr-4 capitalize text-neutral-300">{post.post_type}</td>
-              <td className="py-3 pr-4 text-neutral-200">{formatCount(post.likes)}</td>
-              <td className="py-3 pr-4 text-neutral-200">{formatCount(post.comments)}</td>
-              <td className="py-3 pr-4 text-neutral-400">
+              <td className="py-3 pr-4 capitalize text-muted">{post.post_type}</td>
+              <td className="py-3 pr-4 text-ink">{formatCount(post.likes)}</td>
+              <td className="py-3 pr-4 text-ink">{formatCount(post.comments)}</td>
+              <td className="py-3 pr-4 text-muted">
                 {post.views != null ? formatCount(post.views) : "—"}
               </td>
-              <td className="py-3 pr-4 text-neutral-200">{postEngagementRate(post, followers)}%</td>
+              <td className="py-3 pr-4 text-ink">{postEngagementRate(post, followers)}%</td>
               <td className="py-3">
                 <a
                   href={`https://www.instagram.com/p/${post.shortcode}/`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-amber-500 hover:underline"
+                  className="text-accent hover:underline"
                 >
                   View
                 </a>
