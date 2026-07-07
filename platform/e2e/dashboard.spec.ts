@@ -52,3 +52,10 @@ test("roster page loads without crashing when highlight data exists", async ({ p
   // just confirm the page renders roster cards regardless.
   await expect(page.locator('a[href^="/influencer/"]').first()).toBeVisible();
 });
+
+test("roster cards render an avatar for each influencer", async ({ page }) => {
+  await login(page);
+
+  const firstCard = page.locator('a[href^="/influencer/"]').first();
+  await expect(firstCard.locator("img, div.rounded-full").first()).toBeVisible();
+});

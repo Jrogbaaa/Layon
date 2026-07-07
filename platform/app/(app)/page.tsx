@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getRoster } from "@/app/lib/data";
 import { formatCount } from "@/app/lib/metrics";
 import { HighlightContent } from "@/app/components/HighlightContent";
+import { Avatar } from "@/app/components/Avatar";
 
 export const dynamic = "force-dynamic";
 
@@ -53,7 +54,10 @@ export default async function RosterPage() {
                 className="card p-6 transition hover:-translate-y-0.5 hover:shadow-lg"
               >
                 <div className="flex items-center justify-between">
-                  <p className="text-lg font-semibold">@{influencer.handle}</p>
+                  <div className="flex items-center gap-3">
+                    <Avatar handle={influencer.handle} avatarUrl={influencer.avatar_url} size="sm" />
+                    <p className="text-lg font-semibold">@{influencer.handle}</p>
+                  </div>
                   {hasWarning ? (
                     <span className="rounded-full bg-negative-soft px-2 py-0.5 text-xs font-medium text-negative">
                       attention
