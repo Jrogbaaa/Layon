@@ -51,7 +51,7 @@ test("influencer detail page renders an avatar next to the handle", async ({ pag
   await firstCard.click();
   await expect(page.getByRole("link", { name: "← Roster" })).toBeVisible();
 
-  await expect(page.locator("h1 img, h1 + * img, main div.rounded-full").first()).toBeVisible();
+  await expect(page.locator("main img, main div.rounded-full").first()).toBeVisible();
 });
 
 test("roster page loads without crashing when highlight data exists", async ({ page }) => {
