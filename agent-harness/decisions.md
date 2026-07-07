@@ -148,3 +148,26 @@ too, Apify (or another paid API) is the fallback already discussed above. The
 `beautifullfootball` account is now the one making all scrape requests — same
 authenticated-account risk profile as before, just with a session Instagram doesn't
 immediately reject.
+
+### 2026-07-06 — Deep baseline via one-time backfill; deterministic highlights; hard-delete stale roster row
+
+**Decision:** (feature_005) Build the per-influencer baseline with a **one-time 36-post
+backfill** (`python -m youfirst_scraper.backfill`) rather than raising the daily
+`POSTS_PER_INFLUENCER` cap; compute "highlights" as **deterministic Python functions**
+in `metrics.py` (persisted to a new `highlights` table, rendered on the dashboard, and
+fed into the Gemini prompt) rather than asking the LLM to invent insights; and
+**hard-delete** the stale `cristinapedroche` impostor row (snapshots included, via FK
+cascade) rather than flipping it `active=false`.
+
+**Reason:** The daily run's job is catching new posts and refreshing recent metrics —
+tripling its cap forever would triple daily Instagram load for a baseline that only
+needs building once. Deterministic highlights keep the numbers trustworthy (real
+arithmetic on real rows) while Gemini gets them as grounded context. The impostor row
+is data-quality noise, not history worth keeping: 41 followers on a typo handle, never
+the real account.
+
+**Tradeoffs:** Backfill is a manual one-off (36 x 5 profiles, ~several minutes at 20s
+delay) with throttling risk on the browser-cookie session — accepted, reported honestly
+if it happens. Deleted impostor history is unrecoverable — accepted, it was worthless.
+Per-post growth-over-time highlights need >= ~6 days of capture history, so day one
+will only show outperformance-vs-median and views-based highlights.

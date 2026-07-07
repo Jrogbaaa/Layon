@@ -27,6 +27,26 @@ def test_post_type_photo():
     assert _post_type(_fake_post(False, "GraphImage")) == "photo"
 
 
+def test_view_count_for_video():
+    post = MagicMock()
+    post.is_video = True
+    post._node = {"video_view_count": 12345}
+    assert instagram_scraper._view_count(post) == 12345
+
+
+def test_view_count_reads_play_count_fallback():
+    post = MagicMock()
+    post.is_video = True
+    post._node = {"play_count": 999}
+    assert instagram_scraper._view_count(post) == 999
+
+
+def test_view_count_none_for_photo():
+    post = MagicMock()
+    post.is_video = False
+    assert instagram_scraper._view_count(post) is None
+
+
 def test_build_loader_loads_session_when_ig_username_set(monkeypatch):
     monkeypatch.setattr(instagram_scraper.config, "IG_USERNAME", "agencyaccount")
 
