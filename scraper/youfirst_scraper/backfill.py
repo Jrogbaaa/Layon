@@ -45,8 +45,6 @@ def run_backfill_scrape(client) -> None:
 
 
 def run_recommendations(client) -> None:
-    trends = db.get_latest_trend_snapshots(client, limit=len(config.TREND_SOURCES))
-
     for influencer in db.list_influencers(client):
         handle = influencer["handle"]
         try:
@@ -56,13 +54,14 @@ def run_recommendations(client) -> None:
                 continue
             posts = db.get_recent_posts(client, influencer["id"])
             highlights = db.get_latest_highlights(client, influencer["id"])
+            content_map = db.get_post_content_map(client, influencer["id"])
             content = recommendations.generate_recommendation(
                 handle,
                 profile_snapshots,
                 posts,
-                trends,
                 influencer.get("persona"),
                 highlights,
+                content_map,
             )
             db.insert_recommendation(client, influencer["id"], recommendations.GEMINI_MODEL, content)
             logger.info("Generated recommendation for %s", handle)
