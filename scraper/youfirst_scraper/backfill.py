@@ -1,42 +1,30 @@
 import logging
 import time
-from datetime import date, datetime
 
-from . import config, content_analysis, db, instagram_scraper, metrics, recommendations, trend_scraper
+from . import config, db, instagram_scraper, metrics, recommendations
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
-
-def already_ran_today() -> bool:
-    if not config.LAST_RUN_FILE.exists():
-        return False
-    last_run = config.LAST_RUN_FILE.read_text().strip()
-    return last_run == date.today().isoformat()
+BACKFILL_POSTS_PER_INFLUENCER = 36
 
 
-def mark_ran_today() -> None:
-    config.LAST_RUN_FILE.write_text(date.today().isoformat())
-
-
-def run_instagram_scrape(client) -> None:
+def run_backfill_scrape(client) -> None:
     roster = config.load_roster()
     if not roster:
-        logger.warning("No influencers in %s — nothing to scrape.", config.INFLUENCERS_FILE)
+        logger.warning("No influencers in %s — nothing to backfill.", config.INFLUENCERS_FILE)
         return
 
     loader = instagram_scraper.build_loader()
 
     for i, handle in enumerate(roster):
         try:
-            result = instagram_scraper.scrape_profile(loader, handle)
+            result = instagram_scraper.scrape_profile(
+                loader, handle, post_limit=BACKFILL_POSTS_PER_INFLUENCER
+            )
             influencer_id = db.get_or_create_influencer(client, handle)
             db.insert_profile_snapshot(client, influencer_id, result["profile"])
             db.insert_post_snapshots(client, influencer_id, result["posts"])
-
-            already_analyzed = db.get_analyzed_shortcodes(client, influencer_id)
-            analyzed = content_analysis.analyze_posts(result["posts"], already_analyzed)
-            db.insert_post_content(client, influencer_id, analyzed)
 
             profile_snapshots = db.get_profile_snapshots(client, influencer_id)
             post_snapshots = db.get_all_post_snapshots(client, influencer_id)
@@ -44,33 +32,21 @@ def run_instagram_scrape(client) -> None:
             db.insert_highlights(client, influencer_id, highlights)
 
             logger.info(
-                "Scraped %s: %d posts, %d analyzed, %d highlights",
+                "Backfilled %s: %d posts, %d highlights",
                 handle,
                 len(result["posts"]),
-                len(analyzed),
                 len(highlights),
             )
         except Exception:
-            logger.exception("Failed to scrape %s — skipping", handle)
+            logger.exception("Failed to backfill %s — skipping", handle)
 
         if i < len(roster) - 1:
             time.sleep(config.PROFILE_REQUEST_DELAY_SECONDS)
 
 
-def run_trend_scrape(client) -> None:
-    for url in config.TREND_SOURCES:
-        try:
-            if db.trend_source_scraped_today(client, url):
-                logger.info("Trend source already scraped today: %s", url)
-                continue
-            result = trend_scraper.scrape_trend_source(url)
-            db.insert_trend_snapshot(client, url, result["title"], result["content_text"])
-            logger.info("Scraped trend source: %s", url)
-        except Exception:
-            logger.exception("Failed to scrape trend source %s — skipping", url)
-
-
 def run_recommendations(client) -> None:
+    trends = db.get_latest_trend_snapshots(client, limit=len(config.TREND_SOURCES))
+
     for influencer in db.list_influencers(client):
         handle = influencer["handle"]
         try:
@@ -80,14 +56,13 @@ def run_recommendations(client) -> None:
                 continue
             posts = db.get_recent_posts(client, influencer["id"])
             highlights = db.get_latest_highlights(client, influencer["id"])
-            content_map = db.get_post_content_map(client, influencer["id"])
             content = recommendations.generate_recommendation(
                 handle,
                 profile_snapshots,
                 posts,
+                trends,
                 influencer.get("persona"),
                 highlights,
-                content_map,
             )
             db.insert_recommendation(client, influencer["id"], recommendations.GEMINI_MODEL, content)
             logger.info("Generated recommendation for %s", handle)
@@ -96,16 +71,10 @@ def run_recommendations(client) -> None:
 
 
 def main() -> None:
-    if already_ran_today():
-        logger.info("Already ran today (%s) — skipping.", date.today().isoformat())
-        return
-
     client = db.get_client()
-    run_instagram_scrape(client)
-    run_trend_scrape(client)
+    run_backfill_scrape(client)
     run_recommendations(client)
-    mark_ran_today()
-    logger.info("Daily run complete at %s", datetime.now().isoformat())
+    logger.info("Backfill complete.")
 
 
 if __name__ == "__main__":

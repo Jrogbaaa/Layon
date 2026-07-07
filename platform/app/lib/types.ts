@@ -17,8 +17,15 @@ export type PostSnapshot = {
   post_type: "photo" | "video" | "reel" | "carousel";
   likes: number;
   comments: number;
+  views: number | null;
   caption: string | null;
   posted_at: string;
+};
+
+export type Highlight = {
+  content: string;
+  metric: Record<string, unknown>;
+  captured_at: string;
 };
 
 export type TrendSnapshot = {
@@ -38,6 +45,7 @@ export type RosterEntry = {
   influencer: Influencer;
   latestSnapshot: ProfileSnapshot | null;
   followerDelta: number;
+  recentHighlights: Highlight[];
 };
 
 export type InfluencerDashboard = {
@@ -45,4 +53,5 @@ export type InfluencerDashboard = {
   profileHistory: ProfileSnapshot[];
   recentPosts: PostSnapshot[];
   latestRecommendation: Recommendation | null;
+  highlights: Highlight[];
 };

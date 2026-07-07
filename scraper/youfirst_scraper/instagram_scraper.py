@@ -60,7 +60,21 @@ def _comment_count(post: instaloader.Post) -> int:
     return post._node.get("comments", 0)
 
 
-def scrape_profile(loader: instaloader.Instaloader, handle: str) -> dict:
+def _view_count(post: instaloader.Post) -> int | None:
+    """Return video/reel view count from timeline edge data when available."""
+    if not post.is_video:
+        return None
+    node = post._node
+    for key in ("video_view_count", "play_count", "view_count"):
+        value = node.get(key)
+        if isinstance(value, int):
+            return value
+    return None
+
+
+def scrape_profile(
+    loader: instaloader.Instaloader, handle: str, post_limit: int | None = None
+) -> dict:
     """Fetch profile stats and recent posts for one handle.
 
     Raises whatever instaloader raises on failure (e.g. ProfileNotExistsException,
@@ -75,6 +89,8 @@ def scrape_profile(loader: instaloader.Instaloader, handle: str) -> dict:
         "bio": profile.biography,
     }
 
+    limit = post_limit if post_limit is not None else config.POSTS_PER_INFLUENCER
+
     posts = []
     for post in profile.get_posts():
         posts.append(
@@ -83,11 +99,14 @@ def scrape_profile(loader: instaloader.Instaloader, handle: str) -> dict:
                 "post_type": _post_type(post),
                 "likes": post.likes,
                 "comments": _comment_count(post),
+                "views": _view_count(post),
                 "caption": post.caption,
                 "posted_at": post.date_utc.isoformat() + "Z",
+                "video_url": post.video_url if post.is_video else None,
+                "thumbnail_url": post.url,
             }
         )
-        if len(posts) >= config.POSTS_PER_INFLUENCER:
+        if len(posts) >= limit:
             break
 
     return {"profile": profile_data, "posts": posts}

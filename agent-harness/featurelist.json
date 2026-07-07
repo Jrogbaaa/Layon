@@ -101,6 +101,92 @@
       ],
       "dependencies": ["feature_001", "feature_002"],
       "notes": "Spec: agent-harness/spec.md (rewritten for this change 2026-07-06). All 3 new source URLs verified scrapable with the existing scrape_trend_source on 2026-07-06. Personas sourced from user input plus public research. Live-verified end to end same session; no separate Evaluator subagent pass run (see contract.md note on Evaluator Independence, same pattern as feature_003)."
+    },
+    {
+      "id": "feature_005",
+      "name": "Deep backfill, view counts, deterministic highlights, stale-roster cleanup",
+      "goal": "One-time 36-post-per-influencer backfill to build a baseline, capture video/reel view counts, compute deterministic per-influencer highlights (dashboard + Gemini prompt), and delete the stale cristinapedroche impostor row.",
+      "why_it_matters": "12 recent posts with no views and current-batch-only metrics can't produce eye-catching insights like 'this post performed 100% better than their typical post'; and a 41-follower impostor account is showing on the roster.",
+      "non_goals": [
+        "No change to the daily post cap (POSTS_PER_INFLUENCER stays 12)",
+        "No change to scrape frequency (backfill is a one-off manual run)",
+        "No per-user auth, no influencer-brand matching",
+        "No LLM-generated insights (highlights are deterministic Python)",
+        "No platform UI for editing highlights",
+        "No paid scraping API migration"
+      ],
+      "status": "built_and_live_verified",
+      "priority": "high",
+      "owner_agent": "generator",
+      "acceptance_criteria": [
+        "cristinapedroche influencers row + snapshot children deleted from live Supabase; exactly the 5 correct handles remain active",
+        "post_snapshots has nullable views column (schema.sql + live ALTER TABLE); scraper captures post.video_view_count defensively for videos/reels; db.insert_post_snapshots writes it",
+        "python -m youfirst_scraper.backfill scrapes 36 posts/influencer through existing paths, 20s delay, no .last_run touch; daily cap unchanged at 12",
+        "metrics.py gains pure functions: per-post outperformance vs median, per-post growth vs closest capture >=6 days older (graceful when no history), follower week-over-week growth, top reel by views vs median reel views, and compute_highlights emitting only notable (|delta| >= 30%) human-readable strings",
+        "highlights table (id, influencer_id, content, metric jsonb, captured_at) written by backfill and daily runs; build_prompt includes highlights and leads with the standout stat",
+        "platform data.ts fetches latest highlights; influencer page renders a Highlights section in existing Tailwind style",
+        "Backfill executed against real Instagram/Supabase (36 x 5), recommendations regenerated after; throttling reported honestly",
+        "pytest green in scraper/ with extended test_metrics.py + updated test_recommendations.py (external calls mocked)",
+        "Dev server check: 5-handle roster, cristipedroche ~2-3M followers, Highlights section renders"
+      ],
+      "dependencies": ["feature_001", "feature_002", "feature_003"],
+      "notes": "Spec: agent-harness/spec.md (rewritten for this change 2026-07-06). Backfill size (36), highlight semantics, hard-delete of the stale row, and full harness process confirmed with the user 2026-07-06."
+    },
+    {
+      "id": "feature_006",
+      "name": "Dashboard metrics & UX overhaul",
+      "goal": "Fix confusing dashboard metrics, add navigation and post-level context, hide follower chart until enough history exists, and deduplicate post snapshots for accurate metrics.",
+      "why_it_matters": "Agency staff cannot trust or act on raw avg-engagement floats, missing back navigation, day-one flat charts, or metrics corrupted by duplicate post snapshots.",
+      "non_goals": [
+        "No follower demographics (gender/location)",
+        "No scraper or schema changes",
+        "No third-party audience analytics APIs",
+        "No Trends page or auth changes"
+      ],
+      "status": "built_and_verified",
+      "priority": "high",
+      "owner_agent": "generator",
+      "acceptance_criteria": [
+        "getInfluencerDashboard deduplicates post_snapshots by shortcode (latest capture wins, up to 12 posts)",
+        "Per-format cards show engagement rate %, formatted avg interactions, avg reel views, and sample size",
+        "Influencer page has back link to roster; bio removed",
+        "Follower chart aggregates one point per day; hidden until 3+ days with progress note; K/M Y-axis",
+        "Recent posts table with date, format, likes, comments, views, engagement rate, Instagram link",
+        "Stat row: Followers, Change (timeframe label), Engagement rate (subtext), Posting cadence",
+        "Recommendations rendered as styled markdown",
+        "Roster uses shared formatter and clearer delta labeling",
+        "Playwright tests pass; platform build/tsc/eslint pass"
+      ],
+      "dependencies": ["feature_003", "feature_005"],
+      "notes": "Spec: agent-harness/spec.md (rewritten 2026-07-06). User confirmed post-level metrics over demographics and hide-until-ready chart."
+    },
+    {
+      "id": "feature_007",
+      "name": "Content-grounded recommendation bullets + roster attention alerts",
+      "goal": "Analyze top-performing posts' video/audio with Gemini so recommendations can cite what a reel was actually about, rewrite recommendations as short Spanish-only data-grounded bullets, and surface engagement-drop/posting-gap alerts on the roster.",
+      "why_it_matters": "Recommendations today only see recent captions and generic trend articles, so they can't say 'your reel about X performed well, do a follow-up.' Bilingual prose output is also too dense for low-patience readers, and daily-scraped performance signals have no roster-level surface.",
+      "non_goals": [
+        "No email/push alert digest",
+        "No comparable-creator scraping",
+        "No removal of the trend-scraper module, only unhooked from the recommendation prompt",
+        "No language toggle - Spanish only",
+        "No third-party scraping API (Apify) migration - fetch/analyze kept separate for a future swap, not built now"
+      ],
+      "status": "in_progress",
+      "priority": "high",
+      "owner_agent": "generator",
+      "acceptance_criteria": [
+        "content_analysis.py downloads video/thumbnail for new posts at/above median engagement (capped ~4/run/influencer), sends to Gemini for Spanish summary/topic/format/hook, stores once per shortcode in post_content table, skips gracefully on failure",
+        "post_content table added to schema.sql",
+        "recommendations.build_prompt cites top performers with content summaries and multiple-of-median stats plus a weakest-post contrast; trend-report section removed",
+        "generate_recommendation requests Gemini JSON response mode, returns {bullets:[{text,reason,shortcode}]}, 3-5 Spanish bullets tied to data; malformed JSON stored as raw text",
+        "RecommendationContent.tsx renders JSON bullets as a short list with Instagram links, falls back to markdown for legacy prose rows",
+        "metrics.compute_highlights gains engagement_drop and posting_gap signals with a severity field",
+        "Roster page surfaces a needs-attention indicator per influencer from recent highlights",
+        "pytest green including new content-analysis and alert-threshold tests; Playwright covers bullet rendering + fallback + roster badges"
+      ],
+      "dependencies": ["feature_001", "feature_002", "feature_005", "feature_006"],
+      "notes": "Spec: agent-harness/spec.md (rewritten 2026-07-07). User confirmed scope, Spanish-only bullets, and full video+audio analysis on 2026-07-07."
     }
   ]
 }

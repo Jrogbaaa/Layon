@@ -17,6 +17,11 @@ def get_or_create_influencer(client: Client, handle: str) -> int:
     return created.data[0]["id"]
 
 
+def delete_influencer_by_handle(client: Client, handle: str) -> bool:
+    result = client.table("influencers").delete().eq("handle", handle).execute()
+    return bool(result.data)
+
+
 def insert_profile_snapshot(client: Client, influencer_id: int, profile: dict) -> None:
     client.table("profile_snapshots").insert(
         {
@@ -39,6 +44,7 @@ def insert_post_snapshots(client: Client, influencer_id: int, posts: list[dict])
             "post_type": post["post_type"],
             "likes": post["likes"],
             "comments": post["comments"],
+            "views": post.get("views"),
             "caption": post.get("caption"),
             "posted_at": post["posted_at"],
         }
@@ -89,9 +95,47 @@ def get_profile_snapshots(client: Client, influencer_id: int, limit: int = 30) -
 def get_recent_posts(client: Client, influencer_id: int, limit: int = 12) -> list[dict]:
     result = (
         client.table("post_snapshots")
-        .select("shortcode, post_type, likes, comments, caption, posted_at")
+        .select("shortcode, post_type, likes, comments, views, caption, posted_at")
         .eq("influencer_id", influencer_id)
         .order("posted_at", desc=True)
+        .limit(limit)
+        .execute()
+    )
+    return result.data
+
+
+def get_all_post_snapshots(client: Client, influencer_id: int, limit: int = 500) -> list[dict]:
+    result = (
+        client.table("post_snapshots")
+        .select("shortcode, post_type, likes, comments, views, caption, posted_at, captured_at")
+        .eq("influencer_id", influencer_id)
+        .order("captured_at", desc=False)
+        .limit(limit)
+        .execute()
+    )
+    return result.data
+
+
+def insert_highlights(client: Client, influencer_id: int, highlights: list[dict]) -> None:
+    if not highlights:
+        return
+    rows = [
+        {
+            "influencer_id": influencer_id,
+            "content": highlight["content"],
+            "metric": highlight["metric"],
+        }
+        for highlight in highlights
+    ]
+    client.table("highlights").insert(rows).execute()
+
+
+def get_latest_highlights(client: Client, influencer_id: int, limit: int = 5) -> list[dict]:
+    result = (
+        client.table("highlights")
+        .select("content, metric, captured_at")
+        .eq("influencer_id", influencer_id)
+        .order("captured_at", desc=True)
         .limit(limit)
         .execute()
     )
@@ -107,6 +151,41 @@ def get_latest_trend_snapshots(client: Client, limit: int = 2) -> list[dict]:
         .execute()
     )
     return result.data
+
+
+def get_analyzed_shortcodes(client: Client, influencer_id: int) -> set[str]:
+    result = (
+        client.table("post_content")
+        .select("shortcode")
+        .eq("influencer_id", influencer_id)
+        .execute()
+    )
+    return {row["shortcode"] for row in result.data}
+
+
+def insert_post_content(client: Client, influencer_id: int, analyzed: list[dict]) -> None:
+    if not analyzed:
+        return
+    rows = [
+        {
+            "influencer_id": influencer_id,
+            "shortcode": item["shortcode"],
+            "summary": item["summary"],
+            "analysis": item["analysis"],
+        }
+        for item in analyzed
+    ]
+    client.table("post_content").insert(rows).execute()
+
+
+def get_post_content_map(client: Client, influencer_id: int) -> dict[str, dict]:
+    result = (
+        client.table("post_content")
+        .select("shortcode, summary, analysis")
+        .eq("influencer_id", influencer_id)
+        .execute()
+    )
+    return {row["shortcode"]: row for row in result.data}
 
 
 def insert_recommendation(client: Client, influencer_id: int, model: str, content: str) -> None:

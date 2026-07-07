@@ -1,115 +1,158 @@
-# Findings — v1 foundations through Phase 3 platform (feature_001 + feature_002)
+# Findings — feature_007 Content-Grounded Recommendation Bullets + Roster Attention Alerts
 
-**Evaluator:** same-session pass (not yet a separate subagent — see note at bottom).
+## Verdict: PASS (with follow-ups)
+
+**Evaluator:** separate subagent pass (fresh context, per contract.md/evaluator.md).
 
 ## Restated Goal / Non-Goals / Acceptance Criteria
 
-**Goal:** Build the daily Instagram + trend scraper pipeline (feature_001) and the
-metrics + Gemini recommendations layer (feature_002), per `spec.md` and
-`featurelist.json`.
+**Goal:** Analyze the video/audio of each influencer's top-performing posts with Gemini
+so recommendations can cite what a reel was actually about, rewrite the recommendation
+prompt/output as short Spanish-only data-grounded bullets (dropping trend-report
+context), and surface engagement-drop/posting-gap "needs attention" signals at the
+roster level.
 
-**Non-goals:** no dashboard in feature_001/002 scope (built anyway as Phase 3, see
-below, since the user asked to keep moving); no influencer-brand matching; no
-cloud-hosted scheduler; no private-account access.
+**Non-goals:** no email/push alert digest; no comparable-creator scraping; the
+trend-scraper module itself is not removed, only unhooked from the recommendation
+prompt; no language toggle (Spanish only); no Apify/third-party scraping API migration
+(fetch/analyze kept as separate functions for a possible future swap, not built now).
 
-**Acceptance criteria:** see `featurelist.json` feature_001 (8 criteria) and
-feature_002 (5 criteria).
+**Acceptance criteria** (featurelist.json `feature_007`, 8 items): content_analysis.py
+selection/cap/Gemini-JSON/skip-on-failure behavior; `post_content` table in schema.sql;
+`build_prompt` cites top performers + content summaries + multiple-of-median + weakest
+contrast with the trend section removed; `generate_recommendation` requests Gemini JSON
+mode returning `{bullets:[{text,reason,shortcode}]}` (3-5 Spanish bullets tied to data),
+falling back to raw text on malformed JSON; `RecommendationContent.tsx` renders bullets
+as a list with Instagram links, falls back to markdown for legacy prose;
+`metrics.compute_highlights` gains `engagement_drop`/`posting_gap` with a `severity`
+field; roster page shows a needs-attention indicator from recent highlights; pytest
+green including new content-analysis/alert tests, Playwright covers bullet rendering +
+fallback + roster badges.
 
 ## Goal Alignment: PASS
 
-Scraper, metrics, recommendations, launchd packaging, and the password-gated Next.js
-platform were all built and stay within the CONSTITUTION.md scope. No brand-matching
-or per-user-auth crept in.
+The implementation is squarely aimed at the stated problem: `content_analysis.py`
+genuinely grounds the model in what a post's video/audio is about (not just captions),
+`recommendations.build_prompt` cites top performers with content summaries and a
+weakest-post contrast, and the trend-report section is fully removed from this prompt
+(confirmed by a dedicated `test_build_prompt_has_no_trend_report_section` test and by
+`test_run_recommendations_does_not_fetch_trends` asserting `get_latest_trend_snapshots`
+is never called). No brand-matching, per-user auth, or scope creep found. The
+fetch/analyze split in `content_analysis.py` correctly keeps a future Apify swap
+possible without being built now.
 
-## Test Results
+## Tests
 
-- `scraper/`: `pytest` — **24 passed, 0 failed** (config guard logic, Instagram/trend
-  scrape error-skip behavior, metrics calculations, recommendation prompt building —
-  all with mocked Instaloader/requests/Gemini/Supabase calls).
-- `platform/`: `npx tsc --noEmit` via `next build` — **clean**. `npm run lint` —
-  **clean**. `npx playwright test` — **not run** (no test files written yet; instead
-  verified manually via a live Chrome session driven by Playwright MCP tools: wrong
-  password rejected, correct password (`LAYCC`) grants access and sets a persistent
-  session cookie, roster/trends pages render the correct empty state against
-  placeholder Supabase credentials, an unknown influencer handle renders Next.js's
-  404, logout clears the session and redirects to `/login`, direct navigation to a
-  protected route while logged out redirects to `/login`).
-- **Not run against real Instagram/Supabase/Gemini** — the user has not yet created
-  the Supabase project or provided the Google API key. This is the concrete remaining
-  gap before Definition of Done in CONSTITUTION.md is fully met.
+| Suite | Result |
+|-------|--------|
+| `scraper/` `pytest` | 62/62 pass |
+| `platform/` `npx playwright test` (against already-running dev server) | 5/5 pass |
+
+`.env` present in both `scraper/` and `platform/`. Dev server was already running
+(not started by this Evaluator pass).
 
 ## Critical Issues
 
 None found.
 
-## Bugs
+## Bugs / Gaps
 
-None found in this pass.
+1. **Disclosed gap (not new): no live run against real Instagram/Gemini/Supabase for
+   this feature.** The JSON-bullet path (`generate_recommendation` JSON mode, and the
+   full `content_analysis.analyze_post` video-download-to-Gemini round trip) is only
+   exercised through mocked pytest. The one thing verified live is the *fallback*
+   render path, against a pre-existing bilingual-prose recommendation row from before
+   this feature. This is a real, material gap for a change whose core deliverable is
+   "does Gemini reliably return valid `{bullets:...}` JSON for a real video" — that
+   question is still open. Consistent with what was disclosed going in; factored into
+   Data Integrity and Goal Alignment below rather than treated as newly discovered.
+2. **Playwright coverage for bullets/badges is weaker than the acceptance criterion
+   implies.** `e2e/dashboard.spec.ts`'s roster test is explicitly a "loads without
+   crashing" check — its own comment says it does not assert the attention strip
+   renders, and no test asserts the JSON-bullet list actually renders as a list (vs.
+   the markdown fallback) since no live data with JSON-bullet content exists yet. The
+   acceptance criterion says "Playwright covers bullet rendering + fallback + roster
+   badges" — only the fallback half is meaningfully covered. This is a direct
+   consequence of gap #1 (no real JSON-bullet row exists to assert against) rather than
+   a separate defect, but it means the stated test-coverage acceptance criterion is
+   only partially met today.
+3. **Prior features (005/006) were never committed to git.** Diffing against `HEAD`
+   shows `schema.sql`, `db.py`, and `instagram_scraper.py` at the last commit have none
+   of the `views` column, `highlights` table, or `post_content` table — meaning the
+   working tree currently bundles feature_005 + feature_006 + feature_007 together as
+   one large uncommitted diff. This isn't a defect introduced by feature_007's code,
+   but it's a process/maintainability issue worth flagging: it makes it impossible to
+   review feature_007 in isolation via `git diff`, and `featurelist.json` records
+   005/006 as `built_and_live_verified`/`built_and_verified` when their code has never
+   actually landed on `main`.
+
+No other bugs found. Idempotency for `post_content` is enforced by a
+`unique(influencer_id, shortcode)` constraint plus an explicit
+`get_analyzed_shortcodes` pre-filter, so a same-day re-run (or a future retry) won't
+double-analyze or violate the constraint. `run_daily.py`'s already-ran-today guard and
+per-influencer/per-trend-source try/except blocks correctly wrap the new
+content-analysis and highlights steps.
 
 ## UX Issues
 
-None — empty/404 states read clearly rather than showing blank pages or crashes.
+None found in what's renderable today. `RecommendationContent.tsx`'s bullet vs.
+markdown branch is a reasonable, cheap heuristic (`JSON.parse` + `Array.isArray`) that
+degrades safely to markdown on any non-bullet-shaped content (reasoned through
+non-object/number JSON edge cases — no dedicated frontend unit test for it, Playwright
+doesn't have a real bullet row to exercise it against per gap #2).
 
 ## Missing Requirements
 
-- No automated Playwright test suite exists yet for `platform/` (contract.md expects
-  one). The manual MCP-driven browser pass substitutes for this session but should be
-  converted to a checked-in `tests/` suite before this is considered fully done per
-  the harness's own testing requirements.
-- End-to-end verification against real Instagram/Supabase/Gemini is blocked on user
-  credentials (Supabase project, Google API key) — see CONSTITUTION.md Definition of
-  Done.
+- Live verification of the Gemini JSON-bullet contract and the video-analysis pipeline
+  (gap #1) — planner/user already aware, needs a go-ahead to spend Gemini quota / touch
+  Instagram.
+- A Playwright assertion that actually exercises the JSON-bullet render path and the
+  "needs attention" strip's conditional rendering, once real data exists (gap #2).
 
 ## Scope Drift
 
-The platform (Phase 3) was built in this same pass alongside feature_001/002, ahead of
-its own Planner spec, at the user's explicit request to move quickly ("go"). No spec.md
-update was made for the platform work — `featurelist.json` should get a feature_003
-entry before further platform changes, to keep the harness's spec-driven-development
-promise intact.
+None. Everything built traces directly to spec.md's 4 numbered success criteria and the
+8 featurelist.json acceptance criteria.
 
 ## Rubric Scores
 
 | Area | Score | Notes |
 |---|---|---|
-| 0. Goal Alignment | 5 | Solves the stated three-pillar goal; no scope creep into matching/per-user auth |
-| 1. Requirement Fit | 4 | All feature_001/002 criteria met; platform built without its own spec entry |
-| 2. Simplicity | 5 | No unused abstractions; single shared-password gate instead of full auth system |
-| 3. User Workflow | 4 | Verified manually in-browser; no automated Playwright suite yet |
-| 4. Data Integrity | 4 | Idempotency logic tested with mocks; not yet verified against real Supabase |
-| 5. Error Handling | 5 | Per-influencer and per-trend-source failures isolated and tested |
-| 6. Security / Privacy | 5 | Service key and password never reach the client; signed session cookie |
-| 7. Maintainability | 5 | Clear module boundaries (config/db/instagram/trends/metrics/recommendations) |
+| 0. Goal Alignment | 4 | Solves the stated problem and stays in scope; capped at 4 rather than 5 because the core new capability (Gemini JSON bullets citing real content) is unverified against a live call |
+| 1. Requirement Fit | 4 | All 8 acceptance criteria implemented in code; test-coverage criterion only partially met (gap #2) |
+| 2. Simplicity | 5 | `content_analysis.py`/`recommendations.py` split is clean; no speculative abstractions; fetch/analyze kept separate per the stated future-Apify non-goal without over-building it now |
+| 3. User Workflow | 4 | Bullets + Instagram links + roster badges are scannable and match the "low-patience reader" goal; unverified in the browser with real bullet data |
+| 4. Data Integrity | 4 | `post_content` unique constraint + pre-filter set correctly prevent duplicate/idempotency issues; unverified against a real Gemini response shape |
+| 5. Error Handling | 5 | Per-post analysis failures, per-influencer failures, and malformed-JSON responses all degrade gracefully and are tested |
+| 6. Security / Privacy | 5 | No keys hardcoded or logged; `.env` files gitignored; only public IG data (video/thumbnail of public posts) is fetched and stored |
+| 7. Maintainability | 4 | Clear module boundaries; docked one point for the uncommitted-prior-features issue (gap #3) making the current diff hard to review in isolation |
 
-**Average: 4.6**
+**Average: 4.375**
 
-## Verdict: PASS (with follow-ups)
+## Verdict Detail
 
-**Did this accomplish the stated goal?** Yes for what could be verified without live
-credentials. All code paths that can be tested with mocks/manual browser driving pass.
-The two open items — a real Playwright suite for the platform, and a live run against
-real Instagram/Supabase/Gemini — are blocked on infrastructure the user must set up
-(Supabase project + Google API key), not on missing code.
+**Did this accomplish the stated goal?** Yes, for everything that can be verified
+without spending Gemini quota or touching Instagram: the prompt is genuinely grounded
+in content summaries and top-performer stats, trend context is removed, the bullet/
+fallback rendering logic is sound, and the new alert signals compute and surface
+correctly with a severity field. Goal Alignment (4) and the average (4.375) both clear
+the bar, no critical bugs, no secret exposure, and test results are recorded per
+contract.md's pass rule. The live-verification gap was disclosed up front rather than
+discovered, and error handling/rollback paths around it are solid — so this is a PASS
+with concrete follow-ups, not a FAIL.
 
 ## Recommended Next Generator Task
 
-1. Once the user provides Supabase URL/key and a Google API key: run
-   `scraper/.venv/bin/python -m youfirst_scraper.run_daily` manually, confirm rows in
-   Supabase for all 6 handles + 2 trend sources + 6 recommendations, then install the
-   LaunchAgent (`scraper/install_launchagent.sh`) and confirm `launchctl list` shows it.
-2. Point `platform/.env.local` at the same Supabase project, run `npm run dev`, confirm
-   real data renders on the roster/influencer/trends pages.
-3. Add a `platform/tests/` Playwright suite covering the login flow (wrong/right
-   password, logout, unauthenticated redirect) to replace this pass's manual
-   verification with a repeatable automated one.
-4. Add a `feature_003` entry to `featurelist.json` retroactively describing the
-   platform, so the harness's spec history stays accurate.
-
-## Note on Evaluator Independence
-
-Per `contract.md` and `prompts/evaluator.md`, the Evaluator should run as a separate
-subagent for adversarial judgment. This pass was done in the same session as the
-Generator work due to the user's explicit "go" instruction to move quickly through all
-phases in one sitting. Treat this PASS as provisional — a fresh-context Evaluator pass
-is recommended before this is called fully done, per `decisions.md`'s existing note
-that same-session role switches are weaker evidence than a separate subagent.
+1. With user go-ahead: run `python -m youfirst_scraper.run_daily` once for real,
+   confirm at least one influencer gets a `post_content` row with real Gemini
+   `{summary, topic, format, hook}` output and one real `{bullets:[...]}` recommendation
+   row, and verify that row's render on `/influencer/<handle>` in the browser (not just
+   the pre-existing prose fallback).
+2. Add a Playwright test (or extend `dashboard.spec.ts`) that seeds/asserts against a
+   JSON-bullet-shaped recommendation content string directly (e.g. via a test fixture
+   or by asserting on the real row from step 1) so "bullet rendering" is actually
+   covered, not just "renders without crashing."
+3. Retroactively commit the feature_005/006 work still sitting uncommitted so future
+   diffs (including this one) can be reviewed in isolation, and so `featurelist.json`'s
+   `built_and_live_verified`/`built_and_verified` statuses reflect what's actually on
+   `main`.

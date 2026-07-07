@@ -30,6 +30,7 @@ create table if not exists post_snapshots (
   post_type text not null check (post_type in ('photo', 'video', 'reel', 'carousel')),
   likes integer not null,
   comments integer not null,
+  views integer,
   caption text,
   posted_at timestamptz not null,
   captured_at timestamptz not null default now(),
@@ -60,3 +61,24 @@ create table if not exists recommendations (
 
 create index if not exists recommendations_influencer_generated_idx
   on recommendations (influencer_id, generated_at desc);
+
+create table if not exists highlights (
+  id bigint generated always as identity primary key,
+  influencer_id bigint not null references influencers(id) on delete cascade,
+  content text not null,
+  metric jsonb not null,
+  captured_at timestamptz not null default now()
+);
+
+create index if not exists highlights_influencer_captured_idx
+  on highlights (influencer_id, captured_at desc);
+
+create table if not exists post_content (
+  id bigint generated always as identity primary key,
+  influencer_id bigint not null references influencers(id) on delete cascade,
+  shortcode text not null,
+  summary text not null,
+  analysis jsonb not null,
+  analyzed_at timestamptz not null default now(),
+  unique (influencer_id, shortcode)
+);

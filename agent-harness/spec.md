@@ -2,67 +2,73 @@
 
 ## Goal of This Change
 
-Make creative recommendations on-brand per influencer and grounded in Spanish-market
-trend sources: add a `persona` column to `influencers`, switch `TREND_SOURCES` to
-Spanish-market reports, and rework the Gemini prompt to tailor recommendations to each
-influencer's persona and a Spain/Spanish-speaking audience.
+Make recommendations content-grounded and scannable, and surface daily-scraping value
+as roster-level attention alerts:
+
+1. Analyze the video/audio of each influencer's top-performing recent posts with
+   Gemini so the system knows *what a reel was about*, not just its caption.
+2. Rewrite the Gemini recommendation prompt to cite top performers (with content
+   summaries and how they compare to the median) instead of the 5 most recent
+   captions, drop the generic trend-report context, and require short Spanish-only
+   bullet output instead of bilingual prose.
+3. Render those bullets as a scannable list in the influencer page, with a link back
+   to the referenced post.
+4. Add negative/attention signals (engagement drop, posting gap) alongside the
+   existing positive highlights, and surface them on the roster page so the agency
+   can see who needs attention without opening every influencer.
 
 ## Why This Matters
 
-Recommendations currently read the same trend context for every influencer and lean on
-US-centric sources. A polished TV presenter should not be told to do meme dances; a
-comedian should get trends adapted into sketch formats. The agency's audience is Spain,
-not the USA — the trend inputs and the prompt must reflect both.
+The daily scraper already collects rich day-over-day data (new posts, follower deltas,
+per-post engagement growth), but today's recommendations only look at the most recent
+captions and generic Spanish trend articles — they can't say "your reel about X got 4×
+your median views, do a follow-up," because the system never learns what any reel is
+about. Output is also bilingual markdown prose rendered as a dense wall of text, which
+agency staff and talent (with limited patience) don't read. And daily-collected
+performance data has no roster-level surface — nothing today tells the agency "who
+needs attention."
 
 ## Intended User
 
-Agency staff and talent reading recommendations on the platform. The change itself is in
-the scraper pipeline (`scraper/`).
+Agency staff and talent reading the platform dashboard.
 
 ## Success Criteria
 
-1. `config.TREND_SOURCES` contains exactly these 4 Spanish-market URLs (newengen.com
-   removed):
-   - `https://www.modash.io/content-library/country/spanish-examples` (kept)
-   - `https://www.garajedoce.com/blog/estudio-iab-spain-redes-sociales/`
-   - `https://lagahe.com/blog/novedades-instagram-2026-hashtags/`
-   - `https://venizecomunicacion.com/tendencias-en-redes-sociales-2026-instagram-ante-el-gran-reto-de-la-saturacion/`
-   All 3 new URLs verified scrapable (HTTP 200, clean text via existing
-   `scrape_trend_source`) on 2026-07-06.
-2. `influencers` table gains a nullable `persona text` column (`schema.sql` updated plus
-   a one-off `alter table` applied to live Supabase), seeded for the 5 roster handles:
-   - `cristipedroche` — elite/polished TV presenter; premium, aspirational content; no
-     meme dances or low-fi trends
-   - `antonlofer` — comedian; adapt trends into comedic sketches, not serious/aesthetic
-     formats
-   - `dante_caro` — comedy creator (ex-Vine, Madrid); parodies and humor videos
-   - `mariavalero` — comedian/actress (Valencia); relatable everyday-life and
-     relationship sketches
-   - `ferminaldeguer_54` — MotoGP rider; athlete content: racing, training,
-     behind-the-scenes paddock life
-3. `recommendations.build_prompt` includes the influencer's persona and instructs the
-   model to (a) only suggest formats/trends that fit the persona, adapting trends rather
-   than forcing off-brand formats, and (b) target a Spain/Spanish-speaking audience, not
-   a US one. Bilingual Spanish/English output is kept. When `persona` is null the prompt
-   omits the persona section and still works.
-4. `run_daily.py` / `db.py` pass persona from the influencer row into
-   `generate_recommendation` — trend snapshot fetch already scales via
-   `len(config.TREND_SOURCES)` (no change needed there beyond the config edit).
-5. pytest: prompt-builder tests assert persona text and Spain-audience instruction appear
-   in the prompt (and that a null persona degrades gracefully); a config test locks
-   `len(TREND_SOURCES) == 4`. All existing tests still pass.
-6. Live check: one manual `run_daily` produces 4 `trend_snapshots` rows (one per source)
-   and a recommendation for at least one influencer that reflects their persona.
+1. **Content analysis**: `content_analysis.py` downloads video (or thumbnail for
+   non-video posts) for each new post at/above median engagement (capped ~4/run/
+   influencer), sends it to Gemini for a Spanish `{summary, topic, format, hook}`,
+   stores it once per shortcode in a new `post_content` table. Failures (download,
+   Gemini) log and skip without aborting the run.
+2. **Grounded prompt**: `recommendations.build_prompt` includes a "top performers"
+   section (shortcode, format, stats, multiple-of-median, content summary) and a
+   weakest-post contrast; trend-report context removed from this prompt.
+3. **Structured Spanish bullets**: Gemini called with JSON response mode, returns
+   `{"bullets": [{"text", "reason", "shortcode"}]}`, 3-5 bullets, Spanish only, each
+   tied to a specific stat or post. Malformed JSON stored as raw text (old behavior).
+4. **Frontend bullets**: `RecommendationContent.tsx` parses JSON bullets into a short
+   list with Instagram links; falls back to existing markdown rendering for legacy
+   prose rows.
+5. **Attention alerts**: `metrics.compute_highlights` gains `engagement_drop` (≥30%
+   below baseline) and `posting_gap` (no post in >2x cadence, min 7 days) signals with
+   a `severity` field; roster page shows a "needs attention" indicator per influencer
+   using the last 7 days of highlights.
+6. **Tests**: pytest covers content-analysis selection/caps/failure-skip, prompt
+   content (top performers, no trends section), JSON parse + fallback, new alert
+   thresholds; Playwright covers bullet rendering + fallback + roster badges.
 
 ## Non-Goals / Out of Scope
 
-- No JS-rendered sources (Google Trends explore etc.) — the scraper is requests +
-  BeautifulSoup only.
-- No new source types (APIs, RSS) — URL scraping only.
-- No platform UI changes for persona (display/editing) — separate spec if wanted.
-- No profile images feature — queued as its own spec after this one.
-- No per-influencer trend-source targeting — all influencers share the same 4 sources.
+- No email/push digest of alerts.
+- No comparable-creator scraping.
+- No removal of the trend-scraper module — only unhooked from the recommendation
+  prompt.
+- No language toggle — Spanish only.
+- No swap to a third-party scraping API (e.g. Apify) — fetch/analyze are kept as
+  separate functions so that can happen later without touching analysis logic, but
+  it is not built now.
 
 ## Open Questions
 
-None — sources, personas, and prompt behavior confirmed with the user on 2026-07-06.
+None — user confirmed scope (content analysis + bullets + roster alerts, drop trend
+scraping from recs), Spanish-only output, and full video+audio analysis (not just
+thumbnails) on 2026-07-07.
