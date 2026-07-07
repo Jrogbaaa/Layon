@@ -22,6 +22,20 @@ def delete_influencer_by_handle(client: Client, handle: str) -> bool:
     return bool(result.data)
 
 
+def upload_avatar(client: Client, handle: str, image_bytes: bytes) -> str:
+    path = f"{handle}.jpg"
+    client.storage.from_("avatars").upload(
+        path,
+        image_bytes,
+        file_options={"content-type": "image/jpeg", "upsert": "true"},
+    )
+    return client.storage.from_("avatars").get_public_url(path)
+
+
+def update_influencer_avatar(client: Client, influencer_id: int, avatar_url: str) -> None:
+    client.table("influencers").update({"avatar_url": avatar_url}).eq("id", influencer_id).execute()
+
+
 def insert_profile_snapshot(client: Client, influencer_id: int, profile: dict) -> None:
     client.table("profile_snapshots").insert(
         {
