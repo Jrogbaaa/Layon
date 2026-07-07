@@ -9,6 +9,7 @@ import {
   postingCadence,
 } from "@/app/lib/metrics";
 import { FollowerChart } from "@/app/components/FollowerChart";
+import { Avatar } from "@/app/components/Avatar";
 import { HighlightContent } from "@/app/components/HighlightContent";
 import { RecentPostsTable } from "@/app/components/RecentPostsTable";
 import { RecommendationContent } from "@/app/components/RecommendationContent";
@@ -35,12 +36,15 @@ export default async function InfluencerPage({ params }: { params: Promise<{ han
         ← Roster
       </Link>
 
-      <h1 className="font-display mb-8 text-2xl font-bold tracking-tight">
-        @{influencer.handle}
-        {influencer.display_name ? (
-          <span className="ml-2 text-lg font-normal text-muted">{influencer.display_name}</span>
-        ) : null}
-      </h1>
+      <div className="mb-8 flex items-center gap-4">
+        <Avatar handle={influencer.handle} avatarUrl={influencer.avatar_url} size="lg" />
+        <h1 className="font-display text-2xl font-bold tracking-tight">
+          @{influencer.handle}
+          {influencer.display_name ? (
+            <span className="ml-2 text-lg font-normal text-muted">{influencer.display_name}</span>
+          ) : null}
+        </h1>
+      </div>
 
       <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
         <Stat label="Followers" value={followers > 0 ? followers.toLocaleString() : "—"} />
