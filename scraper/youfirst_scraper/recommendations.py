@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 GEMINI_MODEL = "gemini-2.5-flash"
 TOP_PERFORMERS_COUNT = 4
+MAX_ATTEMPTS = 2
 
 
 def _post_line(post: dict, baseline: float, content_map: dict[str, dict]) -> str:
@@ -82,13 +83,28 @@ The target audience is Spain / Spanish-speaking, not the USA — recommendations
 Spanish social media culture and trends, not US ones.
 
 Write 3-5 short, specific, actionable creative recommendations for this influencer's next
-posts, in Spanish only. Each recommendation must reference the specific top-performing post
-(by its content, not just its shortcode) or metric that motivated it — e.g. "Haz un
-seguimiento al [tema del post], funcionó muy bien (2.3x la mediana)." Do not give generic
-advice ("publica más seguido") without tying it to the data above.
+posts. Each recommendation must reference the specific top-performing post (by its content,
+not just its shortcode) or metric that motivated it — e.g. "Follow up on [post topic], it
+performed very well (2.3x median)." Do not give generic advice ("post more often") without
+tying it to the data above.
+
+Write every recommendation and its reason in BOTH English and Spanish.
 
 Respond ONLY with JSON in this exact shape, no other text:
-{{"bullets": [{{"text": "short recommendation in Spanish, max ~20 words", "reason": "the specific stat or content that motivated it, in Spanish", "shortcode": "the referenced post's shortcode, or null if none"}}]}}"""
+{{"bullets": [{{"text": {{"en": "short recommendation in English, max ~20 words", "es": "the same recommendation in Spanish"}}, "reason": {{"en": "the specific stat or content that motivated it, in English", "es": "the same reason in Spanish"}}, "shortcode": "the referenced post's shortcode, or null if none"}}]}}"""
+
+
+def _validate(parsed: object) -> None:
+    if not isinstance(parsed, dict) or "bullets" not in parsed:
+        raise ValueError("missing bullets key")
+    bullets = parsed["bullets"]
+    if not isinstance(bullets, list) or not bullets:
+        raise ValueError("bullets must be a non-empty list")
+    for bullet in bullets:
+        for field in ("text", "reason"):
+            value = bullet.get(field) if isinstance(bullet, dict) else None
+            if not isinstance(value, dict) or "en" not in value or "es" not in value:
+                raise ValueError(f"bullet {field} missing en/es")
 
 
 def generate_recommendation(
@@ -98,22 +114,34 @@ def generate_recommendation(
     persona: str | None = None,
     highlights: list[dict] | None = None,
     content_map: dict[str, dict] | None = None,
-) -> str:
+) -> str | None:
     computed_metrics = metrics.compute_metrics(profile_snapshots, posts)
     prompt = build_prompt(handle, computed_metrics, posts, persona, highlights, content_map)
 
     client = genai.Client(api_key=config.GOOGLE_API_KEY)
-    response = client.models.generate_content(
-        model=GEMINI_MODEL,
-        contents=prompt,
-        config=types.GenerateContentConfig(response_mime_type="application/json"),
-    )
 
-    try:
-        parsed = json.loads(response.text)
-        if not isinstance(parsed, dict) or "bullets" not in parsed:
-            raise ValueError("missing bullets key")
-        return json.dumps(parsed)
-    except (json.JSONDecodeError, ValueError):
-        logger.warning("Gemini recommendation for %s was not valid bullet JSON — storing raw text", handle)
-        return response.text
+    last_error: Exception | None = None
+    for attempt in range(MAX_ATTEMPTS):
+        contents = (
+            prompt
+            if attempt == 0
+            else f"{prompt}\n\nYour previous response was invalid ({last_error}). "
+            "Respond ONLY with valid JSON matching the exact shape above."
+        )
+        response = client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=contents,
+            config=types.GenerateContentConfig(response_mime_type="application/json"),
+        )
+        try:
+            parsed = json.loads(response.text)
+            _validate(parsed)
+            return json.dumps(parsed)
+        except (json.JSONDecodeError, ValueError) as e:
+            last_error = e
+            logger.warning(
+                "Gemini recommendation for %s invalid on attempt %d: %s", handle, attempt + 1, e
+            )
+
+    logger.error("Gemini recommendation for %s failed validation twice — not storing", handle)
+    return None

@@ -13,6 +13,7 @@ import { Avatar } from "@/app/components/Avatar";
 import { HighlightContent } from "@/app/components/HighlightContent";
 import { RecentPostsTable } from "@/app/components/RecentPostsTable";
 import { RecommendationContent } from "@/app/components/RecommendationContent";
+import { LanguageToggle } from "@/app/components/LanguageToggle";
 
 export default async function InfluencerPage({ params }: { params: Promise<{ handle: string }> }) {
   const { handle } = await params;
@@ -91,11 +92,31 @@ export default async function InfluencerPage({ params }: { params: Promise<{ han
       </section>
 
       <section className="card mb-8 p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Creative recommendations</h2>
+          {latestRecommendation ? <LanguageToggle /> : null}
+        </div>
+        {latestRecommendation ? (
+          <>
+            <p className="mb-3 text-xs text-muted">
+              Generated {new Date(latestRecommendation.generated_at).toLocaleString()} ·{" "}
+              {latestRecommendation.model}
+            </p>
+            <RecommendationContent content={latestRecommendation.content} />
+          </>
+        ) : (
+          <p className="text-sm text-muted">
+            No recommendation generated yet — needs at least one daily scrape run.
+          </p>
+        )}
+      </section>
+
+      <section className="card mb-8 p-6">
         <h2 className="mb-4 text-lg font-semibold">Recent posts</h2>
         <RecentPostsTable posts={recentPosts} followers={followers} />
       </section>
 
-      <section className="card mb-8 p-6">
+      <section className="card p-6">
         <h2 className="mb-4 text-lg font-semibold">Highlights</h2>
         {highlights.length === 0 ? (
           <p className="text-sm text-muted">
@@ -112,23 +133,6 @@ export default async function InfluencerPage({ params }: { params: Promise<{ han
               </li>
             ))}
           </ul>
-        )}
-      </section>
-
-      <section className="card p-6">
-        <h2 className="mb-4 text-lg font-semibold">Creative recommendations</h2>
-        {latestRecommendation ? (
-          <>
-            <p className="mb-3 text-xs text-muted">
-              Generated {new Date(latestRecommendation.generated_at).toLocaleString()} ·{" "}
-              {latestRecommendation.model}
-            </p>
-            <RecommendationContent content={latestRecommendation.content} />
-          </>
-        ) : (
-          <p className="text-sm text-muted">
-            No recommendation generated yet — needs at least one daily scrape run.
-          </p>
         )}
       </section>
     </div>

@@ -76,6 +76,16 @@ create table if not exists highlights (
 create index if not exists highlights_influencer_captured_idx
   on highlights (influencer_id, captured_at desc);
 
+create table if not exists roster_briefings (
+  id bigint generated always as identity primary key,
+  generated_at timestamptz not null default now(),
+  model text not null,
+  content jsonb not null
+);
+
+create index if not exists roster_briefings_generated_idx
+  on roster_briefings (generated_at desc);
+
 create table if not exists post_content (
   id bigint generated always as identity primary key,
   influencer_id bigint not null references influencers(id) on delete cascade,
