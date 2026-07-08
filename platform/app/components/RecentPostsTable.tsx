@@ -13,8 +13,8 @@ export function RecentPostsTable({
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-left text-sm">
+    <div className="overflow-x-auto [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] sm:[mask-image:none]">
+      <table className="w-full min-w-[640px] text-left text-sm sm:min-w-0">
         <thead>
           <tr className="border-b border-border text-xs text-muted">
             <th className="pb-3 pr-4 font-medium">Date</th>
@@ -48,7 +48,7 @@ export function RecentPostsTable({
                   href={`https://www.instagram.com/p/${post.shortcode}/`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-accent hover:underline"
+                  className="text-accent-strong hover:underline"
                 >
                   View
                 </a>

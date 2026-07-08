@@ -5,12 +5,13 @@
   --card: #ffffff;
   --border: #e1e7ed;
   --ink: #12181f;
-  --muted: #6b7684;
+  --muted: #5b6675;
   --accent: #2e8ff0;
+  --accent-strong: #1c6fc4;
   --accent-2: #18c8a8;
-  --positive: #0e9c7f;
+  --positive: #0b7a63;
   --positive-soft: #e3f7f1;
-  --negative: #d14343;
+  --negative: #b83232;
   --negative-soft: #fbeaea;
 }
 
@@ -21,6 +22,7 @@
   --color-ink: var(--ink);
   --color-muted: var(--muted);
   --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
   --color-accent-2: var(--accent-2);
   --color-positive: var(--positive);
   --color-positive-soft: var(--positive-soft);

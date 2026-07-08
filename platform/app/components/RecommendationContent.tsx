@@ -43,7 +43,7 @@ export function RecommendationContent({ content }: { content: string }) {
                 href={`https://www.instagram.com/p/${bullet.shortcode}/`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-1 inline-block text-xs text-accent hover:underline"
+                className="mt-1 inline-block text-xs text-accent-strong hover:underline"
               >
                 Ver post →
               </a>

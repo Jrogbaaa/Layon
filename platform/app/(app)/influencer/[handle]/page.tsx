@@ -31,6 +31,17 @@ export default async function InfluencerPage({ params }: { params: Promise<{ han
   const cadence = postingCadence(recentPosts);
   const formatBreakdown = formatPerformance(recentPosts, followers);
 
+  // Repeated daily captures can surface the same post spike more than once;
+  // keep only the most recent mention per referenced post.
+  const seenShortcodes = new Set<string>();
+  const dedupedHighlights = highlights.filter((highlight) => {
+    const shortcode = highlight.content.match(/post\s+([A-Za-z0-9_-]+)/)?.[1];
+    if (!shortcode) return true;
+    if (seenShortcodes.has(shortcode)) return false;
+    seenShortcodes.add(shortcode);
+    return true;
+  });
+
   return (
     <div>
       <Link href="/" className="mb-4 inline-block text-sm text-muted hover:text-ink">
@@ -99,14 +110,17 @@ export default async function InfluencerPage({ params }: { params: Promise<{ han
         {latestRecommendation ? (
           <>
             <p className="mb-3 text-xs text-muted">
-              Generated {new Date(latestRecommendation.generated_at).toLocaleString()} ·{" "}
-              {latestRecommendation.model}
+              Updated{" "}
+              {new Date(latestRecommendation.generated_at).toLocaleDateString(undefined, {
+                month: "short",
+                day: "numeric",
+              })}
             </p>
             <RecommendationContent content={latestRecommendation.content} />
           </>
         ) : (
           <p className="text-sm text-muted">
-            No recommendation generated yet — needs at least one daily scrape run.
+            No recommendation generated yet — check back after the next daily update.
           </p>
         )}
       </section>
@@ -118,13 +132,13 @@ export default async function InfluencerPage({ params }: { params: Promise<{ han
 
       <section className="card p-6">
         <h2 className="mb-4 text-lg font-semibold">Highlights</h2>
-        {highlights.length === 0 ? (
+        {dedupedHighlights.length === 0 ? (
           <p className="text-sm text-muted">
             No standout highlights yet — growth-over-time insights need a few days of daily captures.
           </p>
         ) : (
           <ul className="space-y-3">
-            {highlights.map((highlight) => (
+            {dedupedHighlights.map((highlight) => (
               <li
                 key={`${highlight.captured_at}-${highlight.content.slice(0, 24)}`}
                 className="rounded-xl border border-border bg-canvas px-4 py-3 text-sm leading-relaxed text-ink"

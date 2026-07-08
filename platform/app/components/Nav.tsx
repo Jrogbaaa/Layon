@@ -6,10 +6,7 @@ export function Nav() {
     <header className="border-b border-border bg-card">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
         <Link href="/" className="font-display text-lg font-extrabold tracking-tight text-ink">
-          You First{" "}
-          <span className="bg-gradient-to-r from-accent-2 to-accent bg-clip-text text-transparent">
-            Gersh
-          </span>
+          You First <span className="text-accent">Gersh</span>
         </Link>
         <nav className="flex items-center gap-6 text-sm font-medium text-muted">
           <Link href="/" className="hover:text-ink">
