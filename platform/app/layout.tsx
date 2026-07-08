@@ -13,7 +13,7 @@ const body = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "You First Gersh — Influencer Insights",
+  title: "Look After You — Influencer Insights",
   description: "Internal influencer metrics, trends, and creative recommendations.",
 };
 

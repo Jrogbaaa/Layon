@@ -109,6 +109,32 @@ def test_build_prompt_includes_highlights():
     assert "lead with the standout stat" in prompt
 
 
+def test_build_prompt_includes_alltime_top_posts_and_ceiling():
+    alltime_top_posts = [
+        {"shortcode": "big_win", "post_type": "reel", "likes": 190000, "comments": 10000, "views": 2000000, "caption": "huge reel"},
+    ]
+    prompt = recommendations.build_prompt("maria", _metrics(), [], alltime_top_posts=alltime_top_posts)
+    assert "[big_win]" in prompt
+    assert "what GOOD looks like for @maria" in prompt
+    assert "~200,000 engagement" in prompt
+
+
+def test_build_prompt_omits_alltime_section_when_none():
+    prompt = recommendations.build_prompt("handle", _metrics(), [], alltime_top_posts=None)
+    assert "what GOOD looks like" not in prompt
+
+
+def test_build_prompt_omits_alltime_section_when_empty_list():
+    prompt = recommendations.build_prompt("handle", _metrics(), [], alltime_top_posts=[])
+    assert "what GOOD looks like" not in prompt
+
+
+def test_build_prompt_renames_recent_heading_when_alltime_present():
+    alltime_top_posts = [{"shortcode": "x", "post_type": "reel", "likes": 100, "comments": 10, "views": None, "caption": "c"}]
+    prompt = recommendations.build_prompt("handle", _metrics(), [], alltime_top_posts=alltime_top_posts)
+    assert "Recent posts ranked by engagement" in prompt
+
+
 def test_build_prompt_requests_bullet_json_shape():
     prompt = recommendations.build_prompt("handle", _metrics(), [])
     assert '"bullets"' in prompt

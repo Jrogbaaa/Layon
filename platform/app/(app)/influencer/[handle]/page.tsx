@@ -23,7 +23,7 @@ export default async function InfluencerPage({ params }: { params: Promise<{ han
     notFound();
   }
 
-  const { influencer, profileHistory, recentPosts, latestRecommendation, highlights } = dashboard;
+  const { influencer, profileHistory, recentPosts, latestRecommendation, highlights, topPosts } = dashboard;
   const latestSnapshot = profileHistory[profileHistory.length - 1] ?? null;
   const followers = latestSnapshot?.followers ?? 0;
   const rate = followers > 0 ? engagementRate(recentPosts, followers) : 0;
@@ -99,6 +99,40 @@ export default async function InfluencerPage({ params }: { params: Promise<{ han
                   <p className="text-sm text-muted">{formatCount(stats.avgViews)} avg views</p>
                 ) : null}
                 <p className="mt-2 text-xs text-muted">based on {stats.count} posts</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="card mb-8 p-6">
+        <h2 className="mb-4 text-lg font-semibold">Top performing posts</h2>
+        {topPosts.length === 0 ? (
+          <p className="text-sm text-muted">
+            No post history yet — appears after the next scrape.
+          </p>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {topPosts.map((post) => (
+              <div key={post.shortcode} className="rounded-xl border border-border bg-canvas p-4">
+                <p className="text-sm capitalize text-muted">
+                  {post.post_type} ·{" "}
+                  {new Date(post.posted_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                </p>
+                <p className="font-display mt-1 text-2xl font-bold">{formatCount(post.engagement)}</p>
+                <p className="text-xs text-muted">likes + comments</p>
+                <p className="mt-2 text-sm text-ink">
+                  {post.likes.toLocaleString()} likes · {post.comments.toLocaleString()} comments
+                  {post.views != null ? ` · ${formatCount(post.views)} views` : ""}
+                </p>
+                <a
+                  href={`https://www.instagram.com/p/${post.shortcode}/`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 inline-block text-xs text-accent-strong hover:underline"
+                >
+                  View on Instagram →
+                </a>
               </div>
             ))}
           </div>

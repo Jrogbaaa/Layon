@@ -8,7 +8,7 @@ from . import config, db, instagram_scraper, metrics, recommendations
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
-BACKFILL_POSTS_PER_INFLUENCER = 36
+BACKFILL_POSTS_PER_INFLUENCER = 50
 
 
 def run_backfill_scrape(client) -> None:
@@ -54,7 +54,7 @@ def run_backfill_scrape(client) -> None:
             logger.exception("Failed to backfill %s — skipping", handle)
 
         if i < len(roster) - 1:
-            time.sleep(config.PROFILE_REQUEST_DELAY_SECONDS)
+            time.sleep(config.PROFILE_REQUEST_DELAY_SECONDS * 3)
 
 
 def run_recommendations(client) -> None:
@@ -68,6 +68,7 @@ def run_recommendations(client) -> None:
             posts = db.get_recent_posts(client, influencer["id"])
             highlights = db.get_latest_highlights(client, influencer["id"])
             content_map = db.get_post_content_map(client, influencer["id"])
+            alltime_top_posts = db.get_top_posts(client, influencer["id"])
             content = recommendations.generate_recommendation(
                 handle,
                 profile_snapshots,
@@ -75,6 +76,7 @@ def run_recommendations(client) -> None:
                 influencer.get("persona"),
                 highlights,
                 content_map,
+                alltime_top_posts,
             )
             db.insert_recommendation(client, influencer["id"], recommendations.GEMINI_MODEL, content)
             logger.info("Generated recommendation for %s", handle)
