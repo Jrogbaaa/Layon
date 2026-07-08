@@ -167,6 +167,18 @@ def get_latest_trend_snapshots(client: Client, limit: int = 2) -> list[dict]:
     return result.data
 
 
+def get_top_posts(client: Client, influencer_id: int, limit: int = 5) -> list[dict]:
+    result = (
+        client.table("top_posts")
+        .select("shortcode, post_type, likes, comments, views, caption, posted_at, engagement")
+        .eq("influencer_id", influencer_id)
+        .order("engagement", desc=True)
+        .limit(limit)
+        .execute()
+    )
+    return result.data
+
+
 def get_analyzed_shortcodes(client: Client, influencer_id: int) -> set[str]:
     result = (
         client.table("post_content")
@@ -236,6 +248,26 @@ def insert_roster_briefing(client: Client, model: str, content: str) -> None:
 def get_latest_roster_briefing(client: Client) -> dict | None:
     result = (
         client.table("roster_briefings")
+        .select("content, generated_at, model")
+        .order("generated_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+    return result.data[0] if result.data else None
+
+
+def insert_trend_headlines(client: Client, model: str, content: str) -> None:
+    client.table("trend_headlines").insert(
+        {
+            "model": model,
+            "content": content,
+        }
+    ).execute()
+
+
+def get_latest_trend_headlines(client: Client) -> dict | None:
+    result = (
+        client.table("trend_headlines")
         .select("content, generated_at, model")
         .order("generated_at", desc=True)
         .limit(1)

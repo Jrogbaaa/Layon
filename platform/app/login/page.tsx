@@ -10,7 +10,7 @@ export default function LoginPage() {
     <div className="flex flex-1 items-center justify-center bg-canvas px-4">
       <form action={formAction} className="card w-full max-w-sm p-8">
         <h1 className="font-display mb-1 text-xl font-bold tracking-tight text-ink">
-          You First <span className="text-accent">Gersh</span>
+          Look After <span className="text-accent">You</span>
         </h1>
         <p className="mb-6 text-sm text-muted">Influencer Insights Platform</p>
 

@@ -12,7 +12,7 @@ async function login(page: import("@playwright/test").Page) {
 test("unauthenticated visit redirects to login", async ({ page }) => {
   await page.goto("/");
   await expect(page).toHaveURL(/\/login/);
-  await expect(page.getByRole("heading", { name: "You First Gersh" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Look After You" })).toBeVisible();
 });
 
 test("login grants access to roster", async ({ page }) => {
@@ -42,6 +42,21 @@ test("influencer page renders creative recommendations section", async ({ page }
   await firstCard.click();
 
   await expect(page.getByRole("heading", { name: "Creative recommendations" })).toBeVisible();
+});
+
+test("influencer page renders top performing posts with Instagram links when present", async ({ page }) => {
+  await login(page);
+
+  const firstCard = page.locator('a.card[href^="/influencer/"]').first();
+  await firstCard.click();
+
+  const heading = page.getByRole("heading", { name: "Top performing posts" });
+  await expect(heading).toBeVisible();
+
+  const firstLink = page.getByRole("link", { name: "View on Instagram →" }).first();
+  if (await firstLink.isVisible().catch(() => false)) {
+    await expect(firstLink).toHaveAttribute("href", /instagram\.com\/p\//);
+  }
 });
 
 test("influencer detail page renders an avatar next to the handle", async ({ page }) => {

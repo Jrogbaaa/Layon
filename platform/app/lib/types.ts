@@ -36,11 +36,23 @@ export type TrendSnapshot = {
   captured_at: string;
 };
 
+export type TrendHeadlines = {
+  generated_at: string;
+  model: string;
+  content: string;
+};
+
+export type TrendHeadlinesPayload = {
+  headlines: { text: Bilingual; source_url: string | null }[];
+};
+
 export type Recommendation = {
   generated_at: string;
   model: string;
   content: string;
 };
+
+export type TopPost = PostSnapshot & { engagement: number };
 
 export type Bilingual = { en: string; es: string };
 
@@ -69,4 +81,5 @@ export type InfluencerDashboard = {
   recentPosts: PostSnapshot[];
   latestRecommendation: Recommendation | null;
   highlights: Highlight[];
+  topPosts: TopPost[];
 };

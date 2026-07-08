@@ -1,16 +1,30 @@
-import { getLatestTrends } from "@/app/lib/data";
+import { getLatestTrendHeadlines, getLatestTrends } from "@/app/lib/data";
+import { TrendHeadlinesList } from "@/app/components/TrendHeadlinesList";
+import { LanguageToggle } from "@/app/components/LanguageToggle";
 
 export const dynamic = "force-dynamic";
 
 export default async function TrendsPage() {
-  const trends = await getLatestTrends(10);
+  const headlinesRow = await getLatestTrendHeadlines();
+  const trends = headlinesRow ? [] : await getLatestTrends(4);
 
   return (
     <div>
-      <h1 className="font-display mb-1 text-2xl font-bold tracking-tight">Trends</h1>
-      <p className="mb-8 text-muted">Latest Instagram trend report scrapes, used to ground recommendations.</p>
+      <div className="mb-1 flex items-center justify-between">
+        <h1 className="font-display text-2xl font-bold tracking-tight">Trends</h1>
+        {headlinesRow ? <LanguageToggle /> : null}
+      </div>
+      <p className="mb-8 text-muted">
+        {headlinesRow
+          ? `Distilled from today's Spanish social trend reports · ${new Date(
+              headlinesRow.generated_at
+            ).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`
+          : "Latest Instagram trend report scrapes, used to ground recommendations."}
+      </p>
 
-      {trends.length === 0 ? (
+      {headlinesRow ? (
+        <TrendHeadlinesList content={headlinesRow.content} />
+      ) : trends.length === 0 ? (
         <p className="text-muted">No trend data yet — check back after the next daily update.</p>
       ) : (
         <div className="space-y-4">

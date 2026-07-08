@@ -3,6 +3,10 @@ from unittest.mock import MagicMock, patch
 from youfirst_scraper import backfill
 
 
+def test_backfill_posts_per_influencer_is_fifty():
+    assert backfill.BACKFILL_POSTS_PER_INFLUENCER == 50
+
+
 def test_run_backfill_scrape_uploads_avatar(monkeypatch):
     monkeypatch.setattr(backfill.config, "load_roster", lambda: ["good_handle"])
     monkeypatch.setattr(backfill.config, "PROFILE_REQUEST_DELAY_SECONDS", 0)
@@ -60,23 +64,25 @@ def test_run_recommendations_calls_generate_recommendation_with_current_signatur
     monkeypatch.setattr(backfill.db, "get_recent_posts", lambda c, i: [])
     monkeypatch.setattr(backfill.db, "get_latest_highlights", lambda c, i: [{"content": "notable", "metric": {}}])
     monkeypatch.setattr(backfill.db, "get_post_content_map", lambda c, i: {"abc": {"summary": "s", "analysis": {}}})
+    monkeypatch.setattr(backfill.db, "get_top_posts", lambda c, i: [{"shortcode": "top1", "likes": 190000, "comments": 5000}])
     monkeypatch.setattr(backfill.db, "insert_recommendation", lambda c, i, m, content: None)
 
     calls = {}
 
-    def fake_generate(handle, profile_snapshots, posts, persona=None, highlights=None, content_map=None):
-        calls["args"] = (handle, persona, highlights, content_map)
+    def fake_generate(handle, profile_snapshots, posts, persona=None, highlights=None, content_map=None, alltime_top_posts=None):
+        calls["args"] = (handle, persona, highlights, content_map, alltime_top_posts)
         return "content"
 
     monkeypatch.setattr(backfill.recommendations, "generate_recommendation", fake_generate)
 
     backfill.run_recommendations(MagicMock())
 
-    handle, persona, highlights, content_map = calls["args"]
+    handle, persona, highlights, content_map, alltime_top_posts = calls["args"]
     assert handle == "h"
     assert persona == "Comedian"
     assert highlights == [{"content": "notable", "metric": {}}]
     assert content_map == {"abc": {"summary": "s", "analysis": {}}}
+    assert alltime_top_posts == [{"shortcode": "top1", "likes": 190000, "comments": 5000}]
 
 
 def test_run_recommendations_skips_influencer_without_profile_history(monkeypatch):
