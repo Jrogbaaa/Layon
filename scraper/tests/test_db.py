@@ -30,3 +30,31 @@ def test_update_influencer_avatar_updates_by_id():
     table.update.assert_called_with({"avatar_url": "https://example.com/a.jpg"})
     update.eq.assert_called_with("id", 42)
     update.eq.return_value.execute.assert_called_once()
+
+
+def test_insert_roster_briefing_writes_model_and_content():
+    client = MagicMock()
+    table = client.table.return_value
+
+    db.insert_roster_briefing(client, "gemini-2.5-flash", '{"summary": {}}')
+
+    client.table.assert_called_with("roster_briefings")
+    table.insert.assert_called_once_with({"model": "gemini-2.5-flash", "content": '{"summary": {}}'})
+
+
+def test_get_latest_roster_briefing_returns_none_when_empty():
+    client = MagicMock()
+    execute = client.table.return_value.select.return_value.order.return_value.limit.return_value.execute
+    execute.return_value.data = []
+
+    assert db.get_latest_roster_briefing(client) is None
+
+
+def test_get_latest_recommendation_returns_first_row():
+    client = MagicMock()
+    execute = client.table.return_value.select.return_value.eq.return_value.order.return_value.limit.return_value.execute
+    execute.return_value.data = [{"content": "x", "generated_at": "2026-07-01T00:00:00Z"}]
+
+    result = db.get_latest_recommendation(client, 7)
+
+    assert result == {"content": "x", "generated_at": "2026-07-01T00:00:00Z"}

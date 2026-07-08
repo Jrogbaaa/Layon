@@ -7,6 +7,7 @@ import type {
   PostSnapshot,
   ProfileSnapshot,
   Recommendation,
+  RosterBriefing,
   RosterEntry,
   TrendSnapshot,
 } from "@/app/lib/types";
@@ -117,6 +118,18 @@ export async function getInfluencerDashboard(handle: string): Promise<Influencer
     latestRecommendation: ((recommendations ?? [])[0] as Recommendation) ?? null,
     highlights: (highlights ?? []) as Highlight[],
   };
+}
+
+export async function getLatestBriefing(): Promise<RosterBriefing | null> {
+  const client = getSupabaseClient();
+
+  const { data } = await client
+    .from("roster_briefings")
+    .select("generated_at, model, content")
+    .order("generated_at", { ascending: false })
+    .limit(1);
+
+  return ((data ?? [])[0] as RosterBriefing) ?? null;
 }
 
 export async function getLatestTrends(limit = 2): Promise<TrendSnapshot[]> {

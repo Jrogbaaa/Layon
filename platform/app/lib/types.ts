@@ -42,6 +42,20 @@ export type Recommendation = {
   content: string;
 };
 
+export type Bilingual = { en: string; es: string };
+
+export type RosterBriefing = {
+  generated_at: string;
+  model: string;
+  content: string;
+};
+
+export type BriefingPayload = {
+  summary: Bilingual;
+  patterns: { finding: Bilingual; evidence: string; handles: string[] }[];
+  actions: { handle: string; action: Bilingual; reason: Bilingual; shortcode: string | null }[];
+};
+
 export type RosterEntry = {
   influencer: Influencer;
   latestSnapshot: ProfileSnapshot | null;

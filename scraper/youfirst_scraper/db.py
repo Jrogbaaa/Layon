@@ -210,3 +210,35 @@ def insert_recommendation(client: Client, influencer_id: int, model: str, conten
             "content": content,
         }
     ).execute()
+
+
+def get_latest_recommendation(client: Client, influencer_id: int) -> dict | None:
+    result = (
+        client.table("recommendations")
+        .select("content, generated_at")
+        .eq("influencer_id", influencer_id)
+        .order("generated_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+    return result.data[0] if result.data else None
+
+
+def insert_roster_briefing(client: Client, model: str, content: str) -> None:
+    client.table("roster_briefings").insert(
+        {
+            "model": model,
+            "content": content,
+        }
+    ).execute()
+
+
+def get_latest_roster_briefing(client: Client) -> dict | None:
+    result = (
+        client.table("roster_briefings")
+        .select("content, generated_at, model")
+        .order("generated_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+    return result.data[0] if result.data else None

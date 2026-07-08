@@ -1,10 +1,21 @@
+import json
 import logging
 import time
 from datetime import date, datetime
 
 import requests
 
-from . import config, content_analysis, db, instagram_scraper, metrics, recommendations, trend_scraper
+from . import (
+    briefing,
+    config,
+    content_analysis,
+    db,
+    instagram_scraper,
+    metrics,
+    recommendations,
+    roster_patterns,
+    trend_scraper,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -102,10 +113,59 @@ def run_recommendations(client) -> None:
                 highlights,
                 content_map,
             )
+            if content is None:
+                logger.warning("No valid recommendation generated for %s — keeping previous", handle)
+                continue
             db.insert_recommendation(client, influencer["id"], recommendations.GEMINI_MODEL, content)
             logger.info("Generated recommendation for %s", handle)
         except Exception:
             logger.exception("Failed to generate recommendation for %s — skipping", handle)
+
+
+def _first_recommendation_text(content: str | None) -> str | None:
+    """Pull the first bullet's English text out of a stored recommendation JSON string."""
+    if not content:
+        return None
+    try:
+        bullets = json.loads(content)["bullets"]
+        return bullets[0]["text"]["en"]
+    except (json.JSONDecodeError, KeyError, IndexError, TypeError):
+        return None
+
+
+def run_roster_briefing(client) -> None:
+    influencers = db.list_influencers(client)
+    if not influencers:
+        logger.info("No influencers — skipping roster briefing")
+        return
+
+    profile_snapshots_by_id = {}
+    post_snapshots_by_id = {}
+    content_map_by_id = {}
+    recommendations_by_handle = {}
+
+    for influencer in influencers:
+        influencer_id = influencer["id"]
+        profile_snapshots_by_id[influencer_id] = db.get_profile_snapshots(client, influencer_id)
+        post_snapshots_by_id[influencer_id] = db.get_all_post_snapshots(client, influencer_id)
+        content_map_by_id[influencer_id] = db.get_post_content_map(client, influencer_id)
+
+        latest_recommendation = db.get_latest_recommendation(client, influencer_id)
+        text = _first_recommendation_text(latest_recommendation["content"] if latest_recommendation else None)
+        if text:
+            recommendations_by_handle[influencer["handle"]] = text
+
+    pattern_facts = roster_patterns.compute_roster_patterns(
+        influencers, profile_snapshots_by_id, post_snapshots_by_id, content_map_by_id
+    )
+
+    content = briefing.generate_briefing(pattern_facts, recommendations_by_handle)
+    if content is None:
+        logger.warning("No valid roster briefing generated — keeping previous")
+        return
+
+    db.insert_roster_briefing(client, briefing.GEMINI_MODEL, content)
+    logger.info("Generated roster briefing")
 
 
 def main() -> None:
@@ -117,6 +177,7 @@ def main() -> None:
     run_instagram_scrape(client)
     run_trend_scrape(client)
     run_recommendations(client)
+    run_roster_briefing(client)
     mark_ran_today()
     logger.info("Daily run complete at %s", datetime.now().isoformat())
 

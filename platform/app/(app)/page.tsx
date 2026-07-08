@@ -1,13 +1,14 @@
 import Link from "next/link";
-import { getRoster } from "@/app/lib/data";
+import { getLatestBriefing, getRoster } from "@/app/lib/data";
 import { formatCount } from "@/app/lib/metrics";
 import { HighlightContent } from "@/app/components/HighlightContent";
 import { Avatar } from "@/app/components/Avatar";
+import { RosterBriefing } from "@/app/components/RosterBriefing";
 
 export const dynamic = "force-dynamic";
 
 export default async function RosterPage() {
-  const roster = await getRoster();
+  const [roster, briefing] = await Promise.all([getRoster(), getLatestBriefing()]);
 
   const attentionItems = roster.flatMap(({ influencer, recentHighlights }) =>
     recentHighlights
@@ -19,6 +20,10 @@ export default async function RosterPage() {
     <div>
       <h1 className="font-display mb-1 text-2xl font-bold tracking-tight">Roster</h1>
       <p className="mb-8 text-muted">Instagram performance across the talent roster.</p>
+
+      {briefing ? (
+        <RosterBriefing content={briefing.content} generatedAt={briefing.generated_at} model={briefing.model} />
+      ) : null}
 
       {attentionItems.length > 0 ? (
         <section className="card mb-8 border-negative/20 p-6">

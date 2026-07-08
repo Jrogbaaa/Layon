@@ -13,6 +13,20 @@ def _metrics():
     }
 
 
+def _valid_bullet_response():
+    return json.dumps(
+        {
+            "bullets": [
+                {
+                    "text": {"en": "Do another reel like this", "es": "Haz otro reel similar"},
+                    "reason": {"en": "2x median", "es": "2x mediana"},
+                    "shortcode": None,
+                }
+            ]
+        }
+    )
+
+
 def test_build_prompt_includes_handle_and_metrics():
     prompt = recommendations.build_prompt("dante_caro", _metrics(), [])
     assert "dante_caro" in prompt
@@ -72,10 +86,14 @@ def test_build_prompt_omits_persona_section_when_none():
     assert "persona/brand" not in prompt
 
 
-def test_build_prompt_targets_spanish_audience_only():
+def test_build_prompt_targets_spanish_audience_for_context():
     prompt = recommendations.build_prompt("handle", _metrics(), [])
     assert "Spain / Spanish-speaking" in prompt
-    assert "in Spanish only" in prompt
+
+
+def test_build_prompt_requests_bilingual_output():
+    prompt = recommendations.build_prompt("handle", _metrics(), [])
+    assert "BOTH English and Spanish" in prompt
 
 
 def test_build_prompt_has_no_trend_report_section():
@@ -95,6 +113,8 @@ def test_build_prompt_requests_bullet_json_shape():
     prompt = recommendations.build_prompt("handle", _metrics(), [])
     assert '"bullets"' in prompt
     assert '"shortcode"' in prompt
+    assert '"en"' in prompt
+    assert '"es"' in prompt
 
 
 def test_generate_recommendation_calls_gemini_and_returns_valid_json():
@@ -102,36 +122,59 @@ def test_generate_recommendation_calls_gemini_and_returns_valid_json():
     posts = [{"shortcode": "xyz", "post_type": "reel", "likes": 10, "comments": 1, "posted_at": "2026-07-01T00:00:00Z", "caption": "hi"}]
 
     fake_response = MagicMock()
-    fake_response.text = json.dumps({"bullets": [{"text": "Haz otro reel similar", "reason": "2x mediana", "shortcode": None}]})
+    fake_response.text = _valid_bullet_response()
     fake_client = MagicMock()
     fake_client.models.generate_content.return_value = fake_response
 
     with patch("youfirst_scraper.recommendations.genai.Client", return_value=fake_client):
         result = recommendations.generate_recommendation("handle", profile_snapshots, posts)
 
-    assert json.loads(result)["bullets"][0]["text"] == "Haz otro reel similar"
+    parsed = json.loads(result)
+    assert parsed["bullets"][0]["text"]["es"] == "Haz otro reel similar"
+    assert parsed["bullets"][0]["text"]["en"] == "Do another reel like this"
     fake_client.models.generate_content.assert_called_once()
     _, kwargs = fake_client.models.generate_content.call_args
     assert kwargs["model"] == recommendations.GEMINI_MODEL
     assert "handle" in kwargs["contents"]
 
 
-def test_generate_recommendation_falls_back_to_raw_text_on_malformed_json():
+def test_generate_recommendation_retries_once_on_malformed_json_then_succeeds():
     profile_snapshots = [{"followers": 1000}]
     posts = []
 
-    fake_response = MagicMock()
-    fake_response.text = "not json at all"
+    bad_response = MagicMock()
+    bad_response.text = "not json at all"
+    good_response = MagicMock()
+    good_response.text = _valid_bullet_response()
+
     fake_client = MagicMock()
-    fake_client.models.generate_content.return_value = fake_response
+    fake_client.models.generate_content.side_effect = [bad_response, good_response]
 
     with patch("youfirst_scraper.recommendations.genai.Client", return_value=fake_client):
         result = recommendations.generate_recommendation("handle", profile_snapshots, posts)
 
-    assert result == "not json at all"
+    assert json.loads(result)["bullets"][0]["text"]["en"] == "Do another reel like this"
+    assert fake_client.models.generate_content.call_count == 2
 
 
-def test_generate_recommendation_falls_back_when_bullets_key_missing():
+def test_generate_recommendation_returns_none_after_two_failed_attempts():
+    profile_snapshots = [{"followers": 1000}]
+    posts = []
+
+    bad_response = MagicMock()
+    bad_response.text = "not json at all"
+
+    fake_client = MagicMock()
+    fake_client.models.generate_content.return_value = bad_response
+
+    with patch("youfirst_scraper.recommendations.genai.Client", return_value=fake_client):
+        result = recommendations.generate_recommendation("handle", profile_snapshots, posts)
+
+    assert result is None
+    assert fake_client.models.generate_content.call_count == 2
+
+
+def test_generate_recommendation_returns_none_when_bullets_key_missing():
     profile_snapshots = [{"followers": 1000}]
     posts = []
 
@@ -143,4 +186,19 @@ def test_generate_recommendation_falls_back_when_bullets_key_missing():
     with patch("youfirst_scraper.recommendations.genai.Client", return_value=fake_client):
         result = recommendations.generate_recommendation("handle", profile_snapshots, posts)
 
-    assert result == json.dumps({"other": "shape"})
+    assert result is None
+
+
+def test_generate_recommendation_returns_none_when_bullet_missing_language():
+    profile_snapshots = [{"followers": 1000}]
+    posts = []
+
+    fake_response = MagicMock()
+    fake_response.text = json.dumps({"bullets": [{"text": {"en": "only english"}, "reason": {"en": "r"}}]})
+    fake_client = MagicMock()
+    fake_client.models.generate_content.return_value = fake_response
+
+    with patch("youfirst_scraper.recommendations.genai.Client", return_value=fake_client):
+        result = recommendations.generate_recommendation("handle", profile_snapshots, posts)
+
+    assert result is None
