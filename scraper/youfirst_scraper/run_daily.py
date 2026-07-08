@@ -139,33 +139,36 @@ def run_roster_briefing(client) -> None:
         logger.info("No influencers — skipping roster briefing")
         return
 
-    profile_snapshots_by_id = {}
-    post_snapshots_by_id = {}
-    content_map_by_id = {}
-    recommendations_by_handle = {}
+    try:
+        profile_snapshots_by_id = {}
+        post_snapshots_by_id = {}
+        content_map_by_id = {}
+        recommendations_by_handle = {}
 
-    for influencer in influencers:
-        influencer_id = influencer["id"]
-        profile_snapshots_by_id[influencer_id] = db.get_profile_snapshots(client, influencer_id)
-        post_snapshots_by_id[influencer_id] = db.get_all_post_snapshots(client, influencer_id)
-        content_map_by_id[influencer_id] = db.get_post_content_map(client, influencer_id)
+        for influencer in influencers:
+            influencer_id = influencer["id"]
+            profile_snapshots_by_id[influencer_id] = db.get_profile_snapshots(client, influencer_id)
+            post_snapshots_by_id[influencer_id] = db.get_all_post_snapshots(client, influencer_id)
+            content_map_by_id[influencer_id] = db.get_post_content_map(client, influencer_id)
 
-        latest_recommendation = db.get_latest_recommendation(client, influencer_id)
-        text = _first_recommendation_text(latest_recommendation["content"] if latest_recommendation else None)
-        if text:
-            recommendations_by_handle[influencer["handle"]] = text
+            latest_recommendation = db.get_latest_recommendation(client, influencer_id)
+            text = _first_recommendation_text(latest_recommendation["content"] if latest_recommendation else None)
+            if text:
+                recommendations_by_handle[influencer["handle"]] = text
 
-    pattern_facts = roster_patterns.compute_roster_patterns(
-        influencers, profile_snapshots_by_id, post_snapshots_by_id, content_map_by_id
-    )
+        pattern_facts = roster_patterns.compute_roster_patterns(
+            influencers, profile_snapshots_by_id, post_snapshots_by_id, content_map_by_id
+        )
 
-    content = briefing.generate_briefing(pattern_facts, recommendations_by_handle)
-    if content is None:
-        logger.warning("No valid roster briefing generated — keeping previous")
-        return
+        content = briefing.generate_briefing(pattern_facts, recommendations_by_handle)
+        if content is None:
+            logger.warning("No valid roster briefing generated — keeping previous")
+            return
 
-    db.insert_roster_briefing(client, briefing.GEMINI_MODEL, content)
-    logger.info("Generated roster briefing")
+        db.insert_roster_briefing(client, briefing.GEMINI_MODEL, content)
+        logger.info("Generated roster briefing")
+    except Exception:
+        logger.exception("Failed to generate roster briefing — keeping previous")
 
 
 def main() -> None:

@@ -82,12 +82,15 @@ def _validate(parsed: object) -> None:
         finding = pattern.get("finding") if isinstance(pattern, dict) else None
         if not isinstance(finding, dict) or "en" not in finding or "es" not in finding:
             raise ValueError("pattern finding missing en/es")
+        handles = pattern.get("handles") if isinstance(pattern, dict) else None
+        if not isinstance(handles, list) or not all(isinstance(h, str) for h in handles):
+            raise ValueError("pattern handles must be a list of strings")
 
     if not isinstance(parsed["actions"], list):
         raise ValueError("actions must be a list")
     for action in parsed["actions"]:
-        if not isinstance(action, dict) or "handle" not in action:
-            raise ValueError("action missing handle")
+        if not isinstance(action, dict) or not isinstance(action.get("handle"), str):
+            raise ValueError("action missing string handle")
         for field in ("action", "reason"):
             value = action.get(field)
             if not isinstance(value, dict) or "en" not in value or "es" not in value:
@@ -129,7 +132,7 @@ def generate_briefing(pattern_facts: dict, recommendations_by_handle: dict[str, 
             _validate(parsed)
             _normalize_handles(parsed)
             return json.dumps(parsed)
-        except (json.JSONDecodeError, ValueError) as e:
+        except (json.JSONDecodeError, ValueError, KeyError, TypeError, AttributeError) as e:
             last_error = e
             logger.warning("Roster briefing invalid on attempt %d: %s", attempt + 1, e)
 

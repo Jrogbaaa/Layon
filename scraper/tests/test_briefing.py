@@ -144,6 +144,69 @@ def test_generate_briefing_strips_leading_at_from_handles():
     assert parsed["actions"][0]["handle"] == "a"
 
 
+def test_generate_briefing_returns_none_when_pattern_missing_handles():
+    fake_response = MagicMock()
+    fake_response.text = json.dumps(
+        {
+            "summary": {"en": "ok", "es": "ok"},
+            "patterns": [{"finding": {"en": "f", "es": "f"}, "evidence": "e"}],
+            "actions": [],
+        }
+    )
+    fake_client = MagicMock()
+    fake_client.models.generate_content.return_value = fake_response
+
+    with patch("youfirst_scraper.briefing.genai.Client", return_value=fake_client):
+        result = briefing.generate_briefing(_pattern_facts())
+
+    assert result is None
+    assert fake_client.models.generate_content.call_count == 2
+
+
+def test_generate_briefing_returns_none_when_action_handle_is_not_a_string():
+    fake_response = MagicMock()
+    fake_response.text = json.dumps(
+        {
+            "summary": {"en": "ok", "es": "ok"},
+            "patterns": [],
+            "actions": [
+                {
+                    "handle": None,
+                    "action": {"en": "a", "es": "a"},
+                    "reason": {"en": "r", "es": "r"},
+                    "shortcode": None,
+                }
+            ],
+        }
+    )
+    fake_client = MagicMock()
+    fake_client.models.generate_content.return_value = fake_response
+
+    with patch("youfirst_scraper.briefing.genai.Client", return_value=fake_client):
+        result = briefing.generate_briefing(_pattern_facts())
+
+    assert result is None
+    assert fake_client.models.generate_content.call_count == 2
+
+
+def test_generate_briefing_returns_none_when_pattern_handles_contains_non_string():
+    fake_response = MagicMock()
+    fake_response.text = json.dumps(
+        {
+            "summary": {"en": "ok", "es": "ok"},
+            "patterns": [{"finding": {"en": "f", "es": "f"}, "evidence": "e", "handles": ["a", 5]}],
+            "actions": [],
+        }
+    )
+    fake_client = MagicMock()
+    fake_client.models.generate_content.return_value = fake_response
+
+    with patch("youfirst_scraper.briefing.genai.Client", return_value=fake_client):
+        result = briefing.generate_briefing(_pattern_facts())
+
+    assert result is None
+
+
 def test_generate_briefing_returns_none_when_summary_missing_language():
     fake_response = MagicMock()
     fake_response.text = json.dumps({"summary": {"en": "only english"}, "patterns": [], "actions": []})

@@ -274,6 +274,29 @@ def test_run_roster_briefing_skips_insert_when_generation_returns_none(monkeypat
     assert insert_calls == []
 
 
+def test_run_roster_briefing_does_not_crash_pipeline_on_unexpected_error(monkeypatch):
+    monkeypatch.setattr(run_daily.db, "list_influencers", lambda c: [{"id": 1, "handle": "a"}])
+    monkeypatch.setattr(run_daily.db, "get_profile_snapshots", lambda c, i: [])
+    monkeypatch.setattr(run_daily.db, "get_all_post_snapshots", lambda c, i: [])
+    monkeypatch.setattr(run_daily.db, "get_post_content_map", lambda c, i: {})
+    monkeypatch.setattr(run_daily.db, "get_latest_recommendation", lambda c, i: None)
+
+    def raise_unexpected(*args, **kwargs):
+        raise KeyError("handles")
+
+    monkeypatch.setattr(run_daily.briefing, "generate_briefing", raise_unexpected)
+
+    insert_calls = []
+    monkeypatch.setattr(
+        run_daily.db, "insert_roster_briefing", lambda c, model, content: insert_calls.append(content)
+    )
+
+    # Must not raise — an unexpected failure here shouldn't crash main()'s daily run.
+    run_daily.run_roster_briefing(MagicMock())
+
+    assert insert_calls == []
+
+
 def test_run_trend_scrape_skips_failing_source_and_continues(monkeypatch):
     monkeypatch.setattr(run_daily.config, "TREND_SOURCES", ["https://example.com/a", "https://example.com/b"])
     monkeypatch.setattr(run_daily.db, "trend_source_scraped_today", lambda c, url: False)
