@@ -1,0 +1,221 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-08T00:00:00Z",
+  "title": "Design System: You First Gersh",
+  "extensions": {
+    "colorMeta": {
+      "accent": {
+        "role": "primary",
+        "displayName": "Signal Blue",
+        "canonical": "oklch(62% 0.17 250)",
+        "tonalRamp": [
+          "#0d2c52",
+          "#123f74",
+          "#18579e",
+          "#2073c9",
+          "#2e8ff0",
+          "#6bb0f5",
+          "#a4d0fa",
+          "#e0f0fe"
+        ]
+      },
+      "accent-2": {
+        "role": "secondary",
+        "displayName": "Signal Teal",
+        "canonical": "oklch(72% 0.13 175)",
+        "tonalRamp": [
+          "#0a4a3e",
+          "#0e6656",
+          "#128670",
+          "#15a68a",
+          "#18c8a8",
+          "#5fdcc4",
+          "#a3ecde",
+          "#dffaf4"
+        ]
+      },
+      "canvas": {
+        "role": "neutral",
+        "displayName": "Canvas",
+        "canonical": "oklch(95% 0.01 235)",
+        "tonalRamp": [
+          "#eef3f6"
+        ]
+      },
+      "card": {
+        "role": "neutral",
+        "displayName": "Card White",
+        "canonical": "oklch(100% 0 0)",
+        "tonalRamp": [
+          "#ffffff"
+        ]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Border Mist",
+        "canonical": "oklch(91% 0.01 235)",
+        "tonalRamp": [
+          "#e1e7ed"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "oklch(20% 0.02 250)",
+        "tonalRamp": [
+          "#12181f"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted Slate",
+        "canonical": "oklch(51% 0.02 250)",
+        "tonalRamp": [
+          "#6b7684"
+        ]
+      },
+      "positive": {
+        "role": "success",
+        "displayName": "Positive",
+        "canonical": "oklch(58% 0.12 165)",
+        "tonalRamp": [
+          "#0e9c7f"
+        ]
+      },
+      "positive-soft": {
+        "role": "success",
+        "displayName": "Positive Soft",
+        "canonical": "oklch(95% 0.03 165)",
+        "tonalRamp": [
+          "#e3f7f1"
+        ]
+      },
+      "negative": {
+        "role": "danger",
+        "displayName": "Negative",
+        "canonical": "oklch(55% 0.16 25)",
+        "tonalRamp": [
+          "#d14343"
+        ]
+      },
+      "negative-soft": {
+        "role": "danger",
+        "displayName": "Negative Soft",
+        "canonical": "oklch(95% 0.02 25)",
+        "tonalRamp": [
+          "#fbeaea"
+        ]
+      },
+      "accent-strong": {
+        "role": "primary",
+        "displayName": "Signal Blue Deep",
+        "canonical": "oklch(52% 0.15 250)",
+        "tonalRamp": [
+          "#1c6fc4"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Page titles, wordmark, influencer names on detail header."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Stat labels, table content, recommendation copy, nav links."
+      }
+    },
+    "shadows": [
+      {
+        "name": "card-ambient",
+        "value": "0 1px 2px rgba(20,30,45,0.04), 0 8px 24px -12px rgba(20,30,45,0.12)",
+        "purpose": "The system's single elevation level, applied to .card."
+      }
+    ],
+    "motion": [],
+    "breakpoints": []
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Solid Signal Blue Deep submit/primary action button (login, forms). Gradient fill retired for AA contrast.",
+      "html": "<button class=\"ds-btn-primary\">Sign in</button>",
+      "css": ".ds-btn-primary { background: #1c6fc4; color: #ffffff; font-weight: 600; padding: 0.5rem 0.75rem; border-radius: 0.5rem; border: none; transition: opacity 0.15s ease-out; } .ds-btn-primary:hover { opacity: 0.9; } .ds-btn-primary:focus-visible { outline: 2px solid #2e8ff0; outline-offset: 2px; } .ds-btn-primary:disabled { opacity: 0.5; }"
+    },
+    {
+      "name": "Ghost Nav Link",
+      "kind": "nav",
+      "refersTo": "nav-link",
+      "description": "Nav bar link/action, muted at rest, ink on hover.",
+      "html": "<a class=\"ds-nav-link\" href=\"#\">Roster</a>",
+      "css": ".ds-nav-link { color: #6b7684; font-size: 0.875rem; font-weight: 500; text-decoration: none; transition: color 0.15s ease-out; } .ds-nav-link:hover, .ds-nav-link:focus-visible { color: #12181f; }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "The single surface primitive used for roster cards, forms, and detail panels.",
+      "html": "<div class=\"ds-card\">Card content</div>",
+      "css": ".ds-card { background: #ffffff; border: 1px solid #e1e7ed; border-radius: 1.125rem; box-shadow: 0 1px 2px rgba(20,30,45,0.04), 0 8px 24px -12px rgba(20,30,45,0.12); padding: 1.5rem; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Form field (e.g. login password field).",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Password\" />",
+      "css": ".ds-input { width: 100%; background: #eef3f6; border: 1px solid #e1e7ed; border-radius: 0.5rem; padding: 0.5rem 0.75rem; color: #12181f; outline: none; transition: border-color 0.15s ease-out; } .ds-input:focus-visible { border-color: #2e8ff0; }"
+    },
+    {
+      "name": "Wordmark",
+      "kind": "custom",
+      "refersTo": "wordmark",
+      "description": "Brand lockup: 'You First' in Ink, 'Gersh' in solid Signal Blue. No gradient text.",
+      "html": "<span class=\"ds-wordmark\">You First <span class=\"ds-wordmark-accent\">Gersh</span></span>",
+      "css": ".ds-wordmark { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; letter-spacing: -0.02em; color: #12181f; } .ds-wordmark-accent { color: #2e8ff0; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Trading Floor",
+    "overview": "A calm, high-signal instrument for people making real decisions about real careers. Talent managers scan dozens of influencers a day; the system's job is to make \"who needs attention\" answerable at a glance, then get out of the way. Density is embraced, but never at the cost of scanability — every screen is a triage screen first, a report second. This system explicitly rejects generic AI-dashboard scaffolding: gradient text, decorative glassmorphism, hero-metric-template stat blocks, and identical icon-card grids that could belong to any SaaS product. Restraint is deliberate: the blue/teal accent pair is a signal, not decoration, and its rarity is what keeps it meaningful.",
+    "keyCharacteristics": [
+      "Cool, near-white canvas with a single card surface — no visual competition with the data.",
+      "One accent hue pair (blue primary, teal secondary) used sparingly and consistently as the signal color.",
+      "Semantic color (positive/negative) reserved strictly for trend direction, never decoration.",
+      "Plus Jakarta Sans for display weight, Inter for everything read at length."
+    ],
+    "rules": [
+      {
+        "name": "The Signal Rule",
+        "body": "Signal Blue and Signal Teal together account for a small minority of any screen's surface. If the accent pair is more than a fifth of what's visible, something has been decorated instead of designed.",
+        "section": "colors"
+      },
+      {
+        "name": "The Solid Text Rule",
+        "body": "Text is always a solid color from the palette. Gradients are reserved for fills (buttons, subtle chart accents) and never applied to text via background-clip: text.",
+        "section": "typography"
+      },
+      {
+        "name": "The One Shadow Rule",
+        "body": "There is exactly one elevation level. Introducing a second (e.g. a heavier modal shadow) requires a deliberate reason, not a hover-state reflex.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do keep Signal Blue and Signal Teal rare and intentional — the Signal Rule.",
+      "Do use Signal Blue Deep (#1c6fc4) for any fill that carries white text; plain Signal Blue and the teal→blue gradient both fail AA under white text.",
+      "Do use the single Card Ambient shadow for every elevated surface; don't invent a second shadow scale.",
+      "Do reserve Positive/Negative color strictly for trend direction and error states."
+    ],
+    "donts": [
+      "Don't use gradient text (background-clip: text + gradient). This was present on the wordmark and has been replaced with solid Signal Blue.",
+      "Don't add tiny uppercase tracked eyebrows above sections — not part of this system's vocabulary.",
+      "Don't build identical icon+heading+text card grids; roster and detail layouts are data-first, not marketing-card-first.",
+      "Don't use glassmorphism or decorative blur — the system is flat and opaque.",
+      "Don't reach for the hero-metric-template (big number + small label + gradient accent) for stat tiles; let the number and its trend delta carry the weight without extra chrome.",
+      "Don't introduce a warm-tinted neutral background; Canvas stays cool (blue-gray), matching the Trading Floor register."
+    ]
+  }
+}

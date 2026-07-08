@@ -5,7 +5,7 @@ const password = process.env.SITE_PASSWORD ?? "LAYCC";
 async function login(page: import("@playwright/test").Page) {
   await page.goto("/login");
   await page.getByLabel("Password").fill(password);
-  await page.getByRole("button", { name: "Enter" }).click();
+  await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByRole("heading", { name: "Roster", exact: true })).toBeVisible();
 }
 

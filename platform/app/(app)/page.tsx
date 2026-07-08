@@ -22,7 +22,7 @@ export default async function RosterPage() {
       <p className="mb-8 text-muted">Instagram performance across the talent roster.</p>
 
       {briefing ? (
-        <RosterBriefing content={briefing.content} generatedAt={briefing.generated_at} model={briefing.model} />
+        <RosterBriefing content={briefing.content} generatedAt={briefing.generated_at} />
       ) : null}
 
       {attentionItems.length > 0 ? (
@@ -44,7 +44,7 @@ export default async function RosterPage() {
 
       {roster.length === 0 ? (
         <p className="text-muted">
-          No influencer data yet. Run the scraper (see <code>scraper/README.md</code>) to populate this page.
+          No influencer data yet — it will appear after the next daily update.
         </p>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -56,7 +56,7 @@ export default async function RosterPage() {
               <Link
                 key={influencer.id}
                 href={`/influencer/${influencer.handle}`}
-                className="card p-6 transition hover:-translate-y-0.5 hover:shadow-lg"
+                className="card p-6 transition hover:-translate-y-0.5 hover:border-accent"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -64,37 +64,50 @@ export default async function RosterPage() {
                     <p className="text-lg font-semibold">@{influencer.handle}</p>
                   </div>
                   {hasWarning ? (
-                    <span className="rounded-full bg-negative-soft px-2 py-0.5 text-xs font-medium text-negative">
+                    <span
+                      title="A warning-level highlight was flagged in the latest data"
+                      className="rounded-full bg-negative-soft px-2 py-0.5 text-xs font-medium text-negative"
+                    >
                       attention
                     </span>
                   ) : hasGood ? (
-                    <span className="rounded-full bg-positive-soft px-2 py-0.5 text-xs font-medium text-positive">
+                    <span
+                      title="A standout positive highlight was flagged in the latest data"
+                      className="rounded-full bg-positive-soft px-2 py-0.5 text-xs font-medium text-positive"
+                    >
                       breakout
                     </span>
                   ) : null}
                 </div>
                 {latestSnapshot ? (
-                  <>
-                    <p className="font-display mt-3 text-3xl font-extrabold tracking-tight">
-                      {formatCount(latestSnapshot.followers)}
-                    </p>
-                    <p className="text-sm text-muted">followers</p>
-                    <p
-                      className={`mt-2 text-sm font-medium ${
-                        followerDelta > 0
-                          ? "text-positive"
-                          : followerDelta < 0
-                            ? "text-negative"
-                            : "text-muted"
-                      }`}
-                    >
-                      {followerDelta === 0
-                        ? "No change since last scrape"
-                        : `${followerDelta > 0 ? "+" : ""}${followerDelta.toLocaleString()} since last scrape`}
-                    </p>
-                  </>
+                  (() => {
+                    // Deltas below ~0.01% of the audience are noise — keep alarm colors meaningful.
+                    const meaningful =
+                      Math.abs(followerDelta) >= Math.max(5, latestSnapshot.followers * 0.0001);
+                    return (
+                      <>
+                        <p className="font-display mt-3 text-3xl font-extrabold tracking-tight">
+                          {formatCount(latestSnapshot.followers)}
+                        </p>
+                        <p className="text-sm text-muted">followers</p>
+                        <p
+                          className={`mt-2 text-sm font-medium ${
+                            meaningful && followerDelta > 0
+                              ? "text-positive"
+                              : meaningful && followerDelta < 0
+                                ? "text-negative"
+                                : "text-muted"
+                          }`}
+                        >
+                          {followerDelta === 0
+                            ? "No change since yesterday"
+                            : `${followerDelta > 0 ? "+" : ""}${followerDelta.toLocaleString()} since yesterday`}
+                        </p>
+                      </>
+                    );
+                  })()
                 ) : (
-                  <p className="mt-3 text-sm text-muted">No scrape data yet</p>
+                  <p className="mt-3 text-sm text-muted">No data yet</p>
                 )}
               </Link>
             );

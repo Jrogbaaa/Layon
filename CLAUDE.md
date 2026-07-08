@@ -55,6 +55,15 @@ this flow — see the Triviality Threshold in contract.md.
   against real Instagram is the integration check (see CONSTITUTION.md Definition of Done).
 - `platform/`: Playwright for the password gate and dashboard rendering.
 
+## Design Context
+
+`platform/` frontend work should follow [PRODUCT.md](./PRODUCT.md) and [DESIGN.md](./DESIGN.md)
+(managed via the `impeccable` skill — see `.claude/skills/impeccable/`). North Star: "The Trading
+Floor" — a calm, high-signal triage tool, not a marketing-style dashboard. Key rules: accent colors
+(Signal Blue `#2e8ff0` / Signal Teal `#18c8a8`) stay rare and intentional; no gradient text; one
+shadow level only; no warm-tinted backgrounds. Run `/impeccable critique <page>` before UI changes
+to a page that hasn't been scored yet.
+
 ## Post-Task Checklist
 
 Before calling anything done:

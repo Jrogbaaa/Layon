@@ -13,7 +13,8 @@ export function FollowerChart({ history }: { history: ProfileSnapshot[] }) {
   if (dayCount < MIN_DAYS) {
     return (
       <p className="text-sm text-muted">
-        Collecting daily data — chart unlocks after {MIN_DAYS} daily scrapes ({dayCount} of {MIN_DAYS}).
+        Collecting daily data — the trend chart appears after {MIN_DAYS} days of tracking ({dayCount} of{" "}
+        {MIN_DAYS} so far).
       </p>
     );
   }
@@ -33,8 +34,8 @@ export function FollowerChart({ history }: { history: ProfileSnapshot[] }) {
           </linearGradient>
         </defs>
         <CartesianGrid strokeDasharray="3 3" stroke="#e1e7ed" />
-        <XAxis dataKey="date" stroke="#6b7684" fontSize={12} />
-        <YAxis stroke="#6b7684" fontSize={12} width={60} tickFormatter={(v) => formatCount(v)} />
+        <XAxis dataKey="date" stroke="#5b6675" fontSize={12} />
+        <YAxis stroke="#5b6675" fontSize={12} width={60} tickFormatter={(v) => formatCount(v)} />
         <Tooltip
           contentStyle={{ background: "#ffffff", border: "1px solid #e1e7ed", borderRadius: 8 }}
           labelStyle={{ color: "#12181f" }}
