@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 export function HighlightContent({ content }: { content: string }) {
   const parts: ReactNode[] = [];
   let lastIndex = 0;
-  const re = /post\s+([A-Za-z0-9_-]+)/g;
+  const re = /(?:post|reel)\s+([A-Za-z0-9_-]+)/g;
   let match: RegExpExecArray | null;
 
   while ((match = re.exec(content)) !== null) {

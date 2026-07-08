@@ -31,11 +31,14 @@ export default async function InfluencerPage({ params }: { params: Promise<{ han
   const cadence = postingCadence(recentPosts);
   const formatBreakdown = formatPerformance(recentPosts, followers);
 
-  // Repeated daily captures can surface the same post spike more than once;
-  // keep only the most recent mention per referenced post.
+  // Repeated daily captures can surface the same post/reel spike more than once;
+  // keep only the most recent mention per referenced post. If two distinct
+  // highlights reference the same shortcode on the same captured_at, the
+  // query has no tie-break, so which one wins is non-deterministic — rare
+  // enough not to warrant a secondary sort key.
   const seenShortcodes = new Set<string>();
   const dedupedHighlights = highlights.filter((highlight) => {
-    const shortcode = highlight.content.match(/post\s+([A-Za-z0-9_-]+)/)?.[1];
+    const shortcode = highlight.content.match(/(?:post|reel)\s+([A-Za-z0-9_-]+)/)?.[1];
     if (!shortcode) return true;
     if (seenShortcodes.has(shortcode)) return false;
     seenShortcodes.add(shortcode);

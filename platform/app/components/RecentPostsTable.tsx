@@ -13,7 +13,7 @@ export function RecentPostsTable({
   }
 
   return (
-    <div className="overflow-x-auto [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] sm:[mask-image:none]">
+    <div className="overflow-x-auto [mask-image:linear-gradient(to_right,black_calc(100%_-_1.5rem),transparent)] sm:[mask-image:none]">
       <table className="w-full min-w-[640px] text-left text-sm sm:min-w-0">
         <thead>
           <tr className="border-b border-border text-xs text-muted">
