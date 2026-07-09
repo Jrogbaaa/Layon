@@ -2,38 +2,38 @@
 
 ## Current Goal
 
-feature_008 — visual redesign, "Fresh Current" theme.
+feature_009 — showcase visual redesign, "Medianoche" theme (see spec.md).
 
 ## Current State
 
-**Built by Generator, pending independent Evaluator pass.**
+**Built and self-evaluated over three iteration passes; verified.**
 
-- `app/globals.css`: new semantic tokens (`canvas`, `card`, `border`, `ink`, `muted`,
-  `accent`, `accent-2`, `positive(-soft)`, `negative(-soft)`) via Tailwind v4 `@theme`;
-  `.card` helper class; fixed the dead Arial override so the loaded font actually
-  applies.
-- `app/layout.tsx`: swapped Geist/Geist Mono for Plus Jakarta Sans (`--font-display`) +
-  Inter (`--font-body`).
-- Swept every page/component off inline `neutral-*`/`amber-*`/`emerald-*`/`red-4*`
-  classes onto the new tokens: `Nav.tsx`, `(app)/layout.tsx`, `(app)/page.tsx`,
-  `influencer/[handle]/page.tsx`, `trends/page.tsx`, `login/page.tsx`,
-  `RecentPostsTable.tsx`, `RecommendationContent.tsx`, `HighlightContent.tsx`.
-- `FollowerChart.tsx`: Recharts grid/axis/tooltip colors updated, line now uses a
-  teal→sky gradient stroke.
-- Login page carries the signature moment: gradient wordmark + gradient CTA button.
-- Verification: `npm run build` clean, `npm run lint` clean, Playwright 5/5 passing,
-  scraper pytest 64/64 passing (unaffected, confirming the change stayed
-  platform-only). Visually verified roster + influencer detail pages against a running
-  dev server via Playwright screenshots — matches the selected mockup direction.
-- Five directions were mocked up as an interactive HTML artifact and reviewed with the
-  user before build; "Fresh Current" was explicitly selected over Madrid Editorial,
-  Studio Ink, Ledger, and Sol.
+- `app/globals.css`: full token replacement — garnet-black canvas, ivory ink, gilded
+  amber accent, mint/vermillion semantics; `.panel`, `.display-hero`, `.grain`,
+  `.rule-gold`, `.tnum` helpers; tape/silk/sparkline keyframes; global reduced-motion
+  floor; dark autofill override.
+- `app/layout.tsx`: Fraunces (variable, opsz/SOFT/WONK) + Archivo + Spline Sans Mono.
+- New components: `SilkCanvas` (raw-WebGL fbm silk shader with static/reduced-motion/
+  no-WebGL floors), `Tape` (roster ticker), `Reveal`, `CountUp`, `Sparkline`,
+  `NavLinks` (active-state nav).
+- Redesigned all surfaces: login (cinematic gate + AI-generated key art `public/silk.jpg`,
+  generated via Higgsfield soul_2; video animation skipped — requires paid plan),
+  roster ("The Roster" masthead + dispatch pull-quote + watchlist + tonight's index),
+  influencer profile (star hero, stat band, trajectory chart with tight-range exact
+  ticks, format bars, greatest hits, the brief), trends ("The Wire" headline wall).
+- `next.config.ts`: `experimental.viewTransition` — avatar morphs roster→profile.
+- Data layer: `getRoster` now returns 14-capture history for sparklines and is wrapped
+  in React `cache()` (tape + page dedupe).
+- e2e specs updated to new copy/selectors.
+- Verification: `npm run build` clean, lint clean (1 pre-existing img warning),
+  Playwright 10/10 passing. Desktop + mobile screenshots reviewed each pass; mobile
+  overflow, chart tick collision, autofill, duplicate-handle, and noise-gated delta
+  issues found and fixed across the three passes.
+- `DESIGN.md` rewritten for Medianoche; `PRODUCT.md` brand personality updated.
 
 ## Next Action
 
-Spawn the Evaluator as an independent subagent (per `agent-harness/prompts/evaluator.md`)
-to review this diff against `spec.md`/`featurelist.json`/`contract.md`/`rubric.md`,
-re-run the same checks itself, and write `agent-harness/findings.md`.
+None — awaiting user review of the branch `feature/fable-showcase-redesign`.
 
 ---
 

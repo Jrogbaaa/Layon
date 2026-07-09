@@ -4,16 +4,16 @@ const password = process.env.SITE_PASSWORD ?? "LAYCC";
 
 async function login(page: import("@playwright/test").Page) {
   await page.goto("/login");
-  await page.getByLabel("Password").fill(password);
-  await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("heading", { name: "Roster", exact: true })).toBeVisible();
+  await page.getByLabel("Team password").fill(password);
+  await page.getByRole("button", { name: "Enter" }).click();
+  await expect(page.getByRole("heading", { name: "The Roster", exact: true })).toBeVisible();
 }
 
 test("trends page shows big headlines and toggles language when present, else falls back", async ({ page }) => {
   await login(page);
   await page.goto("/trends");
 
-  await expect(page.getByRole("heading", { name: "Trends" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "The Wire" })).toBeVisible();
 
   const toggle = page.getByRole("button", { name: /^(EN|ES)$/ });
   if (await toggle.isVisible().catch(() => false)) {

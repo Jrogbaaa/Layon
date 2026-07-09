@@ -1,14 +1,21 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans, Inter } from "next/font/google";
+import { Fraunces, Archivo, Spline_Sans_Mono } from "next/font/google";
 import "./globals.css";
 
-const display = Plus_Jakarta_Sans({
+const display = Fraunces({
   variable: "--font-display",
+  subsets: ["latin"],
+  axes: ["opsz", "SOFT", "WONK"],
+  style: ["normal", "italic"],
+});
+
+const body = Archivo({
+  variable: "--font-body",
   subsets: ["latin"],
 });
 
-const body = Inter({
-  variable: "--font-body",
+const mono = Spline_Sans_Mono({
+  variable: "--font-mono",
   subsets: ["latin"],
 });
 
@@ -25,7 +32,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${display.variable} ${body.variable} h-full antialiased`}
+      className={`${display.variable} ${body.variable} ${mono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>

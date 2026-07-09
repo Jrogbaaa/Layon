@@ -10,40 +10,55 @@ export default async function TrendsPage() {
 
   return (
     <div>
-      <div className="mb-1 flex items-center justify-between">
-        <h1 className="font-display text-2xl font-bold tracking-tight">Trends</h1>
-        {headlinesRow ? <LanguageToggle /> : null}
+      <div className="flex flex-wrap items-end justify-between gap-6">
+        <div>
+          <h1 className="display-hero text-6xl text-ink sm:text-7xl">The Wire</h1>
+          <p className="mt-3 max-w-md text-muted">
+            {headlinesRow
+              ? "What moved the Spanish social landscape today, distilled to headlines."
+              : "Latest Instagram trend report scrapes, used to ground recommendations."}
+          </p>
+        </div>
+        {headlinesRow ? (
+          <div className="flex items-center gap-4 pb-1">
+            <span className="font-mono text-xs text-faint">
+              {new Date(headlinesRow.generated_at)
+                .toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
+                .toUpperCase()}
+            </span>
+            <LanguageToggle />
+          </div>
+        ) : null}
       </div>
-      <p className="mb-8 text-muted">
-        {headlinesRow
-          ? `Distilled from today's Spanish social trend reports · ${new Date(
-              headlinesRow.generated_at
-            ).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`
-          : "Latest Instagram trend report scrapes, used to ground recommendations."}
-      </p>
+
+      <hr className="rule-gold mt-8 mb-12" />
 
       {headlinesRow ? (
         <TrendHeadlinesList content={headlinesRow.content} />
       ) : trends.length === 0 ? (
         <p className="text-muted">No trend data yet — check back after the next daily update.</p>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-10">
           {trends.map((trend, i) => (
-            <div key={`${trend.source_url}-${i}`} className="card p-6">
-              <p className="text-xs text-muted">
-                {new Date(trend.captured_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+            <article key={`${trend.source_url}-${i}`} className="max-w-3xl">
+              <p className="font-mono text-xs text-faint">
+                {new Date(trend.captured_at)
+                  .toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                  .toUpperCase()}
               </p>
-              <h2 className="mt-1 text-lg font-semibold">{trend.title || trend.source_url}</h2>
+              <h2 className="font-display mt-2 text-2xl text-ink">{trend.title || trend.source_url}</h2>
+              <p className="mt-3 line-clamp-4 max-w-prose text-sm leading-relaxed text-muted">
+                {trend.content_text}
+              </p>
               <a
                 href={trend.source_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm text-accent-strong hover:underline"
+                className="mt-2 inline-block text-xs text-accent hover:text-accent-bright"
               >
-                {trend.source_url}
+                Source →
               </a>
-              <p className="mt-3 line-clamp-4 text-sm text-ink">{trend.content_text}</p>
-            </div>
+            </article>
           ))}
         </div>
       )}

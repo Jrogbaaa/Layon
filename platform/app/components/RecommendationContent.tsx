@@ -33,24 +33,35 @@ export function RecommendationContent({ content }: { content: string }) {
 
   if (bullets) {
     return (
-      <ul className="space-y-3">
+      <ol className="space-y-5">
         {bullets.map((bullet, i) => (
-          <li key={i} className="rounded-xl border border-border bg-canvas px-4 py-3">
-            <p className="text-sm font-medium text-ink">{pick(bullet.text, lang)}</p>
-            {bullet.reason ? <p className="mt-1 text-xs text-muted">{pick(bullet.reason, lang)}</p> : null}
-            {bullet.shortcode ? (
-              <a
-                href={`https://www.instagram.com/p/${bullet.shortcode}/`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-1 inline-block text-xs text-accent-strong hover:underline"
-              >
-                Ver post →
-              </a>
-            ) : null}
+          <li key={i} className="flex gap-4">
+            <span className="font-mono mt-0.5 text-xs text-accent" aria-hidden>
+              {String(i + 1).padStart(2, "0")}
+            </span>
+            <div>
+              <p className="max-w-prose text-sm font-medium leading-relaxed text-ink">
+                {pick(bullet.text, lang)}
+              </p>
+              {bullet.reason ? (
+                <p className="mt-1 max-w-prose text-xs leading-relaxed text-muted">
+                  {pick(bullet.reason, lang)}
+                </p>
+              ) : null}
+              {bullet.shortcode ? (
+                <a
+                  href={`https://www.instagram.com/p/${bullet.shortcode}/`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-1 inline-block text-xs text-accent hover:text-accent-bright"
+                >
+                  Ver post →
+                </a>
+              ) : null}
+            </div>
           </li>
         ))}
-      </ul>
+      </ol>
     );
   }
 

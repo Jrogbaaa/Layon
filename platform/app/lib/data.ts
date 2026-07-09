@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { getSupabaseClient } from "@/app/lib/supabase";
 import type {
   Highlight,
@@ -14,7 +15,8 @@ import type {
   TrendSnapshot,
 } from "@/app/lib/types";
 
-export async function getRoster(): Promise<RosterEntry[]> {
+// cache(): the nav tape and the roster page both call this within one request.
+export const getRoster = cache(async function getRoster(): Promise<RosterEntry[]> {
   const client = getSupabaseClient();
 
   const { data: influencers } = await client
@@ -34,11 +36,12 @@ export async function getRoster(): Promise<RosterEntry[]> {
       .select("followers, following, media_count, bio, captured_at")
       .eq("influencer_id", influencer.id)
       .order("captured_at", { ascending: false })
-      .limit(2);
+      .limit(14);
 
     const rows = (snapshots ?? []) as ProfileSnapshot[];
     const latestSnapshot = rows[0] ?? null;
     const followerDelta = rows.length >= 2 ? rows[0].followers - rows[1].followers : 0;
+    const history = [...rows].reverse();
 
     const { data: recentHighlights } = await client
       .from("highlights")
@@ -48,11 +51,17 @@ export async function getRoster(): Promise<RosterEntry[]> {
       .order("captured_at", { ascending: false })
       .limit(5);
 
-    entries.push({ influencer, latestSnapshot, followerDelta, recentHighlights: (recentHighlights ?? []) as Highlight[] });
+    entries.push({
+      influencer,
+      latestSnapshot,
+      followerDelta,
+      recentHighlights: (recentHighlights ?? []) as Highlight[],
+      history,
+    });
   }
 
   return entries;
-}
+});
 
 export async function getInfluencerDashboard(handle: string): Promise<InfluencerDashboard | null> {
   const client = getSupabaseClient();

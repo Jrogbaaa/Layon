@@ -73,6 +73,8 @@ export type RosterEntry = {
   latestSnapshot: ProfileSnapshot | null;
   followerDelta: number;
   recentHighlights: Highlight[];
+  /** Recent snapshots, oldest→newest, for the roster sparkline. */
+  history: ProfileSnapshot[];
 };
 
 export type InfluencerDashboard = {

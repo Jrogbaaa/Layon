@@ -4,9 +4,9 @@ const password = process.env.SITE_PASSWORD ?? "LAYCC";
 
 async function login(page: import("@playwright/test").Page) {
   await page.goto("/login");
-  await page.getByLabel("Password").fill(password);
-  await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("heading", { name: "Roster", exact: true })).toBeVisible();
+  await page.getByLabel("Team password").fill(password);
+  await page.getByRole("button", { name: "Enter" }).click();
+  await expect(page.getByRole("heading", { name: "The Roster", exact: true })).toBeVisible();
 }
 
 test("unauthenticated visit redirects to login", async ({ page }) => {
@@ -17,43 +17,44 @@ test("unauthenticated visit redirects to login", async ({ page }) => {
 
 test("login grants access to roster", async ({ page }) => {
   await login(page);
-  await expect(page.getByText("Instagram performance across the talent roster.")).toBeVisible();
+  await expect(
+    page.getByText("Instagram performance across the talent roster, watched nightly."),
+  ).toBeVisible();
 });
 
 test("influencer page shows overhauled dashboard sections", async ({ page }) => {
   await login(page);
 
-  const firstCard = page.locator('a.card[href^="/influencer/"]').first();
-  await expect(firstCard).toBeVisible();
-  await firstCard.click();
+  const firstRow = page.locator('ol.panel a[href^="/influencer/"]').first();
+  await expect(firstRow).toBeVisible();
+  await firstRow.click();
 
-  await expect(page.getByRole("link", { name: "← Roster" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "← THE ROSTER" })).toBeVisible();
   await expect(page.getByText("No bio available.")).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: "Performance by format" })).toBeVisible();
-  await expect(page.getByText(/based on \d+ posts/).first()).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Recent posts" })).toBeVisible();
-  await expect(page.getByRole("columnheader", { name: "Eng. rate" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "BY FORMAT" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /THE LOG/ })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "ENG." })).toBeVisible();
 });
 
 test("influencer page renders creative recommendations section", async ({ page }) => {
   await login(page);
 
-  const firstCard = page.locator('a.card[href^="/influencer/"]').first();
-  await firstCard.click();
+  const firstRow = page.locator('ol.panel a[href^="/influencer/"]').first();
+  await firstRow.click();
 
-  await expect(page.getByRole("heading", { name: "Creative recommendations" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /THE BRIEF/ })).toBeVisible();
 });
 
 test("influencer page renders top performing posts with Instagram links when present", async ({ page }) => {
   await login(page);
 
-  const firstCard = page.locator('a.card[href^="/influencer/"]').first();
-  await firstCard.click();
+  const firstRow = page.locator('ol.panel a[href^="/influencer/"]').first();
+  await firstRow.click();
 
-  const heading = page.getByRole("heading", { name: "Top performing posts" });
+  const heading = page.getByRole("heading", { name: /GREATEST HITS/ });
   await expect(heading).toBeVisible();
 
-  const firstLink = page.getByRole("link", { name: "View on Instagram →" }).first();
+  const firstLink = page.getByRole("link", { name: "View →" }).first();
   if (await firstLink.isVisible().catch(() => false)) {
     await expect(firstLink).toHaveAttribute("href", /instagram\.com\/p\//);
   }
@@ -62,9 +63,9 @@ test("influencer page renders top performing posts with Instagram links when pre
 test("influencer detail page renders an avatar next to the handle", async ({ page }) => {
   await login(page);
 
-  const firstCard = page.locator('a.card[href^="/influencer/"]').first();
-  await firstCard.click();
-  await expect(page.getByRole("link", { name: "← Roster" })).toBeVisible();
+  const firstRow = page.locator('ol.panel a[href^="/influencer/"]').first();
+  await firstRow.click();
+  await expect(page.getByRole("link", { name: "← THE ROSTER" })).toBeVisible();
 
   await expect(page.locator("main img, main div.rounded-full").first()).toBeVisible();
 });
@@ -72,25 +73,25 @@ test("influencer detail page renders an avatar next to the handle", async ({ pag
 test("roster page loads without crashing when highlight data exists", async ({ page }) => {
   await login(page);
 
-  await expect(page.getByRole("heading", { name: "Roster", exact: true })).toBeVisible();
-  // Attention strip is conditional on live warning-severity highlights existing;
-  // just confirm the page renders roster cards regardless.
-  await expect(page.locator('a.card[href^="/influencer/"]').first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "The Roster", exact: true })).toBeVisible();
+  // Watchlist is conditional on live warning-severity highlights existing;
+  // just confirm the page renders index rows regardless.
+  await expect(page.locator('ol.panel a[href^="/influencer/"]').first()).toBeVisible();
 });
 
-test("roster cards render an avatar for each influencer", async ({ page }) => {
+test("roster index rows render an avatar for each influencer", async ({ page }) => {
   await login(page);
 
-  const firstCard = page.locator('a.card[href^="/influencer/"]').first();
-  await expect(firstCard.locator("img, div.rounded-full").first()).toBeVisible();
+  const firstRow = page.locator('ol.panel a[href^="/influencer/"]').first();
+  await expect(firstRow.locator("img, div.rounded-full").first()).toBeVisible();
 });
 
 test("roster page renders roster-wide briefing and toggles language when present", async ({ page }) => {
   await login(page);
 
-  await expect(page.getByRole("heading", { name: "Roster", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "The Roster", exact: true })).toBeVisible();
 
-  const briefingHeading = page.getByRole("heading", { name: "This week across the roster" });
+  const briefingHeading = page.getByRole("heading", { name: /THE DISPATCH/ });
   if (await briefingHeading.isVisible().catch(() => false)) {
     const toggle = page.getByRole("button", { name: /^(EN|ES)$/ });
     await expect(toggle).toBeVisible();
@@ -99,6 +100,6 @@ test("roster page renders roster-wide briefing and toggles language when present
     await expect(toggle).not.toHaveText(before ?? "");
   } else {
     // Briefing is generated by the scraper's daily run — absent on a fresh DB is fine.
-    await expect(page.locator('a.card[href^="/influencer/"]').first()).toBeVisible();
+    await expect(page.locator('ol.panel a[href^="/influencer/"]').first()).toBeVisible();
   }
 });

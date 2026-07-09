@@ -1,150 +1,184 @@
 ---
-name: You First Gersh — Influencer Insights Platform
-description: A calm, data-forward dashboard for triaging influencer roster health
+name: Look After You — Influencer Insights Platform
+description: A nocturnal, editorial triage tool — the night watch for a roster of stars
 colors:
-  accent: "#2e8ff0"
-  accent-strong: "#1c6fc4"
-  accent-2: "#18c8a8"
-  canvas: "#eef3f6"
-  card: "#ffffff"
-  border: "#e1e7ed"
-  ink: "#12181f"
-  muted: "#6b7684"
-  positive: "#0e9c7f"
-  positive-soft: "#e3f7f1"
-  negative: "#d14343"
-  negative-soft: "#fbeaea"
+  accent: "#e3b04b"
+  accent-bright: "#f0c96a"
+  accent-deep: "#94691f"
+  canvas: "#120b0d"
+  canvas-deep: "#0a0506"
+  surface: "#1b1214"
+  surface-2: "#241819"
+  border: "#362527"
+  border-faint: "#271b1d"
+  ink: "#f4ede2"
+  muted: "#b5a69b"
+  faint: "#97897f"
+  garnet: "#7e2230"
+  garnet-deep: "#4a141d"
+  positive: "#63d6a4"
+  positive-soft: "rgba(99, 214, 164, 0.12)"
+  negative: "#ff7d6b"
+  negative-soft: "rgba(255, 125, 107, 0.12)"
 typography:
   display:
-    fontFamily: "Plus Jakarta Sans, -apple-system, Segoe UI, sans-serif"
-    fontWeight: 700
-    letterSpacing: "-0.02em"
+    fontFamily: "Fraunces, Georgia, serif"
+    fontWeight: 400
+    letterSpacing: "-0.015em"
+    note: "Variable axes: opsz 144 + WONK 1 for hero sizes (.display-hero)"
   body:
-    fontFamily: "Inter, -apple-system, Segoe UI, sans-serif"
+    fontFamily: "Archivo, -apple-system, Segoe UI, sans-serif"
     fontWeight: 400
     lineHeight: 1.5
+  mono:
+    fontFamily: "Spline Sans Mono, ui-monospace, monospace"
+    note: "All data readouts, labels-as-slugs, timestamps. Tabular numerals via .tnum"
 rounded:
-  card: "1.125rem"
-  control: "0.5rem"
+  panel: "0.625rem"
+  control: "0.375rem"
 spacing:
   sm: "0.5rem"
   md: "1rem"
   lg: "1.5rem"
 components:
   button-primary:
-    backgroundColor: "{colors.accent-strong}"
-    textColor: "#ffffff"
+    backgroundColor: "{colors.accent}"
+    textColor: "{colors.canvas-deep}"
     rounded: "{rounded.control}"
-    padding: "0.5rem 0.75rem"
-  card:
-    backgroundColor: "{colors.card}"
-    rounded: "{rounded.card}"
+    padding: "0.625rem 1.25rem"
+  panel:
+    backgroundColor: "{colors.surface}"
+    rounded: "{rounded.panel}"
 ---
 
-# Design System: You First Gersh
+# Design System: Medianoche
 
 ## 1. Overview
 
-**Creative North Star: "The Trading Floor"**
+**Creative North Star: "Medianoche" — the night watch for a roster of stars.**
 
-A calm, high-signal instrument for people making real decisions about real careers. Talent managers scan dozens of influencers a day; the system's job is to make "who needs attention" answerable at a glance, then get out of the way. Density is embraced, but never at the cost of scanability — every screen is a triage screen first, a report second.
+A cinematic, nocturnal, editorial instrument. The agency watches its talent overnight —
+the scraper runs while Madrid sleeps — and the interface embraces that: a deep
+garnet-black canvas, warm ivory type, and one gilded signal color. It reads like a
+couture house's internal terminal: a fashion-magazine masthead married to a trading
+floor's tape.
 
-This system explicitly rejects generic AI-dashboard scaffolding: gradient text, decorative glassmorphism, hero-metric-template stat blocks, and identical icon-card grids that could belong to any SaaS product. Restraint is deliberate: the blue/teal accent pair is a signal, not decoration, and its rarity is what keeps it meaningful.
+The system still serves triage first — "who needs attention" is answerable at a
+glance — but the presentation is a deliberate showcase of craft: a live WebGL silk
+shader on the gate, AI-generated key art, view-transition morphs between roster and
+profile, draw-on sparklines, and odometer count-ups. Motion always enhances
+already-visible content and always respects `prefers-reduced-motion`.
 
 **Key Characteristics:**
-- Cool, near-white canvas with a single card surface — no visual competition with the data.
-- One accent hue pair (blue primary, teal secondary) used sparingly and consistently as the signal color.
-- Semantic color (positive/negative) reserved strictly for trend direction, never decoration.
-- Plus Jakarta Sans for display weight, Inter for everything read at length.
+- Near-black garnet canvas (`#120b0d`); depth via tone and hairlines, not shadows.
+- One accent: gilded amber. It means "signal" — never decoration in bulk.
+- Serif display (Fraunces, high optical size) + grotesque body (Archivo) + mono data
+  (Spline Sans Mono). Three voices, three jobs.
+- Semantic mint/vermillion reserved strictly for trend direction and alarm.
+- A fixed film-grain overlay (`.grain`) gives every page its nocturnal texture.
 
 ## 2. Colors
 
-A cool, restrained palette: a near-white blue-gray canvas, a single white card surface, and one accent pair that carries all brand and interactive signal.
-
 ### Primary
-- **Signal Blue** (#2e8ff0): the primary accent — links, focus rings, the "Gersh" wordmark. Used deliberately, not decoratively.
-- **Signal Blue Deep** (#1c6fc4): the fill color for primary buttons — a darkened Signal Blue that holds white text at ≥4.5:1 contrast (WCAG AA).
+- **Gilded Amber** (#e3b04b): the signal — links, active nav, section slugs, primary
+  button fill (with near-black text; white text on amber fails AA).
+- **Amber Bright** (#f0c96a): hover state of the signal.
+- **Amber Deep** (#94691f): gradient partner in the avatar ring; never text.
 
-### Secondary
-- **Signal Teal** (#18c8a8): paired with Signal Blue in button fills and chart accents. Never used for text-on-transparent gradients (see Don'ts).
+### Canvas & Surfaces
+- **Canvas** (#120b0d): the page. **Canvas Deep** (#0a0506): login backdrop, button text.
+- **Surface** (#1b1214) / **Surface 2** (#241819): the panel and its hover tone.
+- **Border** (#362527) / **Border Faint** (#271b1d): hairlines. Faint is the default.
 
-### Neutral
-- **Canvas** (#eef3f6): the page background — a cool, barely-tinted blue-gray, not a warm neutral.
-- **Card White** (#ffffff): the single surface color for cards, the nav bar, and form fields.
-- **Border Mist** (#e1e7ed): all hairline borders and dividers.
-- **Ink** (#12181f): primary text color, near-black with a cool undertone.
-- **Muted Slate** (#6b7684): secondary text — labels, timestamps, nav links at rest.
+### Ink
+- **Ink** (#f4ede2): primary text — warm ivory, ≥15:1 on canvas.
+- **Muted** (#b5a69b): secondary prose (~8:1). **Faint** (#97897f): small labels,
+  timestamps, rank numbers (~5:1 — never body copy).
+
+### Accent Support
+- **Garnet** (#7e2230) / **Garnet Deep** (#4a141d): the shader palette, avatar-ring
+  gradient, fallback avatar fill. Large fills only, never text.
 
 ### Semantic
-- **Positive** (#0e9c7f) / **Positive Soft** (#e3f7f1): upward trend deltas, growth badges.
-- **Negative** (#d14343) / **Negative Soft** (#fbeaea): downward trend deltas, error states, attention flags.
+- **Positive** (#63d6a4) / **Negative** (#ff7d6b): trend direction, watchlist markers,
+  error states. Soft variants are 12% alpha tints for rare badge fills.
 
 ### Named Rules
-**The Signal Rule.** Signal Blue and Signal Teal together account for a small minority of any screen's surface. If the accent pair is more than a fifth of what's visible, something has been decorated instead of designed.
+**The Signal Rule.** Amber is scarce: slugs, links, the active nav underline, one
+button. If amber exceeds a tenth of a screen, something is decorated, not designed.
+**The Noise Rule.** Deltas under max(5, 0.01% of audience) render neutral — alarm
+colors are reserved for meaningful movement.
 
 ## 3. Typography
 
-**Display Font:** Plus Jakarta Sans (with -apple-system, Segoe UI fallback)
-**Body Font:** Inter (with -apple-system, Segoe UI fallback)
-
-**Character:** A geometric display face paired with a humanist body face — confident headings, highly legible long-form data and copy. The pairing reads as precise without feeling cold.
+**Display:** Fraunces (variable; `opsz` 144, `WONK` 1 at hero sizes via `.display-hero`)
+**Body/UI:** Archivo
+**Data:** Spline Sans Mono (`.font-mono`, tabular numerals via `.tnum`)
 
 ### Hierarchy
-- **Display** (700, tracking -0.02em): page titles, the wordmark, influencer names on the detail header.
-- **Title** (600–700, text-lg to text-xl): section headings, card titles.
-- **Body** (400, text-sm to text-base, line-height 1.5): stat labels, table content, recommendation copy. Cap prose at 65–75ch.
-- **Label** (500, text-sm): nav links, form labels, muted metadata.
+- **Masthead** (`.display-hero`, text-6xl–7xl): page titles ("The Roster", "The Wire"),
+  profile names, trend headlines. Line-height 0.98, balanced wrap.
+- **Pull-quote** (Fraunces italic, text-2xl+): the dispatch summary.
+- **Section slugs** (mono, text-xs, tracking-widest, uppercase): "THE DISPATCH",
+  "WATCHLIST", "TONIGHT'S INDEX", "TRAJECTORY". This is the system's one label
+  vocabulary — a newsroom-wire cadence, used as the heading itself, never as an
+  eyebrow above a second heading.
+- **Data readouts** (mono, tnum): every number in the interface is mono.
+- **Body** (Archivo, text-sm/base): prose, table cells, form labels. Cap at 65–75ch.
 
 ### Named Rules
-**The Solid Text Rule.** Text is always a solid color from the palette. Gradients are reserved for fills (buttons, subtle chart accents) and never applied to text via `background-clip: text`.
+**The Three Voices Rule.** Serif speaks (titles, quotes), grotesque explains (prose,
+UI), mono measures (numbers, labels). Never swap jobs.
 
 ## 4. Elevation
 
-Flat by default with one soft, layered ambient shadow reserved for the card surface — no shadow escalation on hover, no drop-shadow-per-state vocabulary. Depth is conveyed primarily through the canvas/card contrast and hairline borders, not stacked shadows.
+Flat. Depth comes from surface tone steps (canvas → surface → surface-2) and
+hairlines. The single `.panel` treatment adds only an inset top highlight
+(`inset 0 1px 0 rgba(244,237,226,0.04)`). No drop shadows anywhere.
 
-### Shadow Vocabulary
-- **Card Ambient** (`box-shadow: 0 1px 2px rgba(20,30,45,0.04), 0 8px 24px -12px rgba(20,30,45,0.12)`): the only shadow in the system, applied uniformly to `.card`.
+## 5. Advanced Material
 
-### Named Rules
-**The One Shadow Rule.** There is exactly one elevation level. Introducing a second (e.g. a heavier "modal" shadow) requires a deliberate reason, not a hover-state reflex.
+These are first-class parts of the system, each with a graceful floor:
 
-## 5. Components
+- **SilkCanvas** (login): raw-WebGL domain-warped fbm shader in garnet/gold. Pauses
+  off-screen and on hidden tabs; renders a single still under reduced motion; CSS
+  radial-gradient fallback without WebGL.
+- **Key art** (login): AI-generated "Seda en la medianoche" plate (`/silk.jpg`),
+  captioned like a gallery piece, drifting at 26s (`.silk-drift`).
+- **The Tape** (`Tape.tsx`): trading-floor ticker of every talent's overnight move,
+  under the nav. 40s linear loop, pauses on hover/focus, duplicate strip aria-hidden,
+  static under reduced motion.
+- **View transitions**: avatar morphs roster→profile (React `ViewTransition`,
+  `experimental.viewTransition`).
+- **Reveal / CountUp / Sparkline**: IO-triggered entrance, odometer numerals, draw-on
+  sparklines. Content is always visible without JS; reduced motion disables all three.
 
-Solid and tactile: buttons and inputs carry a touch more visual weight than a purely minimal system — filled buttons, visible borders on inputs, a clear focus state — while cards themselves stay quiet.
+## 6. Components
 
-### Buttons
-- **Shape:** rounded corners (0.5rem / `rounded-lg`).
-- **Primary:** solid Signal Blue Deep fill (`bg-accent-strong`), white text, semibold weight, `px-3 py-2`. The teal→blue gradient fill was retired from buttons: white text on it measured 2.1:1 at the teal end, failing WCAG AA.
-- **Hover / Focus:** opacity dip to 90% on hover; disabled state at 50% opacity.
-- **Ghost (nav actions):** no fill, muted text at rest, ink text on hover (e.g. "Log out").
+- **Panels** (`.panel`): 0.625rem radius, surface fill, faint hairline. Used sparingly —
+  the index list and the brief; most sections sit directly on canvas with slug headers.
+- **Buttons:** amber fill, canvas-deep text, semibold, 0.375rem radius; hover → bright.
+- **Inputs:** dark translucent fill, border hairline → amber on focus, no ring. Autofill
+  is overridden to stay dark (`-webkit-autofill` inset shadow).
+- **Focus:** global 2px amber `outline` on `:focus-visible`.
+- **Nav:** sticky, blurred canvas at 85%, wordmark in Fraunces ("You" in amber), active
+  link ivory with amber underline; mono date at left of links.
+- **Index rows:** rank number (mono faint), avatar, Fraunces name, mono followers,
+  noise-gated delta, sparkline. Hover: surface-2 fill + name → amber.
+- **Tables:** mono uppercase faint header row, hairline dividers, right-aligned mono
+  numerals, hover row fill.
 
-### Cards / Containers
-- **Corner Style:** 1.125rem radius — noticeably soft, the system's signature shape.
-- **Background:** Card White on Canvas.
-- **Shadow Strategy:** Card Ambient (see Elevation).
-- **Border:** 1px Border Mist.
-- **Internal Padding:** 1.5–2rem depending on card density (roster cards tighter, login/detail cards looser).
-
-### Inputs / Fields
-- **Style:** 1px Border Mist, Canvas-colored background (not white — keeps forms visually part of the page, not a floating overlay), 0.5rem radius.
-- **Focus:** border shifts to Signal Blue, no glow/ring.
-- **Error:** Negative-colored helper text beneath the field; the field border itself stays neutral unless the project later adds inline validation.
-
-### Navigation
-- Single-row top bar, Card White background, Border Mist bottom hairline. Wordmark in Display weight (solid Signal Blue "Gersh", Ink "You First" — no gradient). Nav links in Muted Slate at rest, Ink on hover, no underline.
-
-## 6. Do's and Don'ts
+## 7. Do's and Don'ts
 
 ### Do:
-- **Do** keep Signal Blue and Signal Teal rare and intentional — the Signal Rule.
-- **Do** use Signal Blue Deep (#1c6fc4) for any fill that carries white text; plain Signal Blue and the teal→blue gradient both fail AA under white text.
-- **Do** use the single Card Ambient shadow for every elevated surface; don't invent a second shadow scale.
-- **Do** reserve Positive/Negative color strictly for trend direction and error states.
+- **Do** keep every number in mono with `.tnum`.
+- **Do** gate alarm colors behind the Noise Rule.
+- **Do** give every animation a reduced-motion floor and keep content visible pre-JS.
+- **Do** use full exact numerals when a chart's range is too tight for compact ticks.
 
 ### Don't:
-- **Don't** use gradient text (`background-clip: text` + gradient). This was present on the wordmark and has been replaced with solid Signal Blue.
-- **Don't** add tiny uppercase tracked eyebrows above sections — not part of this system's vocabulary.
-- **Don't** build identical icon+heading+text card grids; roster and detail layouts are data-first, not marketing-card-first.
-- **Don't** use glassmorphism or decorative blur — the system is flat and opaque.
-- **Don't** reach for the hero-metric-template (big number + small label + gradient accent) for stat tiles; let the number and its trend delta carry the weight without extra chrome.
-- **Don't** introduce a warm-tinted neutral background; Canvas stays cool (blue-gray), matching the "Trading Floor" register.
+- **Don't** use gradient text, glassmorphism-as-decoration, or drop shadows.
+- **Don't** put white text on amber (2.5:1) — amber fills take canvas-deep text.
+- **Don't** add a second accent hue; garnet is a material, not a message.
+- **Don't** use the mono slug as an eyebrow above another heading — it IS the heading.
+- **Don't** warm the canvas toward brown/cream; it stays garnet-black.

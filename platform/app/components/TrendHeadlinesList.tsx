@@ -1,6 +1,7 @@
 "use client";
 
 import { useLanguage } from "@/app/components/LanguageProvider";
+import { Reveal } from "@/app/components/Reveal";
 import type { TrendHeadlinesPayload } from "@/app/lib/types";
 
 function parseHeadlines(content: string): TrendHeadlinesPayload["headlines"] | null {
@@ -30,25 +31,32 @@ export function TrendHeadlinesList({ content }: { content: string }) {
   if (!headlines) return null;
 
   return (
-    <ol className="space-y-8">
+    <ol className="max-w-4xl">
       {headlines.map((headline, i) => {
         const source = headline.source_url ? hostname(headline.source_url) : null;
         return (
-          <li key={i}>
-            <p className="font-display text-3xl font-bold leading-tight tracking-tight text-ink sm:text-4xl">
-              {headline.text[lang]}
-            </p>
-            {source && headline.source_url ? (
-              <a
-                href={headline.source_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-1 inline-block text-xs text-muted hover:text-ink"
-              >
-                {source} →
-              </a>
-            ) : null}
-          </li>
+          <Reveal as="li" key={i} delay={Math.min(i * 60, 360)}>
+            <div className="group flex gap-6 border-b border-border-faint py-9 first:pt-0 last:border-b-0 sm:gap-10">
+              <span className="font-mono pt-2 text-xs text-accent" aria-hidden>
+                {String(i + 1).padStart(2, "0")}
+              </span>
+              <div>
+                <p className="display-hero text-3xl text-ink sm:text-[2.6rem]">
+                  {headline.text[lang]}
+                </p>
+                {source && headline.source_url ? (
+                  <a
+                    href={headline.source_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-mono mt-3 inline-block text-xs text-faint transition-colors hover:text-accent"
+                  >
+                    {source} →
+                  </a>
+                ) : null}
+              </div>
+            </div>
+          </Reveal>
         );
       })}
     </ol>
