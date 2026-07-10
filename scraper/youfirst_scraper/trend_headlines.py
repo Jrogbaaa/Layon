@@ -23,12 +23,14 @@ def build_prompt(snapshots: list[dict]) -> str:
     sources_section = "\n\n".join(_source_section(s, i + 1) for i, s in enumerate(snapshots))
 
     return f"""You are a trends editor for a Spanish talent agency. Below are today's scraped
-social media trend reports (Spanish market).
+Spanish trending searches and entertainment/news items.
 
 {sources_section}
 
 Distill these into 5-8 short, punchy headlines a manager can absorb in ten seconds. Each
-headline must state a single concrete trend or fact — no filler, no numbering. Attribute
+headline must NAME the specific show, celebrity, event, meme, or moment involved (e.g.
+"La Revuelta's viral interview with <guest>") — never a generic theme like "short video
+keeps growing". Skip items with no named subject. No filler, no numbering. Attribute
 each headline to the source_url it came from (use the exact URL given above, or null if
 you cannot attribute it to one).
 

@@ -111,7 +111,21 @@ def run_trend_headlines(client) -> None:
         logger.exception("Failed to generate trend headlines — keeping previous")
 
 
+def _latest_trend_texts(client) -> list[str] | None:
+    """English texts of the latest stored trend headlines, or None if absent/invalid."""
+    row = db.get_latest_trend_headlines(client)
+    if not row:
+        return None
+    try:
+        headlines = json.loads(row["content"])["headlines"]
+        texts = [h["text"]["en"] for h in headlines]
+        return texts or None
+    except (json.JSONDecodeError, KeyError, TypeError):
+        return None
+
+
 def run_recommendations(client) -> None:
+    trend_items = _latest_trend_texts(client)
     for influencer in db.list_influencers(client):
         handle = influencer["handle"]
         try:
@@ -131,6 +145,7 @@ def run_recommendations(client) -> None:
                 highlights,
                 content_map,
                 alltime_top_posts,
+                trend_items,
             )
             if content is None:
                 logger.warning("No valid recommendation generated for %s — keeping previous", handle)

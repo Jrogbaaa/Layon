@@ -18,10 +18,9 @@ IG_USERNAME = os.environ.get("IG_USERNAME", "")
 INFLUENCERS_FILE = PACKAGE_DIR / "influencers.txt"
 
 TREND_SOURCES = [
-    "https://www.modash.io/content-library/country/spanish-examples",
-    "https://www.garajedoce.com/blog/estudio-iab-spain-redes-sociales/",
-    "https://lagahe.com/blog/novedades-instagram-2026-hashtags/",
-    "https://venizecomunicacion.com/tendencias-en-redes-sociales-2026-instagram-ante-el-gran-reto-de-la-saturacion/",
+    "https://trends.google.com/trending/rss?geo=ES",
+    "https://www.20minutos.es/rss/gente/",
+    "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/cultura/portada",
 ]
 
 # Seconds to wait between profile requests, to avoid hammering Instagram.

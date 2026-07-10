@@ -214,6 +214,33 @@
       ],
       "dependencies": ["feature_006"],
       "notes": "Five directions were mocked up as an HTML artifact and reviewed with the user before build; \"Fresh Current\" was selected. Spec: agent-harness/spec.md (this entry). Built and verified 2026-07-07."
+    },
+    {
+      "id": "feature_009",
+      "name": "Trend-grounded recommendations (real-time Spain feeds)",
+      "goal": "Scrape live, current Spanish trend/news RSS feeds instead of evergreen marketing blogs, and pipe the distilled trend headlines into each influencer's recommendation prompt so bullets name specific shows/people/events.",
+      "why_it_matters": "Recommendations were citing vague placeholders like 'a currently trending Spanish TV show' because (a) the scraped trend sources were static 2026-marketing-advice blogs with no named current events, and (b) trend data was never passed into the recommendation prompt at all despite being scraped daily.",
+      "non_goals": [
+        "No new Supabase tables or schema changes",
+        "No new third-party dependencies (stdlib XML parsing only)",
+        "No per-influencer trend-source targeting - one shared daily trend list, filtered per persona by Gemini in-prompt",
+        "No auth/platform UI/scrape-frequency changes",
+        "No influencer-brand matching"
+      ],
+      "status": "built_and_verified",
+      "priority": "high",
+      "owner_agent": "generator",
+      "acceptance_criteria": [
+        "config.TREND_SOURCES replaced with 3 verified-live feeds: Google Trends Spain RSS, 20minutos Gente RSS, El Pais Cultura RSS — done",
+        "trend_scraper.scrape_trend_source gains an RSS parse branch (stdlib xml.etree.ElementTree), returns same {title, content_text} shape, HTML path unchanged — done",
+        "trend_headlines.build_prompt requires headlines to name a specific show/person/event, skips themeless items — done",
+        "recommendations.build_prompt/generate_recommendation accept trend_items and add a 'What's trending in Spain today' section instructing named references only — done",
+        "run_daily.run_recommendations fetches latest trend_headlines once per run and passes English texts into every generate_recommendation call, gracefully falling back to None — done",
+        "pytest green including new/updated RSS parsing, prompt-section, and run_daily wiring tests — done, 125/125",
+        "Live run_daily (or targeted manual script) confirms named current items in trend_snapshots/trend_headlines and at least one recommendation bullet naming a specific trend — done: scrape_trend_source run live against all 3 feeds returned named current items (Tom Hanks 70th, Barcelona heatwave, Meghan Markle/Harry, El Pais culture stories); rendered recommendation prompt confirmed to include and correctly instruct on named trend items"
+      ],
+      "dependencies": ["feature_001", "feature_002", "feature_004"],
+      "notes": "Spec: agent-harness/spec.md (rewritten for this change 2026-07-10). Supersedes feature_004's 'URL scraping only, no RSS' non-goal now that live current-events sources are needed. Also fixed a stale test_config.py assertion (len==4) left over from feature_004, now len==3. Not run against real Gemini/Supabase this session (no live run_daily against real DB) — trend scraping and prompt rendering verified directly instead."
     }
   ]
 }

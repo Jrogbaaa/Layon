@@ -2,53 +2,66 @@
 
 ## Goal of This Change
 
-Ground-up visual redesign of `platform/` as a showcase of advanced web design craft
-("Medianoche" direction), replacing the light "Fresh Current"/"Trading Floor" theme
-with a cinematic, nocturnal, editorial identity:
+Ground daily creative recommendations in specific, current, real Spain events instead of
+generic placeholders (e.g. "adapt a currently trending Spanish TV show" with no named
+show). Two changes:
 
-1. New token system in `globals.css` (Tailwind v4 `@theme`): deep garnet-black canvas,
-   warm ivory ink, gilded amber signal accent, mint/vermillion semantics. OKLCH-derived.
-2. New type system: Fraunces (expressive variable serif, display), Archivo (UI/body),
-   Spline Sans Mono (data readouts) — replacing Plus Jakarta Sans + Inter.
-3. Advanced visual techniques as first-class design material:
-   - Custom WebGL (raw, dependency-light) shader background on login — flowing
-     silk/aurora in the brand palette, with static fallback + reduced-motion respect.
-   - AI-generated key art (GPT Image) and/or Higgsfield-animated loop as login panel art.
-   - Draw-on chart animations, odometer count-ups, staggered reveals that enhance
-     already-visible content, View Transitions where cheap.
-4. Redesigned pages: login (cinematic gate), roster (editorial call-sheet + triage rail),
-   influencer detail (magazine profile), trends (headline wire). Same data, same routes,
-   same auth.
+1. Replace the four evergreen "social media trends 2026" marketing-blog sources in
+   `config.TREND_SOURCES` with live, real-time feeds that name actual shows, people, and
+   events happening in Spain right now (Google Trends Spain RSS, 20minutos Gente RSS,
+   El País Cultura RSS — all verified live and current as of 2026-07-10).
+2. Pipe the distilled `trend_headlines` into each influencer's recommendation prompt
+   (`recommendations.build_prompt`), with an explicit instruction that any trend
+   reference must NAME the specific show/person/event from the supplied list — never a
+   vague placeholder. This closes the gap where `run_daily.py` scrapes trends and
+   generates headlines but never passes them into the recommendation generator.
+
+Each influencer's existing persona and metrics context stay in the same prompt, so
+Gemini picks which of today's named trends (if any) fit that influencer's brand —
+customization by influencer is inherited from the existing per-influencer prompt
+structure, not new logic.
 
 ## Why This Matters
 
-The user explicitly requested a fundamentally different redesign demonstrating
-state-of-the-art web design capability (3D, animation, palette, typography), to be
-shown publicly, with full creative autonomy delegated. Showcase quality is the
-acceptance bar; the dashboard must still function as a daily triage tool.
+The agency's recommendations are meant to give talent concrete, actionable ideas.
+Generic instructions to "adapt a trending show" with no name are useless — a talent
+manager can't act on them. Grounding in real, current Spain-specific events (feed items
+scraped the same day) makes each daily bullet something a team can execute immediately,
+while staying on-brand per influencer.
 
 ## Intended User
 
-Primary: the public audience the user will show this to (capability demonstration).
-Secondary: agency staff still using it daily for triage.
+Agency staff and talent reading daily recommendations in the platform dashboard.
 
 ## Non-Goals
 
-- No auth model change (shared password stays).
-- No new data fields, endpoints, or scraper changes.
-- No influencer-brand matching.
-- No removal of existing functionality (language toggle, briefing, highlights, tables).
+- No new Supabase tables or schema changes (reuse `trend_snapshots` / `trend_headlines`).
+- No new third-party dependencies (RSS parsed with stdlib `xml.etree.ElementTree`).
+- No per-influencer trend-source targeting — one shared trend list per day, filtered by
+  Gemini per persona in the prompt, as with existing persona/format guidance.
+- No change to auth, platform UI, or scrape frequency (still once daily).
+- No influencer-brand matching system (out of scope per CONSTITUTION.md).
 
 ## Success Criteria
 
-1. All four surfaces (login, roster, detail, trends) fully restyled as one coherent system.
-2. Playwright e2e suite passes (updated where selectors/copy changed).
-3. prefers-reduced-motion honored on every animation; content never gated on JS reveal.
-4. Body text contrast ≥ 4.5:1 verified on the dark canvas.
-5. `npm run build` and `npm run lint` pass.
-6. At least three fine-toothed iteration passes with browser screenshots before done.
+1. `trend_scraper.scrape_trend_source` parses RSS (Content-Type or `<?xml`/`<rss`
+   sniffed) via a new branch, alongside the existing HTML path — both return
+   `{"title", "content_text"}`.
+2. `config.TREND_SOURCES` holds the three verified live feeds.
+3. `trend_headlines.build_prompt` instructs Gemini to name specific shows/people/events,
+   not generic themes.
+4. `recommendations.build_prompt` / `generate_recommendation` accept `trend_items` and
+   render a "What's trending in Spain today" section instructing bullets to name the
+   specific trend item, never a vague placeholder.
+5. `run_daily.run_recommendations` fetches the latest stored `trend_headlines` row once
+   per run and passes its English texts into every influencer's recommendation call.
+6. pytest green in `scraper/`, including updated/added tests for the RSS branch, the new
+   prompt sections, and the `run_daily` wiring.
+7. A live `run_daily` (or targeted manual script) run shows trend_snapshots/trend_headlines
+   containing named current items, and at least one recommendation bullet naming a
+   specific trend.
 
 ## Open Questions
 
-None — user delegated all creative decisions ("total creative freedom … do not ask
-me for anything until it's done", 2026-07-09).
+None — direction confirmed with the user 2026-07-10; RSS feed URLs verified live via curl
+before being locked into the plan.

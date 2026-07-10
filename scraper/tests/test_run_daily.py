@@ -175,7 +175,7 @@ def test_run_trend_scrape_skips_already_scraped_source(monkeypatch):
     assert insert_calls == []
 
 
-def test_run_recommendations_does_not_fetch_trends(monkeypatch):
+def test_run_recommendations_passes_latest_trend_headline_texts(monkeypatch):
     monkeypatch.setattr(run_daily.db, "list_influencers", lambda c: [{"id": 1, "handle": "h", "persona": None}])
     monkeypatch.setattr(run_daily.db, "get_profile_snapshots", lambda c, i: [{"followers": 100}])
     monkeypatch.setattr(run_daily.db, "get_recent_posts", lambda c, i: [])
@@ -183,19 +183,56 @@ def test_run_recommendations_does_not_fetch_trends(monkeypatch):
     monkeypatch.setattr(run_daily.db, "get_post_content_map", lambda c, i: {})
     monkeypatch.setattr(run_daily.db, "get_top_posts", lambda c, i: [])
     monkeypatch.setattr(run_daily.db, "insert_recommendation", lambda c, i, m, content: None)
+    monkeypatch.setattr(
+        run_daily.db,
+        "get_latest_trend_headlines",
+        lambda c: {
+            "content": json.dumps(
+                {"headlines": [{"text": {"en": "OT 2026 gala shock elimination", "es": "..."}, "source_url": None}]}
+            )
+        },
+    )
 
     calls = {}
 
-    def fake_generate(handle, profile_snapshots, posts, persona=None, highlights=None, content_map=None, alltime_top_posts=None):
-        calls["args"] = (handle, persona, highlights, content_map, alltime_top_posts)
+    def fake_generate(
+        handle, profile_snapshots, posts, persona=None, highlights=None, content_map=None,
+        alltime_top_posts=None, trend_items=None,
+    ):
+        calls["trend_items"] = trend_items
         return "content"
 
     monkeypatch.setattr(run_daily.recommendations, "generate_recommendation", fake_generate)
-    monkeypatch.setattr(run_daily.db, "get_latest_trend_snapshots", lambda c, limit=None: (_ for _ in ()).throw(AssertionError("should not be called")))
 
     run_daily.run_recommendations(MagicMock())
 
-    assert calls["args"][0] == "h"
+    assert calls["trend_items"] == ["OT 2026 gala shock elimination"]
+
+
+def test_run_recommendations_passes_none_when_no_headlines(monkeypatch):
+    monkeypatch.setattr(run_daily.db, "list_influencers", lambda c: [{"id": 1, "handle": "h", "persona": None}])
+    monkeypatch.setattr(run_daily.db, "get_profile_snapshots", lambda c, i: [{"followers": 100}])
+    monkeypatch.setattr(run_daily.db, "get_recent_posts", lambda c, i: [])
+    monkeypatch.setattr(run_daily.db, "get_latest_highlights", lambda c, i: [])
+    monkeypatch.setattr(run_daily.db, "get_post_content_map", lambda c, i: {})
+    monkeypatch.setattr(run_daily.db, "get_top_posts", lambda c, i: [])
+    monkeypatch.setattr(run_daily.db, "insert_recommendation", lambda c, i, m, content: None)
+    monkeypatch.setattr(run_daily.db, "get_latest_trend_headlines", lambda c: None)
+
+    calls = {}
+
+    def fake_generate(
+        handle, profile_snapshots, posts, persona=None, highlights=None, content_map=None,
+        alltime_top_posts=None, trend_items=None,
+    ):
+        calls["trend_items"] = trend_items
+        return "content"
+
+    monkeypatch.setattr(run_daily.recommendations, "generate_recommendation", fake_generate)
+
+    run_daily.run_recommendations(MagicMock())
+
+    assert calls["trend_items"] is None
 
 
 def test_run_recommendations_passes_alltime_top_posts(monkeypatch):
@@ -207,10 +244,14 @@ def test_run_recommendations_passes_alltime_top_posts(monkeypatch):
     top_posts = [{"shortcode": "abc", "likes": 190000, "comments": 10000}]
     monkeypatch.setattr(run_daily.db, "get_top_posts", lambda c, i: top_posts)
     monkeypatch.setattr(run_daily.db, "insert_recommendation", lambda c, i, m, content: None)
+    monkeypatch.setattr(run_daily.db, "get_latest_trend_headlines", lambda c: None)
 
     calls = {}
 
-    def fake_generate(handle, profile_snapshots, posts, persona=None, highlights=None, content_map=None, alltime_top_posts=None):
+    def fake_generate(
+        handle, profile_snapshots, posts, persona=None, highlights=None, content_map=None,
+        alltime_top_posts=None, trend_items=None,
+    ):
         calls["alltime_top_posts"] = alltime_top_posts
         return "content"
 
@@ -228,6 +269,7 @@ def test_run_recommendations_skips_insert_when_generation_returns_none(monkeypat
     monkeypatch.setattr(run_daily.db, "get_latest_highlights", lambda c, i: [])
     monkeypatch.setattr(run_daily.db, "get_post_content_map", lambda c, i: {})
     monkeypatch.setattr(run_daily.db, "get_top_posts", lambda c, i: [])
+    monkeypatch.setattr(run_daily.db, "get_latest_trend_headlines", lambda c: None)
     monkeypatch.setattr(run_daily.recommendations, "generate_recommendation", lambda *a, **k: None)
 
     insert_calls = []
