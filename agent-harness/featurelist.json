@@ -316,6 +316,28 @@
         "feature_009",
         "feature_010"
       ]
+    },
+    {
+      "id": "feature_012",
+      "name": "Post engagement chart and audience log grid",
+      "goal": "Replace the short follower growth chart with an interactive post-by-post engagement performance chart and add a 7-day numerical audience growth log.",
+      "why_it_matters": "Scraped daily history starts from July 6, making the follower chart too short. Post snapshots exist historically back months/years, enabling rich, immediate content performance insight. A numerical grid keeps exact follower deltas fully visible.",
+      "non_goals": [
+        "No database backfills or synthetic follower snapshot generation",
+        "No modifications to scraper logic or database schema"
+      ],
+      "status": "built_and_verified",
+      "priority": "medium",
+      "owner_agent": "generator",
+      "acceptance_criteria": [
+        "getInfluencerDashboard returns chartPosts containing up to 30 deduplicated posts sorted chronologically ascending",
+        "EngagementChart plots Likes + Comments with median reference line and ER% in interactive tooltips",
+        "AUDIENCE LOG grid calculates daily deltas correctly and lists the latest 7 active days in reverse chronological order",
+        "FollowerChart component is fully deleted, clean typescript compile/lint, Playwright tests green"
+      ],
+      "dependencies": [
+        "feature_003"
+      ]
     }
   ]
 }

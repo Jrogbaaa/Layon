@@ -1,20 +1,29 @@
-# Spec - Social Media Platform Trend Sources (feature_011)
+# Spec - Post Engagement Performance Chart & Audience Log
 
 ## Goal of This Change
 
-Replace the general news RSS feeds in `config.TREND_SOURCES` with official, actionable social media platform trend reports and format statistics (TikTok Next and Metricool) to guide influencer content recommendations.
+Replace the follower growth chart on the influencer dashboard with an interactive **Post Engagement Performance** chart showing Likes + Comments across the last 30 posts, and add a clean **Audience Log (Last 7 Days)** grid showing exact daily follower numbers and changes.
+
+1. **Split Backend Post Queries:** Modify `getInfluencerDashboard` in `platform/app/lib/data.ts` to return:
+   - `recentPosts`: sliced to the latest 12 posts (newest first) for the logs and greatest hits table.
+   - `chartPosts`: sliced to the latest 30 posts and reversed (oldest of the 30 first, newest last) for correct left-to-right chronological rendering in the chart.
+2. **Create EngagementChart Component:** Build `platform/app/components/EngagementChart.tsx` using Recharts to plot total engagement (Likes + Comments) with a horizontal median reference line and custom tooltips showing engagement rates, formatting, and caption snippets.
+3. **Add Audience Log Grid:** In `platform/app/(app)/influencer/[handle]/page.tsx`, compute daily follower changes from `profileHistory` using `dailyHistory` and render a responsive grid showing the last 7 days of daily follower sizes and delta fluctuations.
+4. **Delete Unused Component:** Remove `platform/app/components/FollowerChart.tsx`.
 
 ## Why This Matters
 
-The previous news RSS feeds captured general daily news events (which were "things that happened" rather than social media formats/strategies, e.g., "Anthony Hopkins is becoming a composer"). Managers need real social media trends (like carousel performance stats, hooks, and TikTok's Dose of Reality) to advise creators.
+Since the project began scraping on July 6, the database only holds ~11 days of follower snapshots. A follower growth chart remains very short and has little visual detail. However, the database contains complete post snapshots extending back months and years, meaning a post-level engagement chart is immediately rich and deeply useful for both creators and agency managers scanning for content virality. Adding a numerical log maintains full visibility over exact follower growth/decline.
+
+## Non-Goals
+
+- No database backfills or synthetic follower generation.
+- No changes to the scraper logic, database schemas, or scheduling.
 
 ## Success Criteria
 
-1. `config.TREND_SOURCES` contains:
-   - `https://ads.tiktok.com/business/es-LA/next` (TikTok Next official trend report in Spanish)
-   - `https://metricool.com/es/tendencias-instagram/` (Metricool Instagram trends report in Spanish)
-   - `https://metricool.com/es/tendencias-estrategias-tiktok/` (Metricool TikTok trends report in Spanish)
-2. `trend_headlines.build_prompt` instructions are updated to expect platform creative trend reports, format statistics, and strategic forecasts for TikTok and Instagram, rather than general news.
-3. Example headlines in the prompt are adjusted to focus on social media tactics/data (e.g., "Carousels outperform Reels").
-4. pytest is green including updated config and prompt assertions (145/145 passing).
-5. A live database run successfully pulls real-time social platform metrics from these new HTML sources and writes distilled headlines to Supabase.
+1. `getInfluencerDashboard` returns `chartPosts` with up to 30 deduplicated posts sorted oldest-first.
+2. `EngagementChart` renders correctly using Gilded Amber tokens, displays median engagement, and shows ER% in tooltips.
+3. `AUDIENCE LOG` grid displays daily follower sizes and changes (+/-) correctly for the last 7 active days.
+4. Next.js dashboard compiles, lints, and loads successfully.
+5. Playwright test suite passes.

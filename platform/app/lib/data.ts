@@ -1,6 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { getSupabaseClient } from "@/app/lib/supabase";
+import { latestFollowerDelta } from "@/app/lib/metrics";
 import type {
   Highlight,
   Influencer,
@@ -40,8 +41,8 @@ export const getRoster = cache(async function getRoster(): Promise<RosterEntry[]
 
     const rows = (snapshots ?? []) as ProfileSnapshot[];
     const latestSnapshot = rows[0] ?? null;
-    const followerDelta = rows.length >= 2 ? rows[0].followers - rows[1].followers : 0;
     const history = [...rows].reverse();
+    const followerDelta = latestFollowerDelta(history);
 
     const { data: recentHighlights } = await client
       .from("highlights")
@@ -78,7 +79,7 @@ export async function getInfluencerDashboard(handle: string): Promise<Influencer
     .from("profile_snapshots")
     .select("followers, following, media_count, bio, captured_at")
     .eq("influencer_id", influencer.id)
-    .order("captured_at", { ascending: true })
+    .order("captured_at", { ascending: false })
     .limit(30);
 
   const { data: rawPosts } = await client
@@ -104,9 +105,11 @@ export async function getInfluencerDashboard(handle: string): Promise<Influencer
     }
   }
 
-  const recentPosts = Array.from(latestByShortcode.values())
-    .sort((a, b) => new Date(b.posted_at).getTime() - new Date(a.posted_at).getTime())
-    .slice(0, 12);
+  const sortedByDateDesc = Array.from(latestByShortcode.values())
+    .sort((a, b) => new Date(b.posted_at).getTime() - new Date(a.posted_at).getTime());
+
+  const recentPosts = sortedByDateDesc.slice(0, 12);
+  const chartPosts = sortedByDateDesc.slice(0, 30).reverse();
 
   const { data: highlights } = await client
     .from("highlights")
@@ -131,8 +134,9 @@ export async function getInfluencerDashboard(handle: string): Promise<Influencer
 
   return {
     influencer: influencer as Influencer,
-    profileHistory: (profileHistory ?? []) as ProfileSnapshot[],
+    profileHistory: [...(profileHistory ?? [])].reverse() as ProfileSnapshot[],
     recentPosts,
+    chartPosts,
     latestRecommendation: ((recommendations ?? [])[0] as Recommendation) ?? null,
     highlights: (highlights ?? []) as Highlight[],
     topPosts: (topPosts ?? []) as TopPost[],

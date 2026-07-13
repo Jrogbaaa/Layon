@@ -1,4 +1,4 @@
-# Findings — feature_011 Social Media Platform Trend Sources (TikTok Next & Metricool)
+# Findings — feature_012 Post Engagement Chart and Audience Log Grid
 
 ## Verdict: PASS
 
@@ -7,75 +7,68 @@
 ## Restated Goal / Non-Goals / Acceptance Criteria
 
 **Goal:**
-Replace generic news RSS feeds with official, actionable social media platform trend reports and format statistics (TikTok Next and Metricool) to guide influencer content recommendations. Apply character limit bottlenecks (`MAX_CHARS_PER_SOURCE = 25000`) and type validations during parsing to ensure robust and safe execution.
+Replace the short follower growth chart on the influencer dashboard with an interactive post engagement chart showing total interactions (Likes + Comments) across the last 30 posts, and add a 7-day Audience Log grid displaying exact daily follower sizes and delta fluctuations.
 
 **Non-goals:**
-- No dynamic JS scraping (HTML parsing fallback is sufficient).
-- No auth/platform UI changes.
-- No increase in daily scrape frequency.
+- No database backfills or synthetic follower data generation.
+- No changes to the scraper logic or database schemas.
 
 **Acceptance criteria:**
-1. **Config replacement:** `config.TREND_SOURCES` updated with TikTok Next (es-LA), Metricool Instagram (es), and Metricool TikTok (es).
-2. **Prompt adaptation:** `trend_headlines.build_prompt` instructions and examples updated to target social media formats, strategies, and tactics instead of general news.
-3. **Character limit bottleneck:** Truncate raw content at `MAX_CHARS_PER_SOURCE = 25000` to prevent LLM prompt blowup.
-4. **Type validation:** Ensure incoming JSON fields are properly validated for type (e.g. text translations are strings).
-5. **Pytest suite green:** All 146 unit tests pass cleanly, including truncation and type validation tests.
-6. **E2E verification:** Headline generation successfully pulls real-time social platform metrics and processes them.
+1. **Split Backend Post Queries:** Modify `getInfluencerDashboard` in `platform/app/lib/data.ts` to return `recentPosts` (sliced to latest 12 posts) and `chartPosts` (sliced to latest 30 posts and reversed chronologically ascending for left-to-right rendering).
+2. **Create EngagementChart Component:** Build `platform/app/components/EngagementChart.tsx` using Recharts to plot total engagement (Likes + Comments), including a horizontal median reference line, utilizing Gilded Amber tokens, and featuring interactive tooltips displaying format details, likes, comments, engagement rate %, and caption snippets.
+3. **Add Audience Log Grid:** In `platform/app/(app)/influencer/[handle]/page.tsx`, compute daily follower changes from `profileHistory` using `dailyHistory` and render a responsive grid showing the last 7 days of daily follower sizes and delta fluctuations in reverse chronological order (newest first).
+4. **Delete Unused Component:** Remove `platform/app/components/FollowerChart.tsx`.
+5. **Typescript & Lint Compile:** Clean build, lint, and type check with Next.js and ESLint.
+6. **Test Suite Verification:** Playwright and pytest suites pass cleanly.
 
 ## Goal Alignment: PASS
 
-The implementation solves the exact problem specified in `featurelist.json` without introducing unnecessary complexity. General news feeds are successfully replaced with highly relevant creator/platform insight sources, while strict safety limits (character cap) and type validations prevent bad inputs from corrupting downstream recommendations.
+The implementation solves the exact problem specified in `spec.md` and `featurelist.json` without introducing unnecessary complexity. The short and uninformative follower growth chart has been successfully replaced with an immediately rich post engagement chart using historical post data, while preserving exact follower visibility via a clean 7-day Audience Log grid with accurate daily growth/decline deltas.
 
 ## Tests (run independently by the Evaluator)
 
 | Suite | Result |
 |-------|--------|
-| `scraper/` `.venv/bin/pytest tests/ -v` | 146/146 pass cleanly (including `test_build_prompt_truncates_long_source_text` and `test_validate_rejects_headline_non_string_language`) |
-| E2E Live Integration Run | **SUCCESS** (successfully scraped all 3 live sources, validated characters, generated bilingual JSON headlines via Gemini API) |
+| `scraper/` `.venv/bin/pytest` | 146/146 pass cleanly |
+| `platform/` `npx playwright test` | 11/11 pass cleanly |
+| Next.js TypeScript `npx tsc --noEmit` | **PASS** (no errors) |
+| Next.js Lint `npm run lint` | **PASS** (0 errors, 1 styling warning) |
 
 ## Independent Verification Highlights
 
-1. **Safety Bottlenecks:**
-   - `MAX_CHARS_PER_SOURCE = 25000` is defined in [trend_headlines.py](file:///Users/JackEllis/Layon/scraper/youfirst_scraper/trend_headlines.py#L13) and enforced via string slicing on raw content in `_source_section`. This prevents large payload failures or runaway token costs on exceptionally verbose source pages.
-   - Typings are explicitly validated in `_validate(parsed)`:
-     ```python
-     if (
-         not isinstance(text, dict)
-         or "en" not in text
-         or "es" not in text
-         or not isinstance(text["en"], str)
-         or not isinstance(text["es"], str)
-     ):
-         raise ValueError("headline text missing en/es or not strings")
-     ```
-2. **Quality Testing:**
-   - Truncation logic is covered in [test_trend_headlines.py:L37-42](file:///Users/JackEllis/Layon/scraper/tests/test_trend_headlines.py#L37-L42) (`test_build_prompt_truncates_long_source_text`).
-   - Non-string language type rejection is covered in [test_trend_headlines.py:L68-73](file:///Users/JackEllis/Layon/scraper/tests/test_trend_headlines.py#L68-L73) (`test_validate_rejects_headline_non_string_language`).
-3. **E2E Live Proof:**
-   - Raw content sizes fetched: TikTok Next (19,872 chars), Metricool Instagram (15,283 chars), Metricool TikTok (11,433 chars). All successfully fetched and parsed under the 25k limit.
-   - The Gemini model generated 8 highly actionable, platform-specific bilingual headlines with exact attribution, mapping back to target source URLs:
-     * *Instagram Carousels Outperform Reels for Engagement and Saves* -> Metricool Instagram
-     * *TikTok's 'Dose of Reality' Trend Prioritizes Authentic, Unfiltered Content* -> TikTok Next
-     * *Shares and Comments Now Drive Instagram's Algorithm, Not Just Likes* -> Metricool Instagram
-     * *TikTok's 'For You' Page Prioritizes Niche, Categorizable Content for Reach* -> Metricool TikTok
+1. **Backend Split Query:**
+   - [data.ts](file:///Users/JackEllis/Layon/platform/app/lib/data.ts#L105-L113) correctly maps the deduplicated posts, returning `recentPosts` as the newest 12 posts and `chartPosts` as the newest 30 posts reversed (chronologically ascending) for correct left-to-right area chart visualization.
+2. **Rich Viz & Median:**
+   - [EngagementChart.tsx](file:///Users/JackEllis/Layon/platform/app/components/EngagementChart.tsx) calculates the exact median using a sorted array middle-index check.
+   - Utilizes Gilded Amber stroke `#e3b04b` and garnet/dark fill gradients satisfying the "Medianoche" design language.
+   - Shows rich tooltips with likes, comments, format types, custom formatted ER%, and caption context.
+3. **Audience Delta & Reverse Sort:**
+   - [page.tsx](file:///Users/JackEllis/Layon/platform/app/%28app%29/influencer/%5Bhandle%5D/page.tsx#L38-L47) calculates deltas correctly by comparing chronologically ascending days, then reverses the list to display newest first and slices to the latest 7 active days.
+   - The grid is fully responsive and displays formatted follower counts and deltas with color-coded positive/negative growth states.
 
 ## Rubric Scores
 
 | Area | Score | Notes |
 |---|---|---|
-| **0. Goal Alignment** | 5 | Replaces generic news with actionable creator/format insights; implements the requested limits and validations. |
-| **1. Requirement Fit** | 5 | All criteria met: config updated, prompt tailored, character limits and type checking robustly covered by tests. |
-| **2. Simplicity** | 5 | Standard slicing and `isinstance` checks are clean and straightforward. No speculative design. |
-| **3. User Workflow** | 5 | Replaces irrelevant general news in recommendations with platform-specific content guidance. |
-| **4. Data Integrity** | 5 | Guarantees clean translations and attributes source URLs properly to avoid DB insertion failures. |
-| **5. Error Handling** | 5 | Catches validation exceptions over 2 attempts, logging warnings, before gracefully returning `None`. |
-| **6. Security / Privacy** | 5 | No credentials, API keys, or raw personal data exposed in code or logs. |
-| **7. Maintainability** | 5 | High test coverage, clean structure, well-defined constants. |
+| **0. Goal Alignment** | 5 | Replaces low-density follower chart with rich engagement visualizations and a robust follower delta log. |
+| **1. Requirement Fit** | 5 | Meets every aspect of the spec and acceptance criteria. |
+| **2. Simplicity** | 5 | Uses straightforward array slicing/reversing and native component state. Deletes dead component code. |
+| **3. User Workflow** | 5 | Managers get high-value performance signals on posts and clear, exact daily growth numbers. |
+| **4. Data Integrity** | 5 | Correctly computes deltas chronological-first to prevent negative-lag bugs, and deduplicates post entries. |
+| **5. Error Handling** | 5 | Gracefully degrades if `posts.length === 0` or if `delta` is computed for the first recorded day. |
+| **6. Security / Privacy** | 5 | No secrets or private Instagram details are exposed. Service keys remain strictly backend-only. |
+| **7. Maintainability** | 5 | Typescript compile and ESLint verify codebase health; unused files cleanly deleted. |
 
 **Average: 5.00**
 
 ## Verdict Detail
 
-The update satisfies all requirements. Safety bottlenecks are in place, test suites are comprehensive, and E2E verification demonstrates successful data extraction and headline generation.
+The implementation of `feature_012` is high-quality, completely fits the requirements of the spec, matches the "Medianoche" design guidelines, and has been verified with green tests and clean TypeScript compilation/ESLint checks.
 
 **VERDICT: PASS**
+
+## Recommended next Generator task
+
+Since all features in the current roster (001 through 012) are now fully implemented and evaluated:
+1. Conduct production deployment verification on Vercel to confirm build/routing config works under Vercel's hosting environment.
+2. Set up automated email or system status reports for daily scraper execution alerts.
