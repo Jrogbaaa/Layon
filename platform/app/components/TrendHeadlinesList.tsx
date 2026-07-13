@@ -4,18 +4,6 @@ import { useLanguage } from "@/app/components/LanguageProvider";
 import { Reveal } from "@/app/components/Reveal";
 import type { TrendHeadlinesPayload } from "@/app/lib/types";
 
-function parseHeadlines(content: string): TrendHeadlinesPayload["headlines"] | null {
-  try {
-    const parsed = JSON.parse(content);
-    if (parsed && Array.isArray(parsed.headlines)) {
-      return parsed.headlines as TrendHeadlinesPayload["headlines"];
-    }
-  } catch {
-    // not valid JSON
-  }
-  return null;
-}
-
 function hostname(url: string): string | null {
   try {
     return new URL(url).hostname.replace(/^www\./, "");
@@ -24,11 +12,8 @@ function hostname(url: string): string | null {
   }
 }
 
-export function TrendHeadlinesList({ content }: { content: string }) {
+export function TrendHeadlinesList({ headlines }: { headlines: TrendHeadlinesPayload["headlines"] }) {
   const { lang } = useLanguage();
-  const headlines = parseHeadlines(content);
-
-  if (!headlines) return null;
 
   return (
     <ol className="max-w-4xl">

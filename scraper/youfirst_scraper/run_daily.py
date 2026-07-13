@@ -96,7 +96,13 @@ def run_trend_scrape(client) -> None:
 
 
 def run_trend_headlines(client) -> None:
-    snapshots = db.get_latest_trend_snapshots(client, limit=len(config.TREND_SOURCES))
+    # Over-fetch, then keep the newest snapshot per source: the latest N rows overall
+    # can hold duplicates of one source (and miss another) when a source fails a day.
+    rows = db.get_latest_trend_snapshots(client, limit=len(config.TREND_SOURCES) * 7)
+    latest_by_source: dict[str, dict] = {}
+    for row in rows:
+        latest_by_source.setdefault(row["source_url"], row)
+    snapshots = list(latest_by_source.values())
     if not snapshots:
         logger.info("No trend snapshots — skipping headlines")
         return
