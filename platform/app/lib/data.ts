@@ -1,6 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { getSupabaseClient } from "@/app/lib/supabase";
+import { latestFollowerDelta } from "@/app/lib/metrics";
 import type {
   Highlight,
   Influencer,
@@ -40,8 +41,8 @@ export const getRoster = cache(async function getRoster(): Promise<RosterEntry[]
 
     const rows = (snapshots ?? []) as ProfileSnapshot[];
     const latestSnapshot = rows[0] ?? null;
-    const followerDelta = rows.length >= 2 ? rows[0].followers - rows[1].followers : 0;
     const history = [...rows].reverse();
+    const followerDelta = latestFollowerDelta(history);
 
     const { data: recentHighlights } = await client
       .from("highlights")
