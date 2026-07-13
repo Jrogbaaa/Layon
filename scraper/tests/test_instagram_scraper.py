@@ -96,3 +96,29 @@ def test_scrape_profile_includes_avatar_source_url(monkeypatch):
     result = instagram_scraper.scrape_profile(MagicMock(), "somehandle")
 
     assert result["profile"]["avatar_source_url"] == "https://instagram.example/pic.jpg"
+
+
+def test_comment_count_reads_timeline_key():
+    post = MagicMock()
+    post._node = {"comments": 42}
+    assert instagram_scraper._comment_count(post) == 42
+
+
+def test_comment_count_raises_when_key_missing():
+    import pytest
+
+    post = MagicMock()
+    post.shortcode = "abc123"
+    post._node = {}
+    with pytest.raises(KeyError):
+        instagram_scraper._comment_count(post)
+
+
+def test_view_count_none_and_warns_for_video_without_keys(caplog):
+    post = MagicMock()
+    post.is_video = True
+    post.shortcode = "abc123"
+    post._node = {}
+    with caplog.at_level("WARNING"):
+        assert instagram_scraper._view_count(post) is None
+    assert "No view-count key" in caplog.text

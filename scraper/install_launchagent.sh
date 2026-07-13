@@ -20,4 +20,4 @@ launchctl unload "$DEST" 2>/dev/null || true
 launchctl load "$DEST"
 
 echo "Installed and loaded $DEST"
-echo "It will run daily at 09:00 (edit StartCalendarInterval in $DEST to change)."
+echo "It will run daily at 09:00, retrying missed handles at 13:00/17:00 (edit StartCalendarInterval in $DEST to change)."

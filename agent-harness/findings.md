@@ -1,4 +1,4 @@
-# Findings — feature_008 Visual Redesign ("Fresh Current")
+# Findings — feature_010 Scraper Reliability Hardening (retry, alerting, anomaly gates)
 
 ## Verdict: PASS
 
@@ -6,244 +6,158 @@
 
 ## Restated Goal / Non-Goals / Acceptance Criteria
 
-**Goal:** Replace the platform's ad-hoc dark neutral/amber theme with a single
-deliberate light identity — centralized `@theme` tokens instead of scattered
-`neutral-*`/`amber-*`/`emerald-*`/`red-4*` literals, working Plus Jakarta Sans + Inter
-fonts (fixing a dead Arial override), consistent token usage across Nav/roster/
-influencer detail/trends/login, an updated Recharts palette with a gradient line, and a
-gradient wordmark/CTA as the login page's signature accent.
+**Goal:** Make the daily Instagram scrape resilient and incapable of silently writing
+bad data, via five mechanisms: (1) `.last_run` only written when every roster handle
+succeeded, with 13:00/17:00 launchd fires retrying missed handles same-day, idempotent
+per-handle (skip handles already snapshotted today); (2) incomplete runs log an ERROR
+naming missing handles and post a macOS notification via osascript; (3) `_comment_count`
+raises on a missing `comments` key instead of silently recording 0, `_view_count` warns
+on a video with no view key; (4) profile snapshots with followers 0/None or a >50%
+day-over-day swing are rejected before insert; (5) connection-class errors get up to 3
+attempts with backoff, login/challenge exceptions abort the roster loop with a distinct
+session-expired alert.
 
-**Non-goals:** no new pages/features; no auth/session changes; no dark-mode toggle; no
-changes to scraper/, metrics calculations, or recommendation generation.
+**Non-goals:** no Graph API migration; no third-party scraping APIs, email/webhook
+infra, or new dependencies; no increase in scrape volume (each handle at most once per
+day); no restructuring of the per-handle write sequence (audit H3); no platform/UI
+staleness indicator (audit M5); no automatic `backfill.py` wiring.
 
-**Acceptance criteria** (featurelist.json `feature_008`, 8 items): centralized color
-tokens replacing all inline old-theme literals; working font-loading (no Arial
-override); every page/component on the new tokens with zero leftover old classes;
-updated FollowerChart hex values with a gradient line; login page gradient signature;
-`npm run build`/`lint` passing; Playwright suite passing unmodified; scraper pytest
-suite unaffected; visual verification against a running dev server.
+**Acceptance criteria** (featurelist.json `feature_010`, 6 items): completeness-gated
+`mark_ran_today` + retry fires skipping already-scraped handles; ERROR log + macOS
+notification on incomplete runs; `_comment_count` raise / `_view_count` warn;
+followers-0/None and >50%-swing rejection before insert; 3-attempt retry for
+connection errors and roster-loop abort with distinct session alert; pytest green
+including new tests for each mechanism.
 
 ## Goal Alignment: PASS
 
-The change is squarely scoped to styling — a `git diff main --stat` scope check showed
-only `platform/app/**` plus expected `agent-harness/*` bookkeeping changed, zero
-`scraper/` files touched. `grep -rn "neutral-\|amber-\|emerald-\|red-4" platform/app`
-returned zero matches, confirming full migration off the old theme.
+All five mechanisms are implemented exactly where the spec places them
+(`scraper/youfirst_scraper/run_daily.py`, `instagram_scraper.py`, `db.py`
+`profile_scraped_today`, `com.youfirstgersh.dailyscraper.plist`), each with dedicated
+tests. Diff scope is exactly the listed files plus README/install-script doc updates —
+no scope creep, no new dependencies (osascript via stdlib `subprocess`), no extra
+scraping (skip guard verified by test), no auth or schema changes.
 
-## Tests (run independently by the Evaluator, not trusted from the Generator)
+## Tests (run independently by the Evaluator)
 
 | Suite | Result |
 |-------|--------|
-| `scraper/` `.venv/bin/python -m pytest -q` | 64/64 pass |
-| `platform/` `npm run build` | pass |
-| `platform/` `npm run lint` | pass |
-| `platform/` `npx playwright test` (against running dev server) | 5/5 pass |
+| `scraper/` `.venv/bin/python -m pytest tests/ -q` | 144/144 pass (up from 125; new retry/validation/gating/abort/notify tests all present) |
+| Live `run_daily` integration | not run by Evaluator — being executed separately in the Generator's session per task instructions |
 
-## Independent File Verification
+`.env` present in `scraper/`.
 
-1. `globals.css` defines exactly the required tokens (`canvas`, `card`, `border`,
-   `ink`, `muted`, `accent`, `accent-2`, `positive`/`positive-soft`,
-   `negative`/`negative-soft`) via `@theme inline`, plus a `.card` helper. Body
-   font-family resolves through `--font-sans: var(--font-body)` — Arial override gone.
-2. `layout.tsx` loads Plus Jakarta Sans (`--font-display`) + Inter (`--font-body`) from
-   `next/font/google`; no Geist remains.
-3. Spot-checked `Nav.tsx`, `FollowerChart.tsx`, `login/page.tsx`,
-   `influencer/[handle]/page.tsx` — consistent token usage, nothing half-migrated.
-   `FollowerChart.tsx`'s Recharts colors updated with a teal (`#18c8a8`) → sky
-   (`#2e8ff0`) gradient line. Login page has the gradient wordmark + gradient CTA.
+## Independent Verification Highlights
+
+1. **Retry except-ordering is correct against the real instaloader hierarchy.**
+   Verified in the venv that `TooManyRequestsException` subclasses
+   `ConnectionException`; `_scrape_with_retry` catches session exceptions and the 429
+   before the `ConnectionException` branch, so rate limits are never hammered
+   (asserted by `test_scrape_with_retry_does_not_retry_rate_limit`).
+2. **Anomaly gate edge cases hold.** `not followers` rejects both 0 and None; first-ever
+   snapshot (empty history) passes; `if previous and ...` guards the division against a
+   None/0 prior row; `get_profile_snapshots` returns ascending order so `[-1]` really is
+   the latest snapshot. All four cases are unit-tested plus one integration-style test
+   asserting a rejected snapshot is never inserted and the handle lands in `failed`.
+3. **No infinite/double-scrape interaction.** Failed days retry at most twice more
+   (fixed fire times, no loop); retry runs skip handles with a snapshot today
+   (`profile_scraped_today`, tested); a fully successful run writes `.last_run` making
+   later fires no-ops; session death short-circuits remaining handles (one notification,
+   no further Instagram traffic) and marks them failed for the next fire.
+4. **Plist semantics valid.** `StartCalendarInterval` as an array of dicts is the
+   documented launchd form for multiple fire times; missed fires coalesce to one run on
+   wake, which the `.last_run` / per-handle guards absorb.
+5. **Tests assert the acceptance criteria directly**, including
+   `test_main_does_not_mark_done_when_handles_failed` (no `.last_run`, notification
+   names the missing handle) and `test_main_marks_done_when_all_handles_succeed`.
 
 ## Critical Issues
 
 None found.
 
-## Bugs / Gaps
+## Bugs / Gaps (ranked)
 
-None. No critical bugs, no scope drift, no leftover old-theme classes, no
-privacy/secret exposure.
-
-## Rubric Scores
-
-| Area | Score |
-|---|---|
-| 0. Goal Alignment | 5 |
-| 1. Requirement Fit | 5 |
-| 2. Simplicity | 5 |
-| 3. User Workflow | 5 |
-| 4. Data Integrity | 5 |
-| 5. Error Handling | 5 |
-| 6. Security / Privacy | 5 |
-| 7. Maintainability | 5 |
-
-**Average: 5.0**
-
-## Verdict Detail
-
-**Did this accomplish the stated goal?** Yes. All 8 acceptance criteria verified
-against actual file contents (not just descriptions), all automated checks green, and
-the change is a maintainability improvement over the prior scattered-literal approach
-with no new failure surface and no data/auth paths touched.
-
-## Recommended Next Generator Task
-
-None required — ready to merge as-is.
-
----
-
-# Findings — feature_007 Content-Grounded Recommendation Bullets + Roster Attention Alerts
-
-## Verdict: PASS (with follow-ups)
-
-**Evaluator:** separate subagent pass (fresh context, per contract.md/evaluator.md).
-
-## Restated Goal / Non-Goals / Acceptance Criteria
-
-**Goal:** Analyze the video/audio of each influencer's top-performing posts with Gemini
-so recommendations can cite what a reel was actually about, rewrite the recommendation
-prompt/output as short Spanish-only data-grounded bullets (dropping trend-report
-context), and surface engagement-drop/posting-gap "needs attention" signals at the
-roster level.
-
-**Non-goals:** no email/push alert digest; no comparable-creator scraping; the
-trend-scraper module itself is not removed, only unhooked from the recommendation
-prompt; no language toggle (Spanish only); no Apify/third-party scraping API migration
-(fetch/analyze kept as separate functions for a possible future swap, not built now).
-
-**Acceptance criteria** (featurelist.json `feature_007`, 8 items): content_analysis.py
-selection/cap/Gemini-JSON/skip-on-failure behavior; `post_content` table in schema.sql;
-`build_prompt` cites top performers + content summaries + multiple-of-median + weakest
-contrast with the trend section removed; `generate_recommendation` requests Gemini JSON
-mode returning `{bullets:[{text,reason,shortcode}]}` (3-5 Spanish bullets tied to data),
-falling back to raw text on malformed JSON; `RecommendationContent.tsx` renders bullets
-as a list with Instagram links, falls back to markdown for legacy prose;
-`metrics.compute_highlights` gains `engagement_drop`/`posting_gap` with a `severity`
-field; roster page shows a needs-attention indicator from recent highlights; pytest
-green including new content-analysis/alert tests, Playwright covers bullet rendering +
-fallback + roster badges.
-
-## Goal Alignment: PASS
-
-The implementation is squarely aimed at the stated problem: `content_analysis.py`
-genuinely grounds the model in what a post's video/audio is about (not just captions),
-`recommendations.build_prompt` cites top performers with content summaries and a
-weakest-post contrast, and the trend-report section is fully removed from this prompt
-(confirmed by a dedicated `test_build_prompt_has_no_trend_report_section` test and by
-`test_run_recommendations_does_not_fetch_trends` asserting `get_latest_trend_snapshots`
-is never called). No brand-matching, per-user auth, or scope creep found. The
-fetch/analyze split in `content_analysis.py` correctly keeps a future Apify swap
-possible without being built now.
-
-## Tests
-
-| Suite | Result |
-|-------|--------|
-| `scraper/` `pytest` | 62/62 pass |
-| `platform/` `npx playwright test` (against already-running dev server) | 5/5 pass |
-
-`.env` present in both `scraper/` and `platform/`. Dev server was already running
-(not started by this Evaluator pass).
-
-## Critical Issues
-
-None found.
-
-## Bugs / Gaps
-
-1. **Disclosed gap (not new): no live run against real Instagram/Gemini/Supabase for
-   this feature.** The JSON-bullet path (`generate_recommendation` JSON mode, and the
-   full `content_analysis.analyze_post` video-download-to-Gemini round trip) is only
-   exercised through mocked pytest. The one thing verified live is the *fallback*
-   render path, against a pre-existing bilingual-prose recommendation row from before
-   this feature. This is a real, material gap for a change whose core deliverable is
-   "does Gemini reliably return valid `{bullets:...}` JSON for a real video" — that
-   question is still open. Consistent with what was disclosed going in; factored into
-   Data Integrity and Goal Alignment below rather than treated as newly discovered.
-2. **Playwright coverage for bullets/badges is weaker than the acceptance criterion
-   implies.** `e2e/dashboard.spec.ts`'s roster test is explicitly a "loads without
-   crashing" check — its own comment says it does not assert the attention strip
-   renders, and no test asserts the JSON-bullet list actually renders as a list (vs.
-   the markdown fallback) since no live data with JSON-bullet content exists yet. The
-   acceptance criterion says "Playwright covers bullet rendering + fallback + roster
-   badges" — only the fallback half is meaningfully covered. This is a direct
-   consequence of gap #1 (no real JSON-bullet row exists to assert against) rather than
-   a separate defect, but it means the stated test-coverage acceptance criterion is
-   only partially met today.
-3. **Prior features (005/006) were never committed to git.** Diffing against `HEAD`
-   shows `schema.sql`, `db.py`, and `instagram_scraper.py` at the last commit have none
-   of the `views` column, `highlights` table, or `post_content` table — meaning the
-   working tree currently bundles feature_005 + feature_006 + feature_007 together as
-   one large uncommitted diff. This isn't a defect introduced by feature_007's code,
-   but it's a process/maintainability issue worth flagging: it makes it impossible to
-   review feature_007 in isolation via `git diff`, and `featurelist.json` records
-   005/006 as `built_and_live_verified`/`built_and_verified` when their code has never
-   actually landed on `main`.
-
-No other bugs found. Idempotency for `post_content` is enforced by a
-`unique(influencer_id, shortcode)` constraint plus an explicit
-`get_analyzed_shortcodes` pre-filter, so a same-day re-run (or a future retry) won't
-double-analyze or violate the constraint. `run_daily.py`'s already-ran-today guard and
-per-influencer/per-trend-source try/except blocks correctly wrap the new
-content-analysis and highlights steps.
+1. **[Medium] The historically observed session-death mode won't trigger the distinct
+   session alert.** Per decisions.md (2026-07-06, instaloader #2682), a dead
+   browser-cookie session presents as `ProfileNotExistsException` (200 OK, empty
+   GraphQL body) — not `LoginRequiredException`/`LoginException`. In that mode the run
+   grinds through all handles as generic per-handle failures instead of aborting with
+   the "re-login required" alert. The completeness alert (mechanism 2) still fires, so
+   the failure is visible either way — this weakens mechanism 5's *distinctness* in the
+   most likely real failure mode, not safety. Spec asked only for login/challenge
+   exceptions, so this is a hardening follow-up, not a spec miss.
+2. **[Low/Medium] Partial-write finalization (known non-goal H3, but interaction is new).**
+   If a handle fails *after* `insert_profile_snapshot` but before
+   `insert_post_snapshots`, it's marked failed — but the retry run sees
+   `profile_scraped_today` true, skips it, and the day marks complete with that
+   handle's posts/content/highlights missing. The write-sequence restructure is an
+   explicit non-goal; flagging because the new completeness gate now *silently
+   finalizes* this case rather than leaving it visibly incomplete.
+3. **[Low] Backoff is linear, decisions.md says exponential.** Delays are 30s, 60s
+   (`base * attempt`). spec.md only requires "backoff," so this is a decisions.md
+   wording mismatch, not a defect.
+4. **[Low] Mixed date semantics.** `.last_run` uses local `date.today()`;
+   `profile_scraped_today` uses the UTC day boundary. Safe for the 9/13/17 local fire
+   times in any plausible timezone for this Mac (Spain/US), but the two "today"
+   definitions could disagree at extreme UTC offsets.
+5. **[Low] Anomaly gate ignores snapshot age.** After a multi-day outage the >50% check
+   compares against a days-old snapshot, so a legitimate cumulative swing could be
+   rejected for the whole day. Unlikely at these follower magnitudes; threshold is a
+   documented reversible constant.
+6. **[Low] Minor test-coverage gaps.** No test that `requests.RequestException` is
+   retried (only `ConnectionException`); backoff growth values untested (sleep patched
+   to 0); the ERROR log line is asserted only indirectly via the notification message.
 
 ## UX Issues
 
-None found in what's renderable today. `RecommendationContent.tsx`'s bullet vs.
-markdown branch is a reasonable, cheap heuristic (`JSON.parse` + `Array.isArray`) that
-degrades safely to markdown on any non-bullet-shaped content (reasoned through
-non-object/number JSON edge cases — no dedicated frontend unit test for it, Playwright
-doesn't have a real bullet row to exercise it against per gap #2).
+None. Notification strings are short, name the missing handles, and give the exact
+re-login command for the session case.
 
 ## Missing Requirements
 
-- Live verification of the Gemini JSON-bullet contract and the video-analysis pipeline
-  (gap #1) — planner/user already aware, needs a go-ahead to spend Gemini quota / touch
-  Instagram.
-- A Playwright assertion that actually exercises the JSON-bullet render path and the
-  "needs attention" strip's conditional rendering, once real data exists (gap #2).
+None in code. The live integration run (contract.md: manual run against real
+Instagram/Supabase) is pending in the Generator's session and its result must be
+recorded in progress.json before featurelist status moves past
+`built_pending_live_verification`.
 
 ## Scope Drift
 
-None. Everything built traces directly to spec.md's 4 numbered success criteria and the
-8 featurelist.json acceptance criteria.
+None. Every changed line traces to one of the five spec mechanisms or their docs.
 
 ## Rubric Scores
 
 | Area | Score | Notes |
 |---|---|---|
-| 0. Goal Alignment | 4 | Solves the stated problem and stays in scope; capped at 4 rather than 5 because the core new capability (Gemini JSON bullets citing real content) is unverified against a live call |
-| 1. Requirement Fit | 4 | All 8 acceptance criteria implemented in code; test-coverage criterion only partially met (gap #2) |
-| 2. Simplicity | 5 | `content_analysis.py`/`recommendations.py` split is clean; no speculative abstractions; fetch/analyze kept separate per the stated future-Apify non-goal without over-building it now |
-| 3. User Workflow | 4 | Bullets + Instagram links + roster badges are scannable and match the "low-patience reader" goal; unverified in the browser with real bullet data |
-| 4. Data Integrity | 4 | `post_content` unique constraint + pre-filter set correctly prevent duplicate/idempotency issues; unverified against a real Gemini response shape |
-| 5. Error Handling | 5 | Per-post analysis failures, per-influencer failures, and malformed-JSON responses all degrade gracefully and are tested |
-| 6. Security / Privacy | 5 | No keys hardcoded or logged; `.env` files gitignored; only public IG data (video/thumbnail of public posts) is fetched and stored |
-| 7. Maintainability | 4 | Clear module boundaries; docked one point for the uncommitted-prior-features issue (gap #3) making the current diff hard to review in isolation |
+| 0. Goal Alignment | 5 | Solves the exact 2026-07-08 failure story; all five mechanisms present; zero scope creep |
+| 1. Requirement Fit | 5 | All 6 acceptance criteria implemented and directly tested |
+| 2. Simplicity | 5 | Module-level constants, two small helpers, one new db query; no speculative abstraction |
+| 3. User Workflow | 5 | Failures now surface as notifications with actionable text; successful days unchanged |
+| 4. Data Integrity | 4 | Gate + per-handle idempotency are solid; docked for the partial-write finalization interaction (gap #2, deferred H3) |
+| 5. Error Handling | 4 | Correct exception ordering and graceful degradation; docked for the #2682 session-death mode bypassing the distinct alert (gap #1) |
+| 6. Security / Privacy | 5 | No secrets in code/logs/notifications; osascript args passed as a list (no shell); only public IG data |
+| 7. Maintainability | 5 | Constants documented with rationale; README/install script updated to match; tests readable |
 
-**Average: 4.375**
+**Average: 4.75**
 
 ## Verdict Detail
 
-**Did this accomplish the stated goal?** Yes, for everything that can be verified
-without spending Gemini quota or touching Instagram: the prompt is genuinely grounded
-in content summaries and top-performer stats, trend context is removed, the bullet/
-fallback rendering logic is sound, and the new alert signals compute and surface
-correctly with a severity field. Goal Alignment (4) and the average (4.375) both clear
-the bar, no critical bugs, no secret exposure, and test results are recorded per
-contract.md's pass rule. The live-verification gap was disclosed up front rather than
-discovered, and error handling/rollback paths around it are solid — so this is a PASS
-with concrete follow-ups, not a FAIL.
+**Did this accomplish the stated goal?** Yes. The exact 2026-07-08 failure — all
+handles fail, run marks itself complete, no retry, no alert — is now impossible: the
+run cannot mark complete with failures, two more same-day fires retry only the missed
+handles, and the failure is pushed to the screen. Shape-drift and anomalous snapshots
+now fail loud before corrupting Supabase. 144/144 pytest, no critical bugs, no secret
+exposure, Goal Alignment 5, average 4.75 — passes the rubric's pass rule. PASS is
+contingent on the Generator's in-flight live run being recorded honestly in
+progress.json; findings #1–#2 are recommended follow-ups, not blockers.
 
 ## Recommended Next Generator Task
 
-1. With user go-ahead: run `python -m youfirst_scraper.run_daily` once for real,
-   confirm at least one influencer gets a `post_content` row with real Gemini
-   `{summary, topic, format, hook}` output and one real `{bullets:[...]}` recommendation
-   row, and verify that row's render on `/influencer/<handle>` in the browser (not just
-   the pre-existing prose fallback).
-2. Add a Playwright test (or extend `dashboard.spec.ts`) that seeds/asserts against a
-   JSON-bullet-shaped recommendation content string directly (e.g. via a test fixture
-   or by asserting on the real row from step 1) so "bullet rendering" is actually
-   covered, not just "renders without crashing."
-3. Retroactively commit the feature_005/006 work still sitting uncommitted so future
-   diffs (including this one) can be reviewed in isolation, and so `featurelist.json`'s
-   `built_and_live_verified`/`built_and_verified` statuses reflect what's actually on
-   `main`.
+1. Record the live `run_daily` result (per-handle outcomes, whether `.last_run` was
+   written, notification observed) in progress.json and flip feature_010 status
+   accordingly.
+2. Follow-up (small): treat a run where *every* handle fails with
+   `ProfileNotExistsException` as probable session death (issue #1) — e.g. emit the
+   session-expired notification text when all failures share that type — so the
+   known #2682 mode gets the actionable alert.
+3. Optional, when audit H3 is picked up: make `profile_scraped_today` (or a successor
+   check) consider post snapshots too, closing the partial-write finalization gap (#2).

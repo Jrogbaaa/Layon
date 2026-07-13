@@ -67,6 +67,18 @@ def insert_post_snapshots(client: Client, influencer_id: int, posts: list[dict])
     client.table("post_snapshots").insert(rows).execute()
 
 
+def profile_scraped_today(client: Client, influencer_id: int) -> bool:
+    today_start = datetime.now(timezone.utc).strftime("%Y-%m-%dT00:00:00Z")
+    result = (
+        client.table("profile_snapshots")
+        .select("id")
+        .eq("influencer_id", influencer_id)
+        .gte("captured_at", today_start)
+        .execute()
+    )
+    return len(result.data) > 0
+
+
 def trend_source_scraped_today(client: Client, source_url: str) -> bool:
     today_start = datetime.now(timezone.utc).strftime("%Y-%m-%dT00:00:00Z")
     result = (

@@ -45,10 +45,12 @@ Safe to re-run the same day — it will log "already ran today" and exit.
 ./install_launchagent.sh
 ```
 
-This installs a LaunchAgent that fires daily at 09:00. If the Mac is asleep at that
-time, `launchd` runs the job on next wake — no need to have the laptop open at an exact
-moment. `run_daily.py`'s own `already_ran_today()` guard prevents double-running if the
-Mac wakes more than once in a day.
+This installs a LaunchAgent that fires daily at 09:00, 13:00, and 17:00. The later
+fires exist to retry handles the 09:00 run missed: a run only writes `.last_run` when
+every roster handle succeeded, and retry runs skip handles already captured today, so
+no handle is scraped more than once per day. If the Mac is asleep at a fire time,
+`launchd` runs the job on next wake. An incomplete run logs an ERROR and posts a macOS
+notification naming the missing handles.
 
 To check status: `launchctl list | grep youfirstgersh`
 To uninstall: `launchctl unload ~/Library/LaunchAgents/com.youfirstgersh.dailyscraper.plist`

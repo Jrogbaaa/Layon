@@ -48,7 +48,9 @@
         "run_daily.py calls recommendation generation once per influencer after the scrape, skipping gracefully if Gemini call fails for one influencer",
         "Gemini API key read from env, never hardcoded"
       ],
-      "dependencies": ["feature_001"],
+      "dependencies": [
+        "feature_001"
+      ],
       "notes": "24/24 pytest passing with mocks. Not yet run against real Gemini (blocked on Google API key). Spec captured inline in this entry rather than a separate spec.md revision, per user's request to move quickly through phases."
     },
     {
@@ -73,7 +75,10 @@
         "Supabase service key only used in server-only modules, never sent to the client",
         "next build/tsc/eslint all pass"
       ],
-      "dependencies": ["feature_001", "feature_002"],
+      "dependencies": [
+        "feature_001",
+        "feature_002"
+      ],
       "notes": "Built ahead of its own Planner spec at the user's explicit request to move quickly through all phases in one session. Verified manually via Playwright MCP browser driving (login/logout/wrong-password/404/session-persistence all confirmed) rather than a checked-in Playwright test suite — see findings.md Missing Requirements."
     },
     {
@@ -99,7 +104,10 @@
         "pytest covers persona-in-prompt, Spain-audience-in-prompt, null-persona fallback, and len(TREND_SOURCES) == 4; all existing tests pass — done, 31/31",
         "One live run_daily produces 4 trend_snapshots rows and at least one persona-reflecting recommendation — done: 3 new sources scraped live (modash already scraped that day), antonlofer recommendation generated and stored referencing the new sources by name and staying on-persona"
       ],
-      "dependencies": ["feature_001", "feature_002"],
+      "dependencies": [
+        "feature_001",
+        "feature_002"
+      ],
       "notes": "Spec: agent-harness/spec.md (rewritten for this change 2026-07-06). All 3 new source URLs verified scrapable with the existing scrape_trend_source on 2026-07-06. Personas sourced from user input plus public research. Live-verified end to end same session; no separate Evaluator subagent pass run (see contract.md note on Evaluator Independence, same pattern as feature_003)."
     },
     {
@@ -129,7 +137,11 @@
         "pytest green in scraper/ with extended test_metrics.py + updated test_recommendations.py (external calls mocked)",
         "Dev server check: 5-handle roster, cristipedroche ~2-3M followers, Highlights section renders"
       ],
-      "dependencies": ["feature_001", "feature_002", "feature_003"],
+      "dependencies": [
+        "feature_001",
+        "feature_002",
+        "feature_003"
+      ],
       "notes": "Spec: agent-harness/spec.md (rewritten for this change 2026-07-06). Backfill size (36), highlight semantics, hard-delete of the stale row, and full harness process confirmed with the user 2026-07-06."
     },
     {
@@ -157,7 +169,10 @@
         "Roster uses shared formatter and clearer delta labeling",
         "Playwright tests pass; platform build/tsc/eslint pass"
       ],
-      "dependencies": ["feature_003", "feature_005"],
+      "dependencies": [
+        "feature_003",
+        "feature_005"
+      ],
       "notes": "Spec: agent-harness/spec.md (rewritten 2026-07-06). User confirmed post-level metrics over demographics and hide-until-ready chart."
     },
     {
@@ -185,7 +200,12 @@
         "Roster page surfaces a needs-attention indicator per influencer from recent highlights",
         "pytest green including new content-analysis and alert-threshold tests; Playwright covers bullet rendering + fallback + roster badges"
       ],
-      "dependencies": ["feature_001", "feature_002", "feature_005", "feature_006"],
+      "dependencies": [
+        "feature_001",
+        "feature_002",
+        "feature_005",
+        "feature_006"
+      ],
       "notes": "Spec: agent-harness/spec.md (rewritten 2026-07-07). User confirmed scope, Spanish-only bullets, and full video+audio analysis on 2026-07-07. Merged via PR #1 (2026-07-07)."
     },
     {
@@ -212,7 +232,9 @@
         "scraper pytest suite unaffected (64/64 passing) - confirms no cross-boundary changes",
         "Roster and influencer detail pages visually verified against a running dev server via Playwright screenshots"
       ],
-      "dependencies": ["feature_006"],
+      "dependencies": [
+        "feature_006"
+      ],
       "notes": "Five directions were mocked up as an HTML artifact and reviewed with the user before build; \"Fresh Current\" was selected. Spec: agent-harness/spec.md (this entry). Built and verified 2026-07-07."
     },
     {
@@ -239,8 +261,37 @@
         "pytest green including new/updated RSS parsing, prompt-section, and run_daily wiring tests — done, 125/125",
         "Live run_daily (or targeted manual script) confirms named current items in trend_snapshots/trend_headlines and at least one recommendation bullet naming a specific trend — done: scrape_trend_source run live against all 3 feeds returned named current items (Tom Hanks 70th, Barcelona heatwave, Meghan Markle/Harry, El Pais culture stories); rendered recommendation prompt confirmed to include and correctly instruct on named trend items"
       ],
-      "dependencies": ["feature_001", "feature_002", "feature_004"],
+      "dependencies": [
+        "feature_001",
+        "feature_002",
+        "feature_004"
+      ],
       "notes": "Spec: agent-harness/spec.md (rewritten for this change 2026-07-10). Supersedes feature_004's 'URL scraping only, no RSS' non-goal now that live current-events sources are needed. Also fixed a stale test_config.py assertion (len==4) left over from feature_004, now len==3. Not run against real Gemini/Supabase this session (no live run_daily against real DB) — trend scraping and prompt rendering verified directly instead."
+    },
+    {
+      "id": "feature_010",
+      "name": "Scraper reliability hardening (retry, alerting, anomaly gates)",
+      "goal": "Make the daily Instagram scrape resilient: same-day retry of failed handles, visible alerting on incomplete runs, loud failure on Instagram response-shape drift, anomaly gate before profile writes, and bounded retry with distinct session-expiry handling.",
+      "why_it_matters": "The scraper is the platform's sole data source. On 2026-07-08 all 5 handles failed, the run marked itself complete, never retried, and alerted no one - that day's data is permanently gone. Private-field reads default to 0/None on Instagram shape changes, silently corrupting engagement metrics.",
+      "non_goals": [
+        "No Instagram Graph API migration (Phase 2 - declined)",
+        "No third-party scraping APIs or email/webhook infrastructure; no new dependencies",
+        "No increase in scrape volume - each handle at most once per day",
+        "No restructuring of the per-handle write sequence (audit H3)",
+        "No platform/UI staleness indicator (audit M5)",
+        "No automatic backfill.py wiring - deep catch-up stays manual"
+      ],
+      "status": "built_and_live_verified",
+      "priority": "high",
+      "owner_agent": "generator",
+      "acceptance_criteria": [
+        "mark_ran_today() only fires when every roster handle has a snapshot today; failed days are re-attempted at 13:00/17:00 launchd fires, skipping already-scraped handles",
+        "Incomplete runs log an ERROR naming missing handles and post a macOS notification",
+        "_comment_count raises on missing 'comments' key; video with no view key logs a warning",
+        "Profile snapshots with followers 0/None or >50% day-over-day swing are rejected before insert",
+        "Connection-class errors retried up to 3 attempts with backoff; login/challenge exceptions abort the roster loop with a distinct session-expired alert",
+        "pytest green in scraper/ including new tests for each mechanism"
+      ]
     }
   ]
 }
