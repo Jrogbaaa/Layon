@@ -27,8 +27,15 @@ Spanish trending searches and entertainment/news items.
 
 {sources_section}
 
-Distill these into 5-8 short, punchy headlines a manager can absorb in ten seconds. Each
-headline must NAME the specific show, celebrity, event, meme, or moment involved (e.g.
+Distill these into 5-8 short, punchy headlines a manager can absorb in ten seconds.
+
+CRITICAL FILTERS:
+- Spain-specific pop culture, entertainment, celebrities, show business, TV, sports, and viral internet memes are the absolute focus ("the be all end all").
+- STRICTLY EXCLUDE global/international news, global politics, and global celebrity gossip that is unrelated to the Spanish domestic market (for example, skip general stories like "Anthony Hopkins is becoming a composer", global movie releases, or general international updates).
+- Only include an international story if there is a direct Spanish domestic angle, meme, or massive domestic cultural impact.
+- Skip items that are not directly relevant to Spanish talent managers and their influencers.
+
+Each headline must NAME the specific Spanish show, celebrity, event, meme, or moment involved (e.g.
 "La Revuelta's viral interview with <guest>") — never a generic theme like "short video
 keeps growing". Skip items with no named subject. No filler, no numbering. Attribute
 each headline to the source_url it came from (use the exact URL given above, or null if
