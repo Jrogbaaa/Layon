@@ -3,13 +3,14 @@ import { ViewTransition } from "react";
 import { notFound } from "next/navigation";
 import { getInfluencerDashboard } from "@/app/lib/data";
 import {
+  dailyHistory,
   engagementRate,
   followerChange,
   formatCount,
   formatPerformance,
   postingCadence,
 } from "@/app/lib/metrics";
-import { FollowerChart } from "@/app/components/FollowerChart";
+import { EngagementChart } from "@/app/components/EngagementChart";
 import { Avatar } from "@/app/components/Avatar";
 import { HighlightContent } from "@/app/components/HighlightContent";
 import { RecentPostsTable } from "@/app/components/RecentPostsTable";
@@ -26,13 +27,24 @@ export default async function InfluencerPage({ params }: { params: Promise<{ han
     notFound();
   }
 
-  const { influencer, profileHistory, recentPosts, latestRecommendation, highlights, topPosts } = dashboard;
+  const { influencer, profileHistory, recentPosts, chartPosts, latestRecommendation, highlights, topPosts } = dashboard;
   const latestSnapshot = profileHistory[profileHistory.length - 1] ?? null;
   const followers = latestSnapshot?.followers ?? 0;
   const rate = followers > 0 ? engagementRate(recentPosts, followers) : 0;
   const change = followerChange(profileHistory);
   const cadence = postingCadence(recentPosts);
   const formatBreakdown = formatPerformance(recentPosts, followers);
+
+  const dailyList = dailyHistory(profileHistory);
+  const dailyWithDeltas = dailyList.map((snapshot, index) => {
+    const previous = dailyList[index - 1];
+    const delta = previous ? snapshot.followers - previous.followers : 0;
+    return {
+      ...snapshot,
+      delta,
+    };
+  });
+  const recentDeltas = [...dailyWithDeltas].reverse().slice(0, 7);
   // Deltas below ~0.01% of the audience are noise — keep alarm colors meaningful.
   const changeMeaningful = Math.abs(change.delta) >= Math.max(5, followers * 0.0001);
   const maxFormatRate = Math.max(...Object.values(formatBreakdown).map((s) => s.avgEngagementRate), 0);
@@ -119,9 +131,42 @@ export default async function InfluencerPage({ params }: { params: Promise<{ han
       </dl>
 
       <Reveal as="section" className="mb-14">
-        <h2 className="font-mono mb-6 text-xs tracking-widest text-faint">TRAJECTORY · FOLLOWERS</h2>
-        <FollowerChart history={profileHistory} />
+        <h2 className="font-mono mb-6 text-xs tracking-widest text-faint">TRAJECTORY · POST ENGAGEMENT</h2>
+        <EngagementChart posts={chartPosts} followers={followers} />
       </Reveal>
+
+      {recentDeltas.length > 0 && (
+        <Reveal as="section" className="mb-14">
+          <h2 className="font-mono mb-6 text-xs tracking-widest text-faint">AUDIENCE LOG · LAST 7 DAYS</h2>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 md:grid-cols-7">
+            {recentDeltas.map((day) => {
+              const isPositive = day.delta > 0;
+              const formattedDate = new Date(day.captured_at).toLocaleDateString("en-US", {
+                weekday: "short",
+                month: "short",
+                day: "numeric",
+              });
+              return (
+                <div key={day.captured_at} className="border border-border-faint bg-surface p-4 rounded-lg">
+                  <p className="font-mono text-[10px] uppercase tracking-wider text-faint">
+                    {formattedDate}
+                  </p>
+                  <p className="font-mono mt-2 text-lg font-bold text-ink">
+                    {day.followers.toLocaleString("en-US")}
+                  </p>
+                  <p
+                    className={`font-mono mt-1 text-xs ${
+                      isPositive ? "text-positive" : day.delta < 0 ? "text-negative" : "text-muted"
+                    }`}
+                  >
+                    {day.delta > 0 ? `+${day.delta.toLocaleString()}` : day.delta < 0 ? day.delta.toLocaleString() : "—"}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </Reveal>
+      )}
 
       <div className="mb-14 grid gap-14 lg:grid-cols-[5fr_7fr]">
         <Reveal as="section">

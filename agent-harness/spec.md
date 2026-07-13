@@ -1,25 +1,29 @@
-# Spec - Rolling 30-Day Growth Chart Correction
+# Spec - Post Engagement Performance Chart & Audience Log
 
 ## Goal of This Change
 
-Fix the query sorting bug for follower history on the influencer dashboard to correctly display the rolling past month (latest 30 days of data) in chronological order.
+Replace the follower growth chart on the influencer dashboard with an interactive **Post Engagement Performance** chart showing Likes + Comments across the last 30 posts, and add a clean **Audience Log (Last 7 Days)** grid showing exact daily follower numbers and changes.
 
-1. **Correct Database Query Sorting:** Modify `getInfluencerDashboard` in `platform/app/lib/data.ts` to order by `captured_at` descending and limit to 30, retrieving the latest 30 snapshots instead of the oldest 30 snapshots.
-2. **Reverse for Chronological Display:** Reverse the retrieved snapshots list in-memory so they are ordered chronologically ascending for rendering in the line/area chart.
-3. **No Synthetic Backfilling:** Do not insert estimated or synthetic follower counts into the database (per user decision). Allow data to accumulate naturally through daily scrapes.
+1. **Split Backend Post Queries:** Modify `getInfluencerDashboard` in `platform/app/lib/data.ts` to return:
+   - `recentPosts`: sliced to the latest 12 posts (newest first) for the logs and greatest hits table.
+   - `chartPosts`: sliced to the latest 30 posts and reversed (oldest of the 30 first, newest last) for correct left-to-right chronological rendering in the chart.
+2. **Create EngagementChart Component:** Build `platform/app/components/EngagementChart.tsx` using Recharts to plot total engagement (Likes + Comments) with a horizontal median reference line and custom tooltips showing engagement rates, formatting, and caption snippets.
+3. **Add Audience Log Grid:** In `platform/app/(app)/influencer/[handle]/page.tsx`, compute daily follower changes from `profileHistory` using `dailyHistory` and render a responsive grid showing the last 7 days of daily follower sizes and delta fluctuations.
+4. **Delete Unused Component:** Remove `platform/app/components/FollowerChart.tsx`.
 
 ## Why This Matters
 
-Currently, `getInfluencerDashboard` selects the first 30 snapshots ever captured (ordered by `captured_at` ascending and limited to 30). This is a query bug; once there are more than 30 days of scraped data, the dashboard will display the initial 30 days of the project forever and never show new daily growth. Reversing the sorting and limits ensures a rolling window of the past month of exact data is shown.
+Since the project began scraping on July 6, the database only holds ~11 days of follower snapshots. A follower growth chart remains very short and has little visual detail. However, the database contains complete post snapshots extending back months and years, meaning a post-level engagement chart is immediately rich and deeply useful for both creators and agency managers scanning for content virality. Adding a numerical log maintains full visibility over exact follower growth/decline.
 
 ## Non-Goals
 
-- No synthetic data generation or database backfills.
-- No changes to the scraper logic or database schema.
+- No database backfills or synthetic follower generation.
+- No changes to the scraper logic, database schemas, or scheduling.
 
 ## Success Criteria
 
-1. `getInfluencerDashboard` queries `profile_snapshots` table ordered by `captured_at` descending with limit 30.
-2. The query output `profileHistory` is reversed in-memory before returning.
-3. Next.js dashboard compiles, lints, and loads successfully.
-4. Playwright test suite passes.
+1. `getInfluencerDashboard` returns `chartPosts` with up to 30 deduplicated posts sorted oldest-first.
+2. `EngagementChart` renders correctly using Gilded Amber tokens, displays median engagement, and shows ER% in tooltips.
+3. `AUDIENCE LOG` grid displays daily follower sizes and changes (+/-) correctly for the last 7 active days.
+4. Next.js dashboard compiles, lints, and loads successfully.
+5. Playwright test suite passes.

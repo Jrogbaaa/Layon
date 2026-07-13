@@ -105,9 +105,11 @@ export async function getInfluencerDashboard(handle: string): Promise<Influencer
     }
   }
 
-  const recentPosts = Array.from(latestByShortcode.values())
-    .sort((a, b) => new Date(b.posted_at).getTime() - new Date(a.posted_at).getTime())
-    .slice(0, 12);
+  const sortedByDateDesc = Array.from(latestByShortcode.values())
+    .sort((a, b) => new Date(b.posted_at).getTime() - new Date(a.posted_at).getTime());
+
+  const recentPosts = sortedByDateDesc.slice(0, 12);
+  const chartPosts = sortedByDateDesc.slice(0, 30).reverse();
 
   const { data: highlights } = await client
     .from("highlights")
@@ -134,6 +136,7 @@ export async function getInfluencerDashboard(handle: string): Promise<Influencer
     influencer: influencer as Influencer,
     profileHistory: [...(profileHistory ?? [])].reverse() as ProfileSnapshot[],
     recentPosts,
+    chartPosts,
     latestRecommendation: ((recommendations ?? [])[0] as Recommendation) ?? null,
     highlights: (highlights ?? []) as Highlight[],
     topPosts: (topPosts ?? []) as TopPost[],

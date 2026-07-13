@@ -81,6 +81,7 @@ export type InfluencerDashboard = {
   influencer: Influencer;
   profileHistory: ProfileSnapshot[];
   recentPosts: PostSnapshot[];
+  chartPosts: PostSnapshot[];
   latestRecommendation: Recommendation | null;
   highlights: Highlight[];
   topPosts: TopPost[];
