@@ -29,13 +29,13 @@ def test_build_prompt_includes_each_source_title_url_and_text():
     assert "Reels are up this week." in prompt
     assert "Trend Report B" in prompt
     assert "BOTH English and Spanish" in prompt
-    assert "Spain-specific pop culture" in prompt
-    assert "STRICTLY EXCLUDE global/international news" in prompt
-    assert "Anthony Hopkins" in prompt
+    assert "Focus strictly on Spain/Spanish-market social media trends" in prompt
+    assert "STRICTLY EXCLUDE generic news" in prompt
+    assert "Carousels outperform Reels for engagement" in prompt
 
 
 def test_build_prompt_truncates_long_source_text():
-    long_text = "z" * 10000
+    long_text = "z" * 30000
     snapshots = [{"source_url": "https://a.example", "title": "A", "content_text": long_text}]
     prompt = trend_headlines.build_prompt(snapshots)
     assert prompt.count("z") == trend_headlines.MAX_CHARS_PER_SOURCE
@@ -60,6 +60,14 @@ def test_validate_rejects_empty_list():
 def test_validate_rejects_headline_missing_language():
     try:
         trend_headlines._validate({"headlines": [{"text": {"en": "only english"}, "source_url": None}]})
+        assert False, "expected ValueError"
+    except ValueError:
+        pass
+
+
+def test_validate_rejects_headline_non_string_language():
+    try:
+        trend_headlines._validate({"headlines": [{"text": {"en": 123, "es": "hola"}, "source_url": None}]})
         assert False, "expected ValueError"
     except ValueError:
         pass
