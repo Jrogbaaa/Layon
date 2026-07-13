@@ -31,23 +31,10 @@ def test_mark_ran_today_writes_today(tmp_path, monkeypatch):
     assert last_run_file.read_text().strip() == date.today().isoformat()
 
 
-def test_run_instagram_scrape_skips_failing_handle_and_continues(monkeypatch):
-    monkeypatch.setattr(run_daily.config, "load_roster", lambda: ["good_handle", "bad_handle"])
-    monkeypatch.setattr(run_daily.config, "PROFILE_REQUEST_DELAY_SECONDS", 0)
-
-    def fake_scrape_profile(loader, handle):
-        if handle == "bad_handle":
-            raise instaloader_exception()
-        return {"profile": {"followers": 1, "following": 2, "media_count": 3, "bio": ""}, "posts": []}
-
-    def instaloader_exception():
-        return Exception("profile not found")
-
-    monkeypatch.setattr(run_daily.instagram_scraper, "scrape_profile", fake_scrape_profile)
-
-    client = MagicMock()
-    client_calls = []
-    monkeypatch.setattr(run_daily.db, "get_or_create_influencer", lambda c, h: client_calls.append(h) or 1)
+def _patch_scrape_db(monkeypatch):
+    """Stub the db/content-analysis surface run_instagram_scrape touches."""
+    monkeypatch.setattr(run_daily.db, "get_or_create_influencer", lambda c, h: 1)
+    monkeypatch.setattr(run_daily.db, "profile_scraped_today", lambda c, i: False)
     monkeypatch.setattr(run_daily.db, "insert_profile_snapshot", lambda c, i, p: None)
     monkeypatch.setattr(run_daily.db, "insert_post_snapshots", lambda c, i, p: None)
     monkeypatch.setattr(run_daily.db, "get_analyzed_shortcodes", lambda c, i: set())
@@ -57,10 +44,29 @@ def test_run_instagram_scrape_skips_failing_handle_and_continues(monkeypatch):
     monkeypatch.setattr(run_daily.db, "get_all_post_snapshots", lambda c, i: [])
     monkeypatch.setattr(run_daily.db, "insert_highlights", lambda c, i, h: None)
 
-    with patch("instaloader.Instaloader"):
-        run_daily.run_instagram_scrape(client)
 
-    assert client_calls == ["good_handle"]
+def test_run_instagram_scrape_skips_failing_handle_and_continues(monkeypatch):
+    monkeypatch.setattr(run_daily.config, "load_roster", lambda: ["good_handle", "bad_handle"])
+    monkeypatch.setattr(run_daily.config, "PROFILE_REQUEST_DELAY_SECONDS", 0)
+
+    def fake_scrape_profile(loader, handle):
+        if handle == "bad_handle":
+            raise Exception("profile not found")
+        return {"profile": {"followers": 1, "following": 2, "media_count": 3, "bio": ""}, "posts": []}
+
+    monkeypatch.setattr(run_daily.instagram_scraper, "scrape_profile", fake_scrape_profile)
+
+    _patch_scrape_db(monkeypatch)
+    snapshot_calls = []
+    monkeypatch.setattr(
+        run_daily.db, "insert_profile_snapshot", lambda c, i, p: snapshot_calls.append(i)
+    )
+
+    with patch("instaloader.Instaloader"):
+        failed = run_daily.run_instagram_scrape(MagicMock())
+
+    assert snapshot_calls == [1]
+    assert failed == ["bad_handle"]
 
 
 def test_run_instagram_scrape_uploads_avatar(monkeypatch):
@@ -82,15 +88,8 @@ def test_run_instagram_scrape_uploads_avatar(monkeypatch):
         },
     )
 
+    _patch_scrape_db(monkeypatch)
     monkeypatch.setattr(run_daily.db, "get_or_create_influencer", lambda c, h: 7)
-    monkeypatch.setattr(run_daily.db, "insert_profile_snapshot", lambda c, i, p: None)
-    monkeypatch.setattr(run_daily.db, "insert_post_snapshots", lambda c, i, p: None)
-    monkeypatch.setattr(run_daily.db, "get_analyzed_shortcodes", lambda c, i: set())
-    monkeypatch.setattr(run_daily.content_analysis, "analyze_posts", lambda posts, analyzed: [])
-    monkeypatch.setattr(run_daily.db, "insert_post_content", lambda c, i, a: None)
-    monkeypatch.setattr(run_daily.db, "get_profile_snapshots", lambda c, i: [])
-    monkeypatch.setattr(run_daily.db, "get_all_post_snapshots", lambda c, i: [])
-    monkeypatch.setattr(run_daily.db, "insert_highlights", lambda c, i, h: None)
 
     fake_response = MagicMock()
     fake_response.content = b"fake-image-bytes"
@@ -136,14 +135,8 @@ def test_run_instagram_scrape_continues_when_avatar_download_fails(monkeypatch):
         },
     )
 
+    _patch_scrape_db(monkeypatch)
     monkeypatch.setattr(run_daily.db, "get_or_create_influencer", lambda c, h: 7)
-    monkeypatch.setattr(run_daily.db, "insert_profile_snapshot", lambda c, i, p: None)
-    monkeypatch.setattr(run_daily.db, "insert_post_snapshots", lambda c, i, p: None)
-    monkeypatch.setattr(run_daily.db, "get_analyzed_shortcodes", lambda c, i: set())
-    monkeypatch.setattr(run_daily.content_analysis, "analyze_posts", lambda posts, analyzed: [])
-    monkeypatch.setattr(run_daily.db, "insert_post_content", lambda c, i, a: None)
-    monkeypatch.setattr(run_daily.db, "get_profile_snapshots", lambda c, i: [])
-    monkeypatch.setattr(run_daily.db, "get_all_post_snapshots", lambda c, i: [])
     highlight_calls = []
     monkeypatch.setattr(run_daily.db, "insert_highlights", lambda c, i, h: highlight_calls.append(i))
 
@@ -528,3 +521,187 @@ def test_run_trend_scrape_skips_failing_source_and_continues(monkeypatch):
     run_daily.run_trend_scrape(MagicMock())
 
     assert insert_calls == ["https://example.com/b"]
+
+
+def _profile(followers=100):
+    return {"profile": {"followers": followers, "following": 2, "media_count": 3, "bio": ""}, "posts": []}
+
+
+def test_run_instagram_scrape_skips_handle_already_scraped_today(monkeypatch):
+    monkeypatch.setattr(run_daily.config, "load_roster", lambda: ["done_handle"])
+    monkeypatch.setattr(run_daily.config, "PROFILE_REQUEST_DELAY_SECONDS", 0)
+    _patch_scrape_db(monkeypatch)
+    monkeypatch.setattr(run_daily.db, "profile_scraped_today", lambda c, i: True)
+    monkeypatch.setattr(
+        run_daily.instagram_scraper,
+        "scrape_profile",
+        lambda loader, handle: (_ for _ in ()).throw(AssertionError("should not be called")),
+    )
+
+    with patch("instaloader.Instaloader"):
+        failed = run_daily.run_instagram_scrape(MagicMock())
+
+    assert failed == []
+
+
+def test_run_instagram_scrape_aborts_roster_on_session_expiry(monkeypatch):
+    import instaloader
+
+    monkeypatch.setattr(run_daily.config, "load_roster", lambda: ["first", "second", "third"])
+    monkeypatch.setattr(run_daily.config, "PROFILE_REQUEST_DELAY_SECONDS", 0)
+    _patch_scrape_db(monkeypatch)
+
+    scrape_calls = []
+
+    def fake_scrape(loader, handle):
+        scrape_calls.append(handle)
+        raise instaloader.exceptions.LoginRequiredException("login required")
+
+    monkeypatch.setattr(run_daily.instagram_scraper, "scrape_profile", fake_scrape)
+    notify_calls = []
+    monkeypatch.setattr(run_daily, "_notify", lambda title, message: notify_calls.append(title))
+
+    with patch("instaloader.Instaloader"):
+        failed = run_daily.run_instagram_scrape(MagicMock())
+
+    assert scrape_calls == ["first"]
+    assert failed == ["first", "second", "third"]
+    assert len(notify_calls) == 1
+
+
+def test_scrape_with_retry_recovers_from_transient_error(monkeypatch):
+    import instaloader
+
+    monkeypatch.setattr(run_daily, "TRANSIENT_RETRY_BACKOFF_SECONDS", 0)
+    attempts = []
+
+    def fake_scrape(loader, handle):
+        attempts.append(handle)
+        if len(attempts) < 2:
+            raise instaloader.exceptions.ConnectionException("blip")
+        return _profile()
+
+    monkeypatch.setattr(run_daily.instagram_scraper, "scrape_profile", fake_scrape)
+
+    result = run_daily._scrape_with_retry(MagicMock(), "h")
+
+    assert len(attempts) == 2
+    assert result["profile"]["followers"] == 100
+
+
+def test_scrape_with_retry_gives_up_after_max_attempts(monkeypatch):
+    import instaloader
+
+    import pytest
+
+    monkeypatch.setattr(run_daily, "TRANSIENT_RETRY_BACKOFF_SECONDS", 0)
+    attempts = []
+
+    def fake_scrape(loader, handle):
+        attempts.append(handle)
+        raise instaloader.exceptions.ConnectionException("down")
+
+    monkeypatch.setattr(run_daily.instagram_scraper, "scrape_profile", fake_scrape)
+
+    with pytest.raises(instaloader.exceptions.ConnectionException):
+        run_daily._scrape_with_retry(MagicMock(), "h")
+
+    assert len(attempts) == run_daily.TRANSIENT_RETRY_ATTEMPTS
+
+
+def test_scrape_with_retry_does_not_retry_rate_limit(monkeypatch):
+    import instaloader
+
+    import pytest
+
+    attempts = []
+
+    def fake_scrape(loader, handle):
+        attempts.append(handle)
+        raise instaloader.exceptions.TooManyRequestsException("429")
+
+    monkeypatch.setattr(run_daily.instagram_scraper, "scrape_profile", fake_scrape)
+
+    with pytest.raises(instaloader.exceptions.TooManyRequestsException):
+        run_daily._scrape_with_retry(MagicMock(), "h")
+
+    assert len(attempts) == 1
+
+
+def test_validate_profile_rejects_zero_followers():
+    import pytest
+
+    with pytest.raises(ValueError):
+        run_daily._validate_profile("h", {"followers": 0}, [])
+
+
+def test_validate_profile_rejects_missing_followers():
+    import pytest
+
+    with pytest.raises(ValueError):
+        run_daily._validate_profile("h", {"followers": None}, [])
+
+
+def test_validate_profile_rejects_large_swing():
+    import pytest
+
+    with pytest.raises(ValueError):
+        run_daily._validate_profile("h", {"followers": 40}, [{"followers": 100}])
+
+
+def test_validate_profile_accepts_normal_movement():
+    run_daily._validate_profile("h", {"followers": 103}, [{"followers": 100}])
+
+
+def test_validate_profile_accepts_first_snapshot():
+    run_daily._validate_profile("h", {"followers": 5000}, [])
+
+
+def test_run_instagram_scrape_rejects_anomalous_snapshot(monkeypatch):
+    monkeypatch.setattr(run_daily.config, "load_roster", lambda: ["h"])
+    monkeypatch.setattr(run_daily.config, "PROFILE_REQUEST_DELAY_SECONDS", 0)
+    _patch_scrape_db(monkeypatch)
+    monkeypatch.setattr(run_daily.db, "get_profile_snapshots", lambda c, i: [{"followers": 100000}])
+    monkeypatch.setattr(
+        run_daily.instagram_scraper, "scrape_profile", lambda loader, handle: _profile(followers=100)
+    )
+
+    snapshot_calls = []
+    monkeypatch.setattr(run_daily.db, "insert_profile_snapshot", lambda c, i, p: snapshot_calls.append(i))
+
+    with patch("instaloader.Instaloader"):
+        failed = run_daily.run_instagram_scrape(MagicMock())
+
+    assert snapshot_calls == []
+    assert failed == ["h"]
+
+
+def test_main_does_not_mark_done_when_handles_failed(tmp_path, monkeypatch):
+    monkeypatch.setattr(run_daily.config, "LAST_RUN_FILE", tmp_path / ".last_run")
+    monkeypatch.setattr(run_daily.db, "get_client", lambda: MagicMock())
+    monkeypatch.setattr(run_daily, "run_instagram_scrape", lambda c: ["missed_handle"])
+    monkeypatch.setattr(run_daily, "run_trend_scrape", lambda c: None)
+    monkeypatch.setattr(run_daily, "run_trend_headlines", lambda c: None)
+    monkeypatch.setattr(run_daily, "run_recommendations", lambda c: None)
+    monkeypatch.setattr(run_daily, "run_roster_briefing", lambda c: None)
+    notify_calls = []
+    monkeypatch.setattr(run_daily, "_notify", lambda title, message: notify_calls.append(message))
+
+    run_daily.main()
+
+    assert not (tmp_path / ".last_run").exists()
+    assert notify_calls == ["Missing: missed_handle"]
+
+
+def test_main_marks_done_when_all_handles_succeed(tmp_path, monkeypatch):
+    monkeypatch.setattr(run_daily.config, "LAST_RUN_FILE", tmp_path / ".last_run")
+    monkeypatch.setattr(run_daily.db, "get_client", lambda: MagicMock())
+    monkeypatch.setattr(run_daily, "run_instagram_scrape", lambda c: [])
+    monkeypatch.setattr(run_daily, "run_trend_scrape", lambda c: None)
+    monkeypatch.setattr(run_daily, "run_trend_headlines", lambda c: None)
+    monkeypatch.setattr(run_daily, "run_recommendations", lambda c: None)
+    monkeypatch.setattr(run_daily, "run_roster_briefing", lambda c: None)
+
+    run_daily.main()
+
+    assert (tmp_path / ".last_run").read_text().strip() == date.today().isoformat()

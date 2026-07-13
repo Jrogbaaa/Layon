@@ -171,3 +171,28 @@ delay) with throttling risk on the browser-cookie session — accepted, reported
 if it happens. Deleted impostor history is unrecoverable — accepted, it was worthless.
 Per-post growth-over-time highlights need >= ~6 days of capture history, so day one
 will only show outperformance-vs-median and views-based highlights.
+
+### 2026-07-13 — Scraper reliability: same-day retry via extra launchd fires, not automated backfill
+
+**Decision:** For feature_010, failed daily runs are recovered by (a) only writing
+`.last_run` when every roster handle succeeded, (b) adding 13:00 and 17:00
+`StartCalendarInterval` entries to the plist, and (c) making retry runs idempotent
+per-handle (skip any handle with a profile snapshot captured today, mirroring
+`trend_source_scraped_today`). Alerting is a macOS notification via `osascript` plus an
+ERROR log line — no email/webhook infrastructure. Anomaly gate threshold: reject profile
+snapshots with followers 0/None or >50% day-over-day swing. Transient errors get 3
+attempts with linear backoff (30s, 60s); instaloader login/challenge exceptions abort the
+roster loop with a distinct session-expired alert. Retry runs re-run the downstream
+Gemini steps (headlines/recommendations/briefing), so a completed roster refreshes any
+outputs generated earlier from partial data.
+
+**Reason:** launchd fires once at 9:00, so "don't mark done" alone retries nothing until
+the next day; extra fire times + per-handle skip give same-day recovery while honoring
+the once-per-day-per-handle contract. osascript needs zero new dependencies and the
+pipeline already runs on Jack's Mac. The 90%-drop corruption class is caught by the
+50% gate without being so tight that real follower swings trip it.
+
+**Tradeoffs:** Rejected automated `backfill.py` wiring (historical catch-up stays
+manual), webhook/email alerts (new infra), and Graph API migration (Phase 2, declined).
+On a failure day, Gemini steps may run up to 3x. If the Mac is asleep at all three fire
+times, the day is still lost — accepted, matches existing launchd decision.

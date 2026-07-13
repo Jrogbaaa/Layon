@@ -15,13 +15,29 @@
   <key>WorkingDirectory</key>
   <string>__SCRAPER_DIR__</string>
 
+  <!-- 13:00 and 17:00 fires retry handles the 9:00 run missed; a fully
+       successful earlier run makes them no-ops via the .last_run guard. -->
   <key>StartCalendarInterval</key>
-  <dict>
-    <key>Hour</key>
-    <integer>9</integer>
-    <key>Minute</key>
-    <integer>0</integer>
-  </dict>
+  <array>
+    <dict>
+      <key>Hour</key>
+      <integer>9</integer>
+      <key>Minute</key>
+      <integer>0</integer>
+    </dict>
+    <dict>
+      <key>Hour</key>
+      <integer>13</integer>
+      <key>Minute</key>
+      <integer>0</integer>
+    </dict>
+    <dict>
+      <key>Hour</key>
+      <integer>17</integer>
+      <key>Minute</key>
+      <integer>0</integer>
+    </dict>
+  </array>
 
   <key>StandardOutPath</key>
   <string>__SCRAPER_DIR__/logs/daily_run.log</string>

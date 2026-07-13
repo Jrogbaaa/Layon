@@ -5,7 +5,7 @@
     "playwright": "3/3 passed",
     "build": "pass",
     "lint": "pass",
-    "manual": "influencer page verified on localhost:3000 — back link, format cards with %, recent posts table, chart hidden with progress note"
+    "manual": "influencer page verified on localhost:3000 \u2014 back link, format cards with %, recent posts table, chart hidden with progress note"
   },
   "feature_007": {
     "status": "built_and_verified",
@@ -14,14 +14,21 @@
     "build": "pass",
     "lint": "pass",
     "tsc": "pass",
-    "manual": "roster + influencer page (mariavalero) verified on localhost:3000 — attention strip renders, legacy prose recommendation falls back to markdown correctly. New JSON-bullet path not yet exercised against a real Gemini call. Merged via PR #1 (2026-07-07)."
+    "manual": "roster + influencer page (mariavalero) verified on localhost:3000 \u2014 attention strip renders, legacy prose recommendation falls back to markdown correctly. New JSON-bullet path not yet exercised against a real Gemini call. Merged via PR #1 (2026-07-07)."
   },
   "feature_008": {
     "status": "built_pending_evaluator_review",
-    "pytest": "64/64 passed (scraper/, unaffected — confirms platform-only change)",
+    "pytest": "64/64 passed (scraper/, unaffected \u2014 confirms platform-only change)",
     "playwright": "5/5 passed (platform/, against running localhost:3000)",
     "build": "pass",
     "lint": "pass",
-    "manual": "Roster and influencer detail pages screenshotted against a running dev server via Playwright — gradient wordmark, card shadows, teal/sky accent, bold metric numbers all render as designed. Login page gradient CTA verified. No leftover neutral-*/amber-* classes in app/ (grep-verified)."
+    "manual": "Roster and influencer detail pages screenshotted against a running dev server via Playwright \u2014 gradient wordmark, card shadows, teal/sky accent, bold metric numbers all render as designed. Login page gradient CTA verified. No leftover neutral-*/amber-* classes in app/ (grep-verified)."
+  },
+  "feature_010": {
+    "status": "built_and_live_verified",
+    "pytest": "144/144 passed (scraper/), also independently re-run by Evaluator",
+    "playwright": "n/a (scraper-only)",
+    "evaluator": "PASS \u2014 avg 4.75, goal alignment 5; non-blocking follow-ups in findings.md",
+    "manual": "Live run_daily on 2026-07-13: morning run had failed dante_caro yet old code marked day done; after fix + .last_run reset, retry run skipped the 4 already-captured handles, scraped only dante_caro, and marked the day complete. Supabase confirms exactly 1 profile snapshot per handle today. Plist passed plutil lint; LaunchAgent reinstall (./install_launchagent.sh) still pending to activate 13:00/17:00 fires."
   }
 }

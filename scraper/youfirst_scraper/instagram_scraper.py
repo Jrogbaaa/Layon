@@ -56,8 +56,16 @@ def _comment_count(post: instaloader.Post) -> int:
     which isn't present on this endpoint's response shape, so it falls back to a
     per-post metadata fetch that currently fails upstream. The timeline edge
     already carries the count under a plain "comments" key.
+
+    A missing key means Instagram changed the response shape — that must fail
+    the scrape, not silently record 0 comments for every post.
     """
-    return post._node.get("comments", 0)
+    if "comments" not in post._node:
+        raise KeyError(
+            f"'comments' key missing from timeline node for post {post.shortcode} — "
+            "Instagram response shape may have changed"
+        )
+    return post._node["comments"]
 
 
 def _view_count(post: instaloader.Post) -> int | None:
@@ -69,6 +77,10 @@ def _view_count(post: instaloader.Post) -> int | None:
         value = node.get(key)
         if isinstance(value, int):
             return value
+    logger.warning(
+        "No view-count key on video post %s — Instagram response shape may have changed",
+        post.shortcode,
+    )
     return None
 
 

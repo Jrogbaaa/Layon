@@ -2,66 +2,73 @@
 
 ## Goal of This Change
 
-Ground daily creative recommendations in specific, current, real Spain events instead of
-generic placeholders (e.g. "adapt a currently trending Spanish TV show" with no named
-show). Two changes:
+Make the daily Instagram scrape resilient to failures and incapable of silently writing
+bad data. Five concrete mechanisms (feature_010, "Phase 1" of the scraper-reliability
+audit, 2026-07-13):
 
-1. Replace the four evergreen "social media trends 2026" marketing-blog sources in
-   `config.TREND_SOURCES` with live, real-time feeds that name actual shows, people, and
-   events happening in Spain right now (Google Trends Spain RSS, 20minutos Gente RSS,
-   El País Cultura RSS — all verified live and current as of 2026-07-10).
-2. Pipe the distilled `trend_headlines` into each influencer's recommendation prompt
-   (`recommendations.build_prompt`), with an explicit instruction that any trend
-   reference must NAME the specific show/person/event from the supplied list — never a
-   vague placeholder. This closes the gap where `run_daily.py` scrapes trends and
-   generates headlines but never passes them into the recommendation generator.
-
-Each influencer's existing persona and metrics context stay in the same prompt, so
-Gemini picks which of today's named trends (if any) fit that influencer's brand —
-customization by influencer is inherited from the existing per-influencer prompt
-structure, not new logic.
+1. **Same-day retry of failed handles.** `mark_ran_today()` only fires when every roster
+   handle succeeded. The launchd plist gains two extra fire times (13:00, 17:00) so an
+   incomplete morning run is re-attempted the same day. Retry runs are idempotent
+   per-handle: a handle with a profile snapshot already captured today is skipped, so no
+   handle is ever scraped more than once per day (contract: no scraping more than once
+   daily).
+2. **Run-completeness alerting.** At the end of each run, if any roster handle is missing
+   today's snapshot, log an ERROR summary and fire a macOS notification (osascript) so a
+   failure is visible without opening log files.
+3. **Fail loud on Instagram response-shape drift.** `_comment_count` raises instead of
+   silently returning 0 when the `comments` key is missing from the timeline node.
+   `_view_count` logs a warning when a video post has no view-count key (still returns
+   None — views are genuinely absent on some posts).
+4. **Anomaly gate before profile writes.** Before inserting a profile snapshot, compare
+   against the latest stored snapshot: reject (raise, handle marked failed and retried
+   later) if followers is missing/zero or swings more than 50% day-over-day. A rejected
+   snapshot is never written; the alert in (2) surfaces it.
+5. **Transient-error retry + session-expiry distinction.** `scrape_profile` calls get up
+   to 3 attempts with backoff for connection-class errors. Instaloader login/challenge
+   exceptions abort the whole roster loop immediately with a distinct "session expired —
+   re-login required" alert instead of grinding through identical per-handle failures.
 
 ## Why This Matters
 
-The agency's recommendations are meant to give talent concrete, actionable ideas.
-Generic instructions to "adapt a trending show" with no name are useless — a talent
-manager can't act on them. Grounding in real, current Spain-specific events (feed items
-scraped the same day) makes each daily bullet something a team can execute immediately,
-while staying on-brand per influencer.
+The scraper is the platform's sole data source. The 2026-07-08 run failed for all five
+influencers (network outage at fire time), marked itself complete anyway, never retried,
+and alerted no one — that day's data is permanently gone. Four other days that week were
+partially missing. Separately, the private-field reads (`post._node`) default to 0/None
+on shape changes, which would silently corrupt every engagement metric downstream.
 
 ## Intended User
 
-Agency staff and talent reading daily recommendations in the platform dashboard.
+Agency staff (data completeness/trust) and the developer operating the pipeline.
 
 ## Non-Goals
 
-- No new Supabase tables or schema changes (reuse `trend_snapshots` / `trend_headlines`).
-- No new third-party dependencies (RSS parsed with stdlib `xml.etree.ElementTree`).
-- No per-influencer trend-source targeting — one shared trend list per day, filtered by
-  Gemini per persona in the prompt, as with existing persona/format guidance.
-- No change to auth, platform UI, or scrape frequency (still once daily).
-- No influencer-brand matching system (out of scope per CONSTITUTION.md).
+- No Instagram Graph API migration (Phase 2 — explicitly declined by the user).
+- No third-party scraping APIs, no email/webhook infrastructure, no new dependencies.
+- No change to scrape volume: each handle at most once per day, same post counts, same
+  20s pacing (roster-growth pacing/jitter work is out of scope).
+- No restructuring of the per-handle write sequence (raw vs derived split — audit H3).
+- No platform/UI staleness indicator (audit M5).
+- No automatic wiring of `backfill.py` (deep history catch-up stays manual; same-day
+  retry above covers daily gaps).
 
 ## Success Criteria
 
-1. `trend_scraper.scrape_trend_source` parses RSS (Content-Type or `<?xml`/`<rss`
-   sniffed) via a new branch, alongside the existing HTML path — both return
-   `{"title", "content_text"}`.
-2. `config.TREND_SOURCES` holds the three verified live feeds.
-3. `trend_headlines.build_prompt` instructs Gemini to name specific shows/people/events,
-   not generic themes.
-4. `recommendations.build_prompt` / `generate_recommendation` accept `trend_items` and
-   render a "What's trending in Spain today" section instructing bullets to name the
-   specific trend item, never a vague placeholder.
-5. `run_daily.run_recommendations` fetches the latest stored `trend_headlines` row once
-   per run and passes its English texts into every influencer's recommendation call.
-6. pytest green in `scraper/`, including updated/added tests for the RSS branch, the new
-   prompt sections, and the `run_daily` wiring.
-7. A live `run_daily` (or targeted manual script) run shows trend_snapshots/trend_headlines
-   containing named current items, and at least one recommendation bullet naming a
-   specific trend.
+1. A run where any handle fails does NOT write `.last_run`; a later same-day run
+   re-attempts only the missed handles and marks the day done once all have snapshots.
+2. Plist has 9:00 / 13:00 / 17:00 fire times; a fully successful 9:00 run makes the
+   later fires no-ops via the existing `already_ran_today()` guard.
+3. An incomplete run produces an ERROR log line naming the missing handles and posts a
+   macOS notification.
+4. `_comment_count` raises on a missing `comments` key (test asserts this); a video
+   node with no view key logs a warning.
+5. A profile payload with followers 0/None, or >50% away from the latest stored
+   snapshot, is rejected before insert (tests assert both rejection and normal pass).
+6. Connection-class errors are retried up to 3 attempts with backoff;
+   login/challenge exceptions abort the roster loop with the distinct session alert
+   (tests assert both).
+7. pytest green in `scraper/` (existing + new tests).
 
 ## Open Questions
 
-None — direction confirmed with the user 2026-07-10; RSS feed URLs verified live via curl
-before being locked into the plan.
+None — mechanism choices (extra launchd fire times, osascript notification, 50%
+threshold, 3 attempts) recorded in decisions.md; all reversible constants.

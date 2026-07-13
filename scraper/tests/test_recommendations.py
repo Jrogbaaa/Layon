@@ -18,6 +18,7 @@ def _valid_bullet_response():
         {
             "bullets": [
                 {
+                    "kind": "past_success",
                     "text": {"en": "Do another reel like this", "es": "Haz otro reel similar"},
                     "reason": {"en": "2x median", "es": "2x mediana"},
                     "shortcode": None,
@@ -148,6 +149,7 @@ def test_build_prompt_renames_recent_heading_when_alltime_present():
 def test_build_prompt_requests_bullet_json_shape():
     prompt = recommendations.build_prompt("handle", _metrics(), [])
     assert '"bullets"' in prompt
+    assert '"kind"' in prompt
     assert '"shortcode"' in prompt
     assert '"en"' in prompt
     assert '"es"' in prompt
@@ -248,7 +250,23 @@ def test_generate_recommendation_returns_none_when_bullet_missing_language():
     posts = []
 
     fake_response = MagicMock()
-    fake_response.text = json.dumps({"bullets": [{"text": {"en": "only english"}, "reason": {"en": "r"}}]})
+    fake_response.text = json.dumps({"bullets": [{"kind": "past_success", "text": {"en": "only english"}, "reason": {"en": "r"}}]})
+    fake_client = MagicMock()
+    fake_client.models.generate_content.return_value = fake_response
+
+    with patch("youfirst_scraper.recommendations.genai.Client", return_value=fake_client):
+        result = recommendations.generate_recommendation("handle", profile_snapshots, posts)
+
+    assert result is None
+
+
+def test_generate_recommendation_returns_none_when_bullet_missing_kind():
+    profile_snapshots = [{"followers": 1000}]
+    posts = []
+
+    fake_response = MagicMock()
+    # Missing 'kind' field
+    fake_response.text = json.dumps({"bullets": [{"text": {"en": "a", "es": "b"}, "reason": {"en": "c", "es": "d"}}]})
     fake_client = MagicMock()
     fake_client.models.generate_content.return_value = fake_response
 
