@@ -1,22 +1,27 @@
 import Link from "next/link";
 import { logout } from "@/app/actions/auth";
+import { NavLinks } from "@/app/components/NavLinks";
 
 export function Nav() {
+  const tonight = new Date().toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+
   return (
-    <header className="border-b border-border bg-card">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-        <Link href="/" className="font-display text-lg font-extrabold tracking-tight text-ink">
-          You First <span className="text-accent">Gersh</span>
+    <header className="sticky top-0 z-40 border-b border-border-faint bg-canvas/85 backdrop-blur-md">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3.5">
+        <Link href="/" className="font-display text-xl tracking-tight text-ink">
+          Look After <em className="not-italic text-accent">You</em>
         </Link>
         <nav className="flex items-center gap-6 text-sm font-medium text-muted">
-          <Link href="/" className="hover:text-ink">
-            Roster
-          </Link>
-          <Link href="/trends" className="hover:text-ink">
-            Trends
-          </Link>
+          <span className="font-mono hidden text-xs text-faint sm:inline" aria-hidden>
+            {tonight}
+          </span>
+          <NavLinks />
           <form action={logout}>
-            <button type="submit" className="text-muted hover:text-ink">
+            <button type="submit" className="text-muted transition-colors hover:text-ink">
               Log out
             </button>
           </form>

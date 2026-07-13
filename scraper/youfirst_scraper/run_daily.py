@@ -14,6 +14,7 @@ from . import (
     metrics,
     recommendations,
     roster_patterns,
+    trend_headlines,
     trend_scraper,
 )
 
@@ -94,6 +95,28 @@ def run_trend_scrape(client) -> None:
             logger.exception("Failed to scrape trend source %s — skipping", url)
 
 
+def run_trend_headlines(client) -> None:
+    # Over-fetch, then keep the newest snapshot per source: the latest N rows overall
+    # can hold duplicates of one source (and miss another) when a source fails a day.
+    rows = db.get_latest_trend_snapshots(client, limit=len(config.TREND_SOURCES) * 7)
+    latest_by_source: dict[str, dict] = {}
+    for row in rows:
+        latest_by_source.setdefault(row["source_url"], row)
+    snapshots = list(latest_by_source.values())
+    if not snapshots:
+        logger.info("No trend snapshots — skipping headlines")
+        return
+    try:
+        content = trend_headlines.generate_headlines(snapshots)
+        if content is None:
+            logger.warning("No valid trend headlines generated — keeping previous")
+            return
+        db.insert_trend_headlines(client, trend_headlines.GEMINI_MODEL, content)
+        logger.info("Generated trend headlines")
+    except Exception:
+        logger.exception("Failed to generate trend headlines — keeping previous")
+
+
 def run_recommendations(client) -> None:
     for influencer in db.list_influencers(client):
         handle = influencer["handle"]
@@ -105,6 +128,7 @@ def run_recommendations(client) -> None:
             posts = db.get_recent_posts(client, influencer["id"])
             highlights = db.get_latest_highlights(client, influencer["id"])
             content_map = db.get_post_content_map(client, influencer["id"])
+            alltime_top_posts = db.get_top_posts(client, influencer["id"])
             content = recommendations.generate_recommendation(
                 handle,
                 profile_snapshots,
@@ -112,6 +136,7 @@ def run_recommendations(client) -> None:
                 influencer.get("persona"),
                 highlights,
                 content_map,
+                alltime_top_posts,
             )
             if content is None:
                 logger.warning("No valid recommendation generated for %s — keeping previous", handle)
@@ -179,6 +204,7 @@ def main() -> None:
     client = db.get_client()
     run_instagram_scrape(client)
     run_trend_scrape(client)
+    run_trend_headlines(client)
     run_recommendations(client)
     run_roster_briefing(client)
     mark_ran_today()

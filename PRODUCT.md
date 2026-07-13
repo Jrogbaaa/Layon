@@ -14,7 +14,13 @@ An influencer-insights dashboard (You First Gersh) that scrapes Instagram data d
 
 ## Brand Personality
 
-Sharp, calm, trustworthy. A credible data tool for professional decision-making — precise and low-drama, not flashy. Reference point: Kolsquare (influencer marketing platform) — navy/near-black with a confident accent color, generous whitespace, clean data visualization, corporate-yet-approachable tone. Evolve the current identity (blue/teal accents, Plus Jakarta Sans + Inter) toward that same level of polish and confidence rather than replacing it.
+Cinematic, nocturnal, editorial — "Medianoche" (see DESIGN.md). The agency watches its
+talent overnight, and the interface owns that story: a garnet-black canvas, warm ivory
+serif display type, one gilded signal color, and a trading-floor tape. It reads like a
+couture house's internal terminal — a showcase of craft that still behaves like a
+precise, trustworthy triage tool. Data remains the hero; drama lives in the frame, not
+in the numbers. (This deliberately replaced the earlier calm/Kolsquare-like light
+direction in July 2026 as a public capability showcase.)
 
 ## Anti-references
 

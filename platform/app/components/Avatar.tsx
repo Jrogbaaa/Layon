@@ -26,7 +26,7 @@ export function Avatar({
 
   return (
     <div
-      className={`${sizeClass} flex shrink-0 items-center justify-center rounded-full border border-border bg-accent-strong font-display font-bold uppercase text-white`}
+      className={`${sizeClass} flex shrink-0 items-center justify-center rounded-full border border-border bg-garnet-deep font-display uppercase text-accent`}
     >
       {handle.charAt(0)}
     </div>

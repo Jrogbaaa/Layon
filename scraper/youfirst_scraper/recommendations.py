@@ -33,6 +33,7 @@ def build_prompt(
     persona: str | None = None,
     highlights: list[dict] | None = None,
     content_map: dict[str, dict] | None = None,
+    alltime_top_posts: list[dict] | None = None,
 ) -> str:
     content_map = content_map or {}
     deduped: dict[str, dict] = {}
@@ -66,6 +67,20 @@ def build_prompt(
         else ""
     )
 
+    alltime_section = ""
+    if alltime_top_posts:
+        ceiling = max(p["likes"] + p["comments"] for p in alltime_top_posts)
+        alltime_lines = "\n".join(_post_line(p, baseline, content_map) for p in alltime_top_posts)
+        alltime_section = f"""
+All-time top performing posts (this is what GOOD looks like for @{handle}):
+{alltime_lines}
+Performance ceiling: @{handle}'s best posts reach ~{ceiling:,} engagement (likes+comments).
+The recent 12-post median is {baseline:,.0f}. Judge recent posts against the all-time
+ceiling, not just the recent median: only call a recent post "top performing" if it
+approaches the all-time numbers. If recent posts sit far below the ceiling, say so
+plainly and base recommendations on what the all-time winners did.
+"""
+
     return f"""You are a social media strategist for a talent agency's Instagram influencer.
 
 Influencer: @{handle}
@@ -76,7 +91,8 @@ Metrics (from real scraped data):
 - Average engagement by post format: {computed_metrics['format_performance']}
 - Average days between posts: {computed_metrics['posting_cadence_days']}
 {highlights_section}
-Top performing recent posts (with what the content was actually about):
+{alltime_section}
+Recent posts ranked by engagement (last ~12):
 {top_section or '(no recent posts)'}
 {weakest_section}
 The target audience is Spain / Spanish-speaking, not the USA — recommendations should fit
@@ -114,9 +130,12 @@ def generate_recommendation(
     persona: str | None = None,
     highlights: list[dict] | None = None,
     content_map: dict[str, dict] | None = None,
+    alltime_top_posts: list[dict] | None = None,
 ) -> str | None:
     computed_metrics = metrics.compute_metrics(profile_snapshots, posts)
-    prompt = build_prompt(handle, computed_metrics, posts, persona, highlights, content_map)
+    prompt = build_prompt(
+        handle, computed_metrics, posts, persona, highlights, content_map, alltime_top_posts
+    )
 
     client = genai.Client(api_key=config.GOOGLE_API_KEY)
 

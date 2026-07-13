@@ -95,3 +95,25 @@ create table if not exists post_content (
   analyzed_at timestamptz not null default now(),
   unique (influencer_id, shortcode)
 );
+
+-- All-time best snapshot per (influencer, post): dedupes daily captures by
+-- shortcode, keeping the capture with the highest engagement.
+create index if not exists post_snapshots_influencer_shortcode_idx
+  on post_snapshots (influencer_id, shortcode);
+
+create or replace view top_posts as
+select distinct on (influencer_id, shortcode)
+  influencer_id, shortcode, post_type, likes, comments, views, caption, posted_at,
+  likes + comments as engagement
+from post_snapshots
+order by influencer_id, shortcode, (likes + comments) desc, captured_at desc;
+
+create table if not exists trend_headlines (
+  id bigint generated always as identity primary key,
+  generated_at timestamptz not null default now(),
+  model text not null,
+  content jsonb not null
+);
+
+create index if not exists trend_headlines_generated_idx
+  on trend_headlines (generated_at desc);

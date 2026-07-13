@@ -36,11 +36,23 @@ export type TrendSnapshot = {
   captured_at: string;
 };
 
+export type TrendHeadlines = {
+  generated_at: string;
+  model: string;
+  content: string;
+};
+
+export type TrendHeadlinesPayload = {
+  headlines: { text: Bilingual; source_url: string | null }[];
+};
+
 export type Recommendation = {
   generated_at: string;
   model: string;
   content: string;
 };
+
+export type TopPost = PostSnapshot & { engagement: number };
 
 export type Bilingual = { en: string; es: string };
 
@@ -61,6 +73,8 @@ export type RosterEntry = {
   latestSnapshot: ProfileSnapshot | null;
   followerDelta: number;
   recentHighlights: Highlight[];
+  /** Recent snapshots, oldest→newest, for the roster sparkline. */
+  history: ProfileSnapshot[];
 };
 
 export type InfluencerDashboard = {
@@ -69,4 +83,5 @@ export type InfluencerDashboard = {
   recentPosts: PostSnapshot[];
   latestRecommendation: Recommendation | null;
   highlights: Highlight[];
+  topPosts: TopPost[];
 };

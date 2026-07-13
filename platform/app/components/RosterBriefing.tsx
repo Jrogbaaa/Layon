@@ -32,75 +32,104 @@ export function RosterBriefing({
   const hasDetails = briefing.patterns.length > 0 || briefing.actions.length > 0;
 
   return (
-    <section className="card mb-8 p-6">
-      <div className="mb-1 flex items-center justify-between">
-        <h2 className="text-lg font-semibold">This week across the roster</h2>
+    <section className="mb-12">
+      <div className="mb-5 flex items-center justify-between">
+        <h2 className="font-mono text-xs tracking-widest text-accent">
+          THE DISPATCH ·{" "}
+          {new Date(generatedAt)
+            .toLocaleDateString("en-US", { month: "short", day: "numeric" })
+            .toUpperCase()}
+        </h2>
         <LanguageToggle />
       </div>
-      <p className="mb-4 text-xs text-muted">
-        Updated {new Date(generatedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-      </p>
 
-      <p className="max-w-prose text-sm leading-relaxed text-ink">{briefing.summary[lang]}</p>
+      {/* The week's story, told as a pull-quote. */}
+      <blockquote className="font-display max-w-[32ch] text-2xl italic leading-snug text-ink sm:text-[1.75rem]">
+        {briefing.summary[lang]}
+      </blockquote>
 
       {hasDetails ? (
-        <details className="group mt-4">
-          <summary className="cursor-pointer list-none text-sm font-medium text-accent-strong hover:underline">
-            <span className="group-open:hidden">Show patterns &amp; actions ▸</span>
-            <span className="hidden group-open:inline">Hide patterns &amp; actions ▾</span>
+        <details className="group mt-6">
+          <summary className="inline-flex cursor-pointer list-none items-center gap-2 text-sm font-medium text-accent transition-colors hover:text-accent-bright [&::-webkit-details-marker]:hidden">
+            <span
+              aria-hidden
+              className="inline-block transition-transform duration-300 group-open:rotate-90"
+            >
+              ▸
+            </span>
+            <span className="group-open:hidden">Patterns &amp; priority actions</span>
+            <span className="hidden group-open:inline">Hide patterns &amp; actions</span>
           </summary>
 
-          {briefing.patterns.length > 0 ? (
-            <div className="mt-4 mb-5">
-              <h3 className="mb-2 text-sm font-semibold text-muted">Patterns found</h3>
-              <ul className="space-y-2">
-                {briefing.patterns.map((pattern, i) => (
-                  <li key={i} className="rounded-xl border border-border bg-canvas px-4 py-3 text-sm text-ink">
-                    <p className="max-w-prose">{pattern.finding[lang]}</p>
-                    <p className="mt-1 max-w-prose text-xs text-muted">{pattern.evidence}</p>
-                    <p className="mt-1 flex flex-wrap gap-2 text-xs">
-                      {pattern.handles.map((handle) => (
-                        <Link
-                          key={handle}
-                          href={`/influencer/${handle}`}
-                          className="text-accent-strong hover:underline"
-                        >
-                          @{handle}
-                        </Link>
-                      ))}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
+          <div
+            className={`mt-6 grid gap-10 ${
+              briefing.patterns.length > 0 && briefing.actions.length > 0 ? "lg:grid-cols-2" : ""
+            }`}
+          >
+            {briefing.patterns.length > 0 ? (
+              <div>
+                <h3 className="font-mono mb-4 text-xs tracking-widest text-faint">PATTERNS</h3>
+                <ul className="space-y-5">
+                  {briefing.patterns.map((pattern, i) => (
+                    <li key={i} className="text-sm leading-relaxed">
+                      <p className="max-w-prose text-ink">{pattern.finding[lang]}</p>
+                      <p className="font-mono mt-1 max-w-prose text-xs text-faint">
+                        {pattern.evidence}
+                      </p>
+                      <p className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                        {pattern.handles.map((handle) => (
+                          <Link
+                            key={handle}
+                            href={`/influencer/${handle}`}
+                            className="text-accent hover:text-accent-bright"
+                          >
+                            @{handle}
+                          </Link>
+                        ))}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
 
-          {briefing.actions.length > 0 ? (
-            <div className="mt-4">
-              <h3 className="mb-2 text-sm font-semibold text-muted">Priority actions</h3>
-              <ul className="space-y-2">
-                {briefing.actions.map((action, i) => (
-                  <li key={i} className="rounded-xl border border-border bg-canvas px-4 py-3 text-sm text-ink">
-                    <Link href={`/influencer/${action.handle}`} className="font-semibold hover:underline">
-                      @{action.handle}
-                    </Link>
-                    <p className="mt-1 max-w-prose">{action.action[lang]}</p>
-                    <p className="mt-1 max-w-prose text-xs text-muted">{action.reason[lang]}</p>
-                    {action.shortcode ? (
-                      <a
-                        href={`https://www.instagram.com/p/${action.shortcode}/`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mt-1 inline-block text-xs text-accent-strong hover:underline"
-                      >
-                        View post →
-                      </a>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
+            {briefing.actions.length > 0 ? (
+              <div>
+                <h3 className="font-mono mb-4 text-xs tracking-widest text-faint">
+                  PRIORITY ACTIONS
+                </h3>
+                <ol className="space-y-5">
+                  {briefing.actions.map((action, i) => (
+                    <li key={i} className="flex gap-4 text-sm leading-relaxed">
+                      <span className="font-mono mt-0.5 text-xs text-accent" aria-hidden>
+                        {String(i + 1).padStart(2, "0")}
+                      </span>
+                      <div>
+                        <Link
+                          href={`/influencer/${action.handle}`}
+                          className="font-semibold text-ink hover:text-accent"
+                        >
+                          @{action.handle}
+                        </Link>
+                        <p className="mt-1 max-w-prose text-ink">{action.action[lang]}</p>
+                        <p className="mt-1 max-w-prose text-xs text-muted">{action.reason[lang]}</p>
+                        {action.shortcode ? (
+                          <a
+                            href={`https://www.instagram.com/p/${action.shortcode}/`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-1 inline-block text-xs text-accent hover:text-accent-bright"
+                          >
+                            View post →
+                          </a>
+                        ) : null}
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            ) : null}
+          </div>
         </details>
       ) : null}
     </section>

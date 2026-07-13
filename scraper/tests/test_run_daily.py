@@ -181,12 +181,13 @@ def test_run_recommendations_does_not_fetch_trends(monkeypatch):
     monkeypatch.setattr(run_daily.db, "get_recent_posts", lambda c, i: [])
     monkeypatch.setattr(run_daily.db, "get_latest_highlights", lambda c, i: [])
     monkeypatch.setattr(run_daily.db, "get_post_content_map", lambda c, i: {})
+    monkeypatch.setattr(run_daily.db, "get_top_posts", lambda c, i: [])
     monkeypatch.setattr(run_daily.db, "insert_recommendation", lambda c, i, m, content: None)
 
     calls = {}
 
-    def fake_generate(handle, profile_snapshots, posts, persona=None, highlights=None, content_map=None):
-        calls["args"] = (handle, persona, highlights, content_map)
+    def fake_generate(handle, profile_snapshots, posts, persona=None, highlights=None, content_map=None, alltime_top_posts=None):
+        calls["args"] = (handle, persona, highlights, content_map, alltime_top_posts)
         return "content"
 
     monkeypatch.setattr(run_daily.recommendations, "generate_recommendation", fake_generate)
@@ -197,12 +198,36 @@ def test_run_recommendations_does_not_fetch_trends(monkeypatch):
     assert calls["args"][0] == "h"
 
 
+def test_run_recommendations_passes_alltime_top_posts(monkeypatch):
+    monkeypatch.setattr(run_daily.db, "list_influencers", lambda c: [{"id": 1, "handle": "h", "persona": None}])
+    monkeypatch.setattr(run_daily.db, "get_profile_snapshots", lambda c, i: [{"followers": 100}])
+    monkeypatch.setattr(run_daily.db, "get_recent_posts", lambda c, i: [])
+    monkeypatch.setattr(run_daily.db, "get_latest_highlights", lambda c, i: [])
+    monkeypatch.setattr(run_daily.db, "get_post_content_map", lambda c, i: {})
+    top_posts = [{"shortcode": "abc", "likes": 190000, "comments": 10000}]
+    monkeypatch.setattr(run_daily.db, "get_top_posts", lambda c, i: top_posts)
+    monkeypatch.setattr(run_daily.db, "insert_recommendation", lambda c, i, m, content: None)
+
+    calls = {}
+
+    def fake_generate(handle, profile_snapshots, posts, persona=None, highlights=None, content_map=None, alltime_top_posts=None):
+        calls["alltime_top_posts"] = alltime_top_posts
+        return "content"
+
+    monkeypatch.setattr(run_daily.recommendations, "generate_recommendation", fake_generate)
+
+    run_daily.run_recommendations(MagicMock())
+
+    assert calls["alltime_top_posts"] == top_posts
+
+
 def test_run_recommendations_skips_insert_when_generation_returns_none(monkeypatch):
     monkeypatch.setattr(run_daily.db, "list_influencers", lambda c: [{"id": 1, "handle": "h", "persona": None}])
     monkeypatch.setattr(run_daily.db, "get_profile_snapshots", lambda c, i: [{"followers": 100}])
     monkeypatch.setattr(run_daily.db, "get_recent_posts", lambda c, i: [])
     monkeypatch.setattr(run_daily.db, "get_latest_highlights", lambda c, i: [])
     monkeypatch.setattr(run_daily.db, "get_post_content_map", lambda c, i: {})
+    monkeypatch.setattr(run_daily.db, "get_top_posts", lambda c, i: [])
     monkeypatch.setattr(run_daily.recommendations, "generate_recommendation", lambda *a, **k: None)
 
     insert_calls = []
@@ -293,6 +318,80 @@ def test_run_roster_briefing_does_not_crash_pipeline_on_unexpected_error(monkeyp
 
     # Must not raise — an unexpected failure here shouldn't crash main()'s daily run.
     run_daily.run_roster_briefing(MagicMock())
+
+    assert insert_calls == []
+
+
+def test_run_trend_headlines_skips_when_no_snapshots(monkeypatch):
+    monkeypatch.setattr(run_daily.db, "get_latest_trend_snapshots", lambda c, limit=None: [])
+    monkeypatch.setattr(
+        run_daily.trend_headlines,
+        "generate_headlines",
+        lambda snapshots: (_ for _ in ()).throw(AssertionError("should not be called")),
+    )
+
+    run_daily.run_trend_headlines(MagicMock())
+
+
+def test_run_trend_headlines_uses_all_source_count_as_limit(monkeypatch):
+    monkeypatch.setattr(run_daily.config, "TREND_SOURCES", ["https://a", "https://b", "https://c"])
+    calls = {}
+
+    def fake_get_latest_trend_snapshots(c, limit=None):
+        calls["limit"] = limit
+        return [{"source_url": "https://a", "title": "t", "content_text": "body"}]
+
+    monkeypatch.setattr(run_daily.db, "get_latest_trend_snapshots", fake_get_latest_trend_snapshots)
+    monkeypatch.setattr(run_daily.trend_headlines, "generate_headlines", lambda snapshots: json.dumps({"headlines": []}))
+
+    insert_calls = []
+    monkeypatch.setattr(run_daily.db, "insert_trend_headlines", lambda c, model, content: insert_calls.append(content))
+
+    run_daily.run_trend_headlines(MagicMock())
+
+    assert calls["limit"] == 21
+    assert len(insert_calls) == 1
+
+
+def test_run_trend_headlines_dedupes_to_newest_snapshot_per_source(monkeypatch):
+    monkeypatch.setattr(run_daily.config, "TREND_SOURCES", ["https://a", "https://b"])
+    # Newest-first, as the db query returns: source a scraped today and yesterday,
+    # source b only yesterday.
+    monkeypatch.setattr(
+        run_daily.db,
+        "get_latest_trend_snapshots",
+        lambda c, limit=None: [
+            {"source_url": "https://a", "title": "a-today", "content_text": "body"},
+            {"source_url": "https://a", "title": "a-yesterday", "content_text": "body"},
+            {"source_url": "https://b", "title": "b-yesterday", "content_text": "body"},
+        ],
+    )
+
+    seen = {}
+    monkeypatch.setattr(
+        run_daily.trend_headlines,
+        "generate_headlines",
+        lambda snapshots: seen.setdefault("snapshots", snapshots) and json.dumps({"headlines": []}),
+    )
+    monkeypatch.setattr(run_daily.db, "insert_trend_headlines", lambda c, model, content: None)
+
+    run_daily.run_trend_headlines(MagicMock())
+
+    assert [s["title"] for s in seen["snapshots"]] == ["a-today", "b-yesterday"]
+
+
+def test_run_trend_headlines_keeps_previous_when_generation_returns_none(monkeypatch):
+    monkeypatch.setattr(
+        run_daily.db,
+        "get_latest_trend_snapshots",
+        lambda c, limit=None: [{"source_url": "https://a", "title": "t", "content_text": "body"}],
+    )
+    monkeypatch.setattr(run_daily.trend_headlines, "generate_headlines", lambda snapshots: None)
+
+    insert_calls = []
+    monkeypatch.setattr(run_daily.db, "insert_trend_headlines", lambda c, model, content: insert_calls.append(content))
+
+    run_daily.run_trend_headlines(MagicMock())
 
     assert insert_calls == []
 

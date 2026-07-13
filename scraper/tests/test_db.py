@@ -58,3 +58,44 @@ def test_get_latest_recommendation_returns_first_row():
     result = db.get_latest_recommendation(client, 7)
 
     assert result == {"content": "x", "generated_at": "2026-07-01T00:00:00Z"}
+
+
+def test_get_top_posts_queries_view_ordered_by_engagement():
+    client = MagicMock()
+    execute = client.table.return_value.select.return_value.eq.return_value.order.return_value.limit.return_value.execute
+    execute.return_value.data = [{"shortcode": "abc", "engagement": 200000}]
+
+    result = db.get_top_posts(client, 7)
+
+    client.table.assert_called_with("top_posts")
+    client.table.return_value.select.return_value.eq.assert_called_with("influencer_id", 7)
+    client.table.return_value.select.return_value.eq.return_value.order.assert_called_with("engagement", desc=True)
+    assert result == [{"shortcode": "abc", "engagement": 200000}]
+
+
+def test_insert_trend_headlines_writes_model_and_content():
+    client = MagicMock()
+    table = client.table.return_value
+
+    db.insert_trend_headlines(client, "gemini-2.5-flash", '{"headlines": []}')
+
+    client.table.assert_called_with("trend_headlines")
+    table.insert.assert_called_once_with({"model": "gemini-2.5-flash", "content": '{"headlines": []}'})
+
+
+def test_get_latest_trend_headlines_returns_none_when_empty():
+    client = MagicMock()
+    execute = client.table.return_value.select.return_value.order.return_value.limit.return_value.execute
+    execute.return_value.data = []
+
+    assert db.get_latest_trend_headlines(client) is None
+
+
+def test_get_latest_trend_headlines_returns_first_row():
+    client = MagicMock()
+    execute = client.table.return_value.select.return_value.order.return_value.limit.return_value.execute
+    execute.return_value.data = [{"content": '{"headlines": []}', "generated_at": "2026-07-01T00:00:00Z", "model": "gemini-2.5-flash"}]
+
+    result = db.get_latest_trend_headlines(client)
+
+    assert result["content"] == '{"headlines": []}'
