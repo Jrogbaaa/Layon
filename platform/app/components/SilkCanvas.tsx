@@ -160,13 +160,15 @@ export function SilkCanvas({ className }: { className?: string }) {
       if (reduced.matches) draw(performance.now());
     };
     reduced.addEventListener("change", onReduced);
-    window.addEventListener("resize", () => draw(performance.now()));
+    const onWindowResize = () => draw(performance.now());
+    window.addEventListener("resize", onWindowResize);
 
     return () => {
       cancelAnimationFrame(raf);
       io.disconnect();
       document.removeEventListener("visibilitychange", onVisibility);
       reduced.removeEventListener("change", onReduced);
+      window.removeEventListener("resize", onWindowResize);
     };
   }, []);
 

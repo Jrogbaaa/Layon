@@ -378,11 +378,12 @@ def test_run_trend_headlines_skips_when_no_snapshots(monkeypatch):
 def test_run_trend_headlines_uses_all_source_count_as_limit(monkeypatch):
     monkeypatch.setattr(run_daily.config, "TREND_SOURCES", ["https://a", "https://b", "https://c"])
     calls = {}
-    monkeypatch.setattr(
-        run_daily.db,
-        "get_latest_trend_snapshots",
-        lambda c, limit=None: calls.setdefault("limit", limit) or [{"source_url": "https://a", "title": "t", "content_text": "body"}],
-    )
+
+    def fake_get_latest_trend_snapshots(c, limit=None):
+        calls["limit"] = limit
+        return [{"source_url": "https://a", "title": "t", "content_text": "body"}]
+
+    monkeypatch.setattr(run_daily.db, "get_latest_trend_snapshots", fake_get_latest_trend_snapshots)
     monkeypatch.setattr(run_daily.trend_headlines, "generate_headlines", lambda snapshots: json.dumps({"headlines": []}))
 
     insert_calls = []
@@ -390,8 +391,35 @@ def test_run_trend_headlines_uses_all_source_count_as_limit(monkeypatch):
 
     run_daily.run_trend_headlines(MagicMock())
 
-    assert calls["limit"] == 3
+    assert calls["limit"] == 21
     assert len(insert_calls) == 1
+
+
+def test_run_trend_headlines_dedupes_to_newest_snapshot_per_source(monkeypatch):
+    monkeypatch.setattr(run_daily.config, "TREND_SOURCES", ["https://a", "https://b"])
+    # Newest-first, as the db query returns: source a scraped today and yesterday,
+    # source b only yesterday.
+    monkeypatch.setattr(
+        run_daily.db,
+        "get_latest_trend_snapshots",
+        lambda c, limit=None: [
+            {"source_url": "https://a", "title": "a-today", "content_text": "body"},
+            {"source_url": "https://a", "title": "a-yesterday", "content_text": "body"},
+            {"source_url": "https://b", "title": "b-yesterday", "content_text": "body"},
+        ],
+    )
+
+    seen = {}
+    monkeypatch.setattr(
+        run_daily.trend_headlines,
+        "generate_headlines",
+        lambda snapshots: seen.setdefault("snapshots", snapshots) and json.dumps({"headlines": []}),
+    )
+    monkeypatch.setattr(run_daily.db, "insert_trend_headlines", lambda c, model, content: None)
+
+    run_daily.run_trend_headlines(MagicMock())
+
+    assert [s["title"] for s in seen["snapshots"]] == ["a-today", "b-yesterday"]
 
 
 def test_run_trend_headlines_keeps_previous_when_generation_returns_none(monkeypatch):

@@ -1,4 +1,5 @@
 import { getLatestTrendHeadlines, getLatestTrends } from "@/app/lib/data";
+import { parseTrendHeadlines } from "@/app/lib/trends";
 import { TrendHeadlinesList } from "@/app/components/TrendHeadlinesList";
 import { LanguageToggle } from "@/app/components/LanguageToggle";
 
@@ -6,7 +7,8 @@ export const dynamic = "force-dynamic";
 
 export default async function TrendsPage() {
   const headlinesRow = await getLatestTrendHeadlines();
-  const trends = headlinesRow ? [] : await getLatestTrends(4);
+  const headlines = headlinesRow ? parseTrendHeadlines(headlinesRow.content) : null;
+  const trends = headlines ? [] : await getLatestTrends(4);
 
   return (
     <div>
@@ -14,12 +16,12 @@ export default async function TrendsPage() {
         <div>
           <h1 className="display-hero text-6xl text-ink sm:text-7xl">The Wire</h1>
           <p className="mt-3 max-w-md text-muted">
-            {headlinesRow
+            {headlines
               ? "What moved the Spanish social landscape today, distilled to headlines."
               : "Latest Instagram trend report scrapes, used to ground recommendations."}
           </p>
         </div>
-        {headlinesRow ? (
+        {headlinesRow && headlines ? (
           <div className="flex items-center gap-4 pb-1">
             <span className="font-mono text-xs text-faint">
               {new Date(headlinesRow.generated_at)
@@ -33,8 +35,8 @@ export default async function TrendsPage() {
 
       <hr className="rule-gold mt-8 mb-12" />
 
-      {headlinesRow ? (
-        <TrendHeadlinesList content={headlinesRow.content} />
+      {headlines ? (
+        <TrendHeadlinesList headlines={headlines} />
       ) : trends.length === 0 ? (
         <p className="text-muted">No trend data yet — check back after the next daily update.</p>
       ) : (
