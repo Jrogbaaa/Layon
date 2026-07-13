@@ -316,6 +316,27 @@
         "feature_009",
         "feature_010"
       ]
+    },
+    {
+      "id": "feature_012",
+      "name": "Correct rolling 30-day growth chart",
+      "goal": "Fix the database query sorting bug on the influencer page to ensure the past month (latest 30 days) is correctly displayed and chronologically ordered.",
+      "why_it_matters": "The prior query retrieved the oldest 30 snapshots ever recorded, causing the chart to get stuck on the first 30 days of scraping.",
+      "non_goals": [
+        "No synthetic data insertion / estimation in database",
+        "No new external API integrations"
+      ],
+      "status": "built_and_verified",
+      "priority": "medium",
+      "owner_agent": "generator",
+      "acceptance_criteria": [
+        "getInfluencerDashboard queries profile snapshots ordered by captured_at desc, limited to 30",
+        "profileHistory list returned to the component is reversed in memory to preserve chronological order for chart display",
+        "Verification shows rolling chart renders correctly on the influencer detail page"
+      ],
+      "dependencies": [
+        "feature_003"
+      ]
     }
   ]
 }

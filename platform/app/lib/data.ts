@@ -78,7 +78,7 @@ export async function getInfluencerDashboard(handle: string): Promise<Influencer
     .from("profile_snapshots")
     .select("followers, following, media_count, bio, captured_at")
     .eq("influencer_id", influencer.id)
-    .order("captured_at", { ascending: true })
+    .order("captured_at", { ascending: false })
     .limit(30);
 
   const { data: rawPosts } = await client
@@ -131,7 +131,7 @@ export async function getInfluencerDashboard(handle: string): Promise<Influencer
 
   return {
     influencer: influencer as Influencer,
-    profileHistory: (profileHistory ?? []) as ProfileSnapshot[],
+    profileHistory: [...(profileHistory ?? [])].reverse() as ProfileSnapshot[],
     recentPosts,
     latestRecommendation: ((recommendations ?? [])[0] as Recommendation) ?? null,
     highlights: (highlights ?? []) as Highlight[],
