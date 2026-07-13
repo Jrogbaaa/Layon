@@ -338,6 +338,70 @@
       "dependencies": [
         "feature_003"
       ]
+    },
+    {
+      "id": "feature_013",
+      "name": "Publication timing markers on engagement chart",
+      "goal": "Make post publication timing legible on the existing engagement chart so agency managers can compare engagement spikes with when each influencer published.",
+      "why_it_matters": "The chart shows which posts spiked but currently requires managers to cross-reference dates elsewhere. A restrained, interactive timing layer makes cadence and spike alignment scannable without implying unsupported causality.",
+      "non_goals": [
+        "No database, scraper, schema, or post-selection changes",
+        "No backfill or repair of missing/invalid posted_at values",
+        "No persistent label for every post, separate timeline, automated spike attribution, or recommendation logic",
+        "No changes to the audience log, authentication, navigation, or unrelated dashboard sections"
+      ],
+      "status": "verified",
+      "priority": "medium",
+      "owner_agent": "generator",
+      "acceptance_criteria": [
+        "Existing engagement area and median line remain unchanged in purpose, using the existing up-to-30 chronological chartPosts dataset",
+        "Each valid posted_at chart point gets a restrained aligned publication marker; hover or keyboard focus exposes formatted date, post format, and relative interval to the previous valid plotted post alongside current engagement details",
+        "Markers are keyboard-reachable or have equivalent accessible text, with visible focus state",
+        "Multiple distinct posts on one calendar day remain separate and individually inspectable without persistent labels or merged engagement",
+        "Missing or invalid posted_at values never create fabricated timing data; the chart remains usable and affected metadata states timing is unavailable when retained",
+        "Chart remains legible and interactive at narrow/mobile widths, including dense date ranges",
+        "No-post and one-post states render without exceptions or misleading relative-time copy",
+        "npm run build and npm run lint pass in platform/",
+        "Relevant Playwright coverage verifies chart marker metadata, keyboard/accessibility behavior, and a mobile-width smoke check",
+        "Manual localhost verification confirms an influencer detail chart lets managers compare spikes with publication markers without persistent label clutter"
+      ],
+      "dependencies": [
+        "feature_012"
+      ],
+      "verification": "Independent evaluator PASS; npm run build, npm run lint, npx tsc --noEmit, npx playwright test (12/12), git diff --check, and localhost chart/mobile flow verified.",
+      "notes": "Implementation and independent evaluation complete. Spec: agent-harness/spec.md. Use stored posted_at only; do not infer publication timing from captured_at."
+    },
+    {
+      "id": "feature_014",
+      "name": "Synchronized post selection on the engagement chart",
+      "goal": "Make it obvious which engagement spike corresponds to which influencer post and date, especially on mobile, by synchronizing chart and publication-rail selection.",
+      "why_it_matters": "Agency staff currently have separate chart-tooltip and publication-marker interactions, making spike-to-post/date identification easy to lose—particularly on narrow screens. A persistent, synchronized selection makes the existing performance signal faster to triage without implying causality.",
+      "non_goals": [
+        "No database, Supabase query, scraper, schema, or post-selection changes",
+        "No backfill or repair of missing/invalid posted_at values and no captured_at proxy",
+        "No influencer-brand matching, automated spike attribution, recommendation logic, or causal claims",
+        "No new timeline chart, post cards, persistent label wall, auth/navigation changes, or unrelated dashboard work",
+        "No broad Recharts refactor, new dependency, new production component, or unrelated dashboard changes; a development-only chart fixture route and serialized Playwright configuration are allowed for deterministic coverage"
+      ],
+      "status": "verified",
+      "priority": "medium",
+      "owner_agent": "generator",
+      "acceptance_criteria": [
+        "Existing up-to-30 chronological chartPosts data, Likes + Comments series, median line, empty state, and Audience Log remain unchanged in purpose and source",
+        "Chart points gain subtle idle affordances while amber remains reserved primarily for the selected point, marker, and vertical guide",
+        "Hover, click, and keyboard focus on either a chart point or publication marker select the same post in both surfaces",
+        "Selected post has a visible vertical guide and synchronized chart/rail emphasis; its detail persists until another post is selected or the approved clear behavior is used",
+        "Accessible publication markers remain keyboard reachable, have meaningful names, visible focus, and expose the synchronized post detail without hover",
+        "Date-axis labels use an approved deterministic timezone/format and restrained cadence suitable for dense post ranges",
+        "Tooltip and selected detail stay within the viewport and wrap correctly at a 390px-wide mobile viewport; dense mobile selection uses controls at least 44px high and wide",
+        "Same-day posts remain distinct and individually selectable; malformed or timezone-less timing never fabricates a date or interval; no-post, one-post, and all-invalid states remain safe",
+        "Focused deterministic Playwright coverage verifies synchronization, persistence, accessibility, guide state, malformed/all-invalid timing, edge states, and mobile bounds; platform lint, type-check, and build pass"
+      ],
+      "dependencies": [
+        "feature_013"
+      ],
+      "verification": "Fresh independent evaluator PASS (4.75/5); default Playwright 16/16, lint, type-check, build, production fixture 404, localhost desktop/mobile audit, and git diff checks pass.",
+      "notes": "Selection stays local to EngagementChart.tsx; Europe/Madrid dates, hover-commit, persistent detail, and window-level Escape clear were approved. Review remediation adds strict timezone-aware parsing, all-invalid details, mobile post navigation, and a development-only fixture route."
     }
   ]
 }

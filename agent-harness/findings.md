@@ -1,74 +1,70 @@
-# Findings — feature_012 Post Engagement Chart and Audience Log Grid
+# Findings — Feature 014 Remediation Re-evaluation
 
 ## Verdict: PASS
 
-**Evaluator:** separate subagent pass (fresh context, per contract.md/evaluator.md).
+**Evaluator:** fresh mandatory independent re-evaluator.
 
-## Restated Goal / Non-Goals / Acceptance Criteria
+**Did this accomplish the stated goal?** **YES.** The chart and publication rail now expose one persistent, synchronized selected-post model on desktop and mobile, and the two prior evaluator findings are resolved.
 
-**Goal:**
-Replace the short follower growth chart on the influencer dashboard with an interactive post engagement chart showing total interactions (Likes + Comments) across the last 30 posts, and add a 7-day Audience Log grid displaying exact daily follower sizes and delta fluctuations.
+## Restated Goal / Scope
 
-**Non-goals:**
-- No database backfills or synthetic follower data generation.
-- No changes to the scraper logic or database schemas.
+**Goal:** Make an engagement spike unambiguously correspond to its influencer post and publication timing by synchronizing chart-point and publication-rail selection, especially on mobile.
 
-**Acceptance criteria:**
-1. **Split Backend Post Queries:** Modify `getInfluencerDashboard` in `platform/app/lib/data.ts` to return `recentPosts` (sliced to latest 12 posts) and `chartPosts` (sliced to latest 30 posts and reversed chronologically ascending for left-to-right rendering).
-2. **Create EngagementChart Component:** Build `platform/app/components/EngagementChart.tsx` using Recharts to plot total engagement (Likes + Comments), including a horizontal median reference line, utilizing Gilded Amber tokens, and featuring interactive tooltips displaying format details, likes, comments, engagement rate %, and caption snippets.
-3. **Add Audience Log Grid:** In `platform/app/(app)/influencer/[handle]/page.tsx`, compute daily follower changes from `profileHistory` using `dailyHistory` and render a responsive grid showing the last 7 days of daily follower sizes and delta fluctuations in reverse chronological order (newest first).
-4. **Delete Unused Component:** Remove `platform/app/components/FollowerChart.tsx`.
-5. **Typescript & Lint Compile:** Clean build, lint, and type check with Next.js and ESLint.
-6. **Test Suite Verification:** Playwright and pytest suites pass cleanly.
+**Non-goals:** No scraper/database/schema/query changes; no timestamp repair or `captured_at` proxy; no causal attribution, recommendation, auth/navigation, Audience Log, or unrelated dashboard work; no broad Recharts refactor, new dependency, or production feature. A development-only deterministic fixture route and serialized Playwright configuration are allowed.
 
-## Goal Alignment: PASS
+**Acceptance:** Preserve the existing 30-post chart contract; synchronize point/marker hover, click, and keyboard selection; coordinate point, marker, guide, details, tooltip, and position; persist selection until clear or replacement; retain accessible names/focus; strictly validate timezone-aware timestamps; safely handle same-day, malformed, all-invalid, no-post, and one-post inputs; provide bounded 390px behavior and at least 44×44 dense-mobile controls; and keep Playwright, lint, type-check, and build green.
 
-The implementation solves the exact problem specified in `spec.md` and `featurelist.json` without introducing unnecessary complexity. The short and uninformative follower growth chart has been successfully replaced with an immediately rich post engagement chart using historical post data, while preserving exact follower visibility via a clean 7-day Audience Log grid with accurate daily growth/decline deltas.
+## Test Results
 
-## Tests (run independently by the Evaluator)
+Environment preflight: `scraper/.env` is present. The literal `platform/.env` is absent; the configured `platform/.env.local` is present and was loaded by Playwright and Next.js. The development server was healthy.
 
-| Suite | Result |
-|-------|--------|
-| `scraper/` `.venv/bin/pytest` | 146/146 pass cleanly |
-| `platform/` `npx playwright test` | 11/11 pass cleanly |
-| Next.js TypeScript `npx tsc --noEmit` | **PASS** (no errors) |
-| Next.js Lint `npm run lint` | **PASS** (0 errors, 1 styling warning) |
+| Check | Result |
+|---|---|
+| Prior scraper pytest result | RELIED ON — 146/146 passed; independent diff/status inspection found 0 scraper changes |
+| `platform/ npx playwright test` | PASS — 16/16 |
+| `platform/ npm run lint` | PASS — 0 errors, 1 unrelated existing warning |
+| `platform/ npx tsc --noEmit` | PASS |
+| `platform/ npm run build` | PASS |
+| `git diff --check` | PASS |
+| Localhost health | PASS — development and production servers responded |
+| Production fixture guard | PASS — authenticated production fixture request returned 404 and rendered no fixture heading |
+| Exploratory browser checks | PASS — keyboard/accessibility; all-invalid persistence; mobile touch/correspondence/bounds |
 
-## Independent Verification Highlights
+No raw logs, secrets, or personal data are recorded here.
 
-1. **Backend Split Query:**
-   - [data.ts](file:///Users/JackEllis/Layon/platform/app/lib/data.ts#L105-L113) correctly maps the deduplicated posts, returning `recentPosts` as the newest 12 posts and `chartPosts` as the newest 30 posts reversed (chronologically ascending) for correct left-to-right area chart visualization.
-2. **Rich Viz & Median:**
-   - [EngagementChart.tsx](file:///Users/JackEllis/Layon/platform/app/components/EngagementChart.tsx) calculates the exact median using a sorted array middle-index check.
-   - Utilizes Gilded Amber stroke `#e3b04b` and garnet/dark fill gradients satisfying the "Medianoche" design language.
-   - Shows rich tooltips with likes, comments, format types, custom formatted ER%, and caption context.
-3. **Audience Delta & Reverse Sort:**
-   - [page.tsx](file:///Users/JackEllis/Layon/platform/app/%28app%29/influencer/%5Bhandle%5D/page.tsx#L38-L47) calculates deltas correctly by comparing chronologically ascending days, then reverses the list to display newest first and slices to the latest 7 active days.
-   - The grid is fully responsive and displays formatted follower counts and deltas with color-coded positive/negative growth states.
+## Previous Findings Rechecked
+
+1. **Default Playwright parallel failure — RESOLVED.** `platform/playwright.config.ts:20-24` commits non-parallel, one-worker execution. The documented default `npx playwright test`, with no CLI worker override, passed 16/16.
+2. **Dense mobile fixture correspondence gap — RESOLVED.** `platform/e2e/dashboard.spec.ts:173-209` now asserts persistent selected details for posts 1 and 2 and full post-30 tooltip, chart-point, marker-overview, selected-position, detail-content, bounds, and overflow correspondence.
+
+## Adversarial Review
+
+- **Strict timestamps:** `platform/app/components/EngagementChart.tsx:139-190` requires an explicit `Z` or numeric offset and rejects impossible calendar/time/offset values. The deterministic mixed fixture verifies same-instant/same-day distinction plus impossible, timezone-less, and invalid-offset inputs without fabricated timing.
+- **All-invalid details:** `platform/app/components/EngagementChart.tsx:245-385` keeps invalid-timing posts selectable and renders persistent format/engagement/ER detail. Fixture and exploratory checks passed.
+- **Touch and responsive behavior:** `platform/app/components/EngagementChart.tsx:312-383` separates the dense mobile overview from 44×44 previous/next controls. At 390px, controls, details, and tooltip were bounded with no horizontal overflow or selected-marker obstruction.
+- **Correspondence and accessibility:** Chart points and desktop markers expose meaningful button semantics, accessible names, `aria-pressed`, keyboard focus selection, a visible focus outline, synchronized guide state, and persistent `aria-live` details. Point, marker, detail, tooltip, and position stayed aligned during adversarial selection changes.
+- **Production exposure:** `platform/app/test-fixtures/engagement-chart/page.tsx:36-45` calls `notFound()` outside development. An authenticated production-server request returned 404 and exposed no fixture UI.
+- **Scope/security:** Feature application changes are limited to the engagement component, focused Playwright tests/config, and the development-only fixture route. No scraper path changed, no persisted field/data source/dependency was added, and no secret-bearing file appears in the diff.
+
+## Actionable Findings
+
+None.
 
 ## Rubric Scores
 
 | Area | Score | Notes |
-|---|---|---|
-| **0. Goal Alignment** | 5 | Replaces low-density follower chart with rich engagement visualizations and a robust follower delta log. |
-| **1. Requirement Fit** | 5 | Meets every aspect of the spec and acceptance criteria. |
-| **2. Simplicity** | 5 | Uses straightforward array slicing/reversing and native component state. Deletes dead component code. |
-| **3. User Workflow** | 5 | Managers get high-value performance signals on posts and clear, exact daily growth numbers. |
-| **4. Data Integrity** | 5 | Correctly computes deltas chronological-first to prevent negative-lag bugs, and deduplicates post entries. |
-| **5. Error Handling** | 5 | Gracefully degrades if `posts.length === 0` or if `delta` is computed for the first recorded day. |
-| **6. Security / Privacy** | 5 | No secrets or private Instagram details are exposed. Service keys remain strictly backend-only. |
-| **7. Maintainability** | 5 | Typescript compile and ESLint verify codebase health; unused files cleanly deleted. |
+|---|---:|---|
+| Goal Alignment | 5 | The synchronized persistent interaction directly solves spike-to-post identification. |
+| Requirement Fit | 5 | All high-priority acceptance criteria and both prior remediation findings are satisfied. |
+| Simplicity | 4 | The solution stays local and dependency-free; strict parsing and responsive controls add only required complexity. |
+| User Workflow | 5 | Mouse, keyboard, and mobile-touch workflows are clear, persistent, and bounded. |
+| Data Integrity | 5 | Only validated `posted_at` timing is used; invalid timing remains unavailable and no persistence changed. |
+| Error Handling | 5 | Malformed, all-invalid, no-post, one-post, and same-day states remain safe. |
+| Security / Privacy | 5 | No client secret exposure or data-scope expansion; the fixture is unavailable in production. |
+| Maintainability | 4 | Deterministic fixtures and explicit test configuration make the behavior understandable and repeatable. |
 
-**Average: 5.00**
+**Average: 4.75/5.** Goal Alignment is 5, no critical/privacy issues exist, every high-priority criterion is satisfied, and all required gates are recorded.
 
-## Verdict Detail
+## Recommended Next Generator Task
 
-The implementation of `feature_012` is high-quality, completely fits the requirements of the spec, matches the "Medianoche" design guidelines, and has been verified with green tests and clean TypeScript compilation/ESLint checks.
-
-**VERDICT: PASS**
-
-## Recommended next Generator task
-
-Since all features in the current roster (001 through 012) are now fully implemented and evaluated:
-1. Conduct production deployment verification on Vercel to confirm build/routing config works under Vercel's hosting environment.
-2. Set up automated email or system status reports for daily scraper execution alerts.
+No remediation is required. Mark Feature 014 verified and prepare the scoped changes for merge, ensuring the currently untracked `platform/app/test-fixtures/engagement-chart/page.tsx` is included.
