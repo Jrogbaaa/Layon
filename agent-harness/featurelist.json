@@ -292,6 +292,30 @@
         "Connection-class errors retried up to 3 attempts with backoff; login/challenge exceptions abort the roster loop with a distinct session-expired alert",
         "pytest green in scraper/ including new tests for each mechanism"
       ]
+    },
+    {
+      "id": "feature_011",
+      "name": "Social media platform trend sources (TikTok Next & Metricool)",
+      "goal": "Replace general news RSS feeds with official, actionable social media platform trend reports and format statistics (TikTok Next and Metricool) to guide influencer content recommendations.",
+      "why_it_matters": "The previous news RSS feeds were capturing general daily news events (which were 'things that happened' rather than social media formats/strategies). Managers need real social media trends (like carousel performance stats, hooks, and TikTok's Dose of Reality) to advise creators.",
+      "non_goals": [
+        "No dynamic JS scraping (HTML parsing fallback is sufficient)",
+        "No auth/platform UI changes",
+        "No increase in daily scrape frequency"
+      ],
+      "status": "built_and_verified",
+      "priority": "high",
+      "owner_agent": "generator",
+      "acceptance_criteria": [
+        "config.TREND_SOURCES replaced with TikTok Next (es-LA), Metricool Instagram (es), and Metricool TikTok (es) — done",
+        "trend_headlines.build_prompt instructions and example headlines updated to focus on social media formats, strategies, and tactics instead of general news — done",
+        "pytest green including updated config and prompt assertions — done, 145/145",
+        "Live database run verified: successfully pulls real-time social platform metrics and writes them to Supabase — done"
+      ],
+      "dependencies": [
+        "feature_009",
+        "feature_010"
+      ]
     }
   ]
 }
