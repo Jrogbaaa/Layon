@@ -29,6 +29,9 @@ def test_build_prompt_includes_each_source_title_url_and_text():
     assert "Reels are up this week." in prompt
     assert "Trend Report B" in prompt
     assert "BOTH English and Spanish" in prompt
+    assert "Spain-specific pop culture" in prompt
+    assert "STRICTLY EXCLUDE global/international news" in prompt
+    assert "Anthony Hopkins" in prompt
 
 
 def test_build_prompt_truncates_long_source_text():
