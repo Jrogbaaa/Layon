@@ -94,7 +94,7 @@ from this list in the recommendation text itself. Never write a vague placeholde
 the persona, base the recommendation on the performance data instead of inventing a trend.
 """
 
-    return f"""You are a social media strategist for a talent agency's Instagram influencer.
+    return f"""You are an emotionally intelligent creative strategist for @{handle}, an Instagram influencer.
 
 Influencer: @{handle}
 {persona_section}
@@ -111,16 +111,38 @@ Recent posts ranked by engagement (last ~12):
 The target audience is Spain / Spanish-speaking, not the USA — recommendations should fit
 Spanish social media culture, not US ones.
 {trends_section}
-Write 3-5 short, specific, actionable creative recommendations for this influencer's next
-posts. Each recommendation must reference the specific top-performing post (by its content,
-not just its shortcode) or metric that motivated it — e.g. "Follow up on [post topic], it
-performed very well (2.3x median)." Do not give generic advice ("post more often") without
-tying it to the data above.
+INSTRUCTIONS:
+Generate 2-4 short, specific, actionable creative recommendations for this influencer's next posts.
+
+Recommendations are strictly limited to exactly two types of bullets:
+1. Past success re-expressed with emotional intelligence (kind: "past_success"):
+   - Grounded in a specific post that worked (either recent or all-time).
+   - Propose a fresh creative expression of the underlying mechanism (theme, format, tone, pacing, visual hook, authenticity signals).
+   - NEVER recommend copying the exact event/topic or literal repetition (e.g. do NOT say "do another sad story" or "do that post again").
+   - Classify the referenced post's mechanism (e.g. why it worked based on format, emotional register - arousal level/valence, and authenticity) and explain this in the "reason" field.
+2. Trend-tied idea (kind: "trend"):
+   - Propose an idea tied into a specific Spanish trend from the list provided (if trend_items is present).
+   - You must NAME the specific show, event, person, or moment from the trend list in the recommendation text itself.
+   - ONLY recommend this if the trend fits the influencer's persona, tier, and style.
+   - If no trends fit the persona, skip the trend bullet entirely. Do not force-fit or invent a trend.
+
+EMOTIONAL INTELLIGENCE & APPROPRIATENESS GUARDRAIL:
+- Sensitive, raw, or vulnerable content (e.g., posts about grief, illness, recovery, breakups, personal struggle, or sensitive family milestones) may be noted in the data as evidence that the audience values authenticity.
+- However, you must NEVER recommend tactical repetition or cloning of these personal experiences/emotions.
+- Tactical repetition of intimacy damages creator credibility (Leite et al. 2013), and sadness is a low-arousal emotion which does not sustain virality (Berger & Milkman 2012). Do not advise repeating these personal events/emotions.
+
+ACHIEVABILITY FILTER:
+- Every recommendation must be immediately executable using formats and content types the influencer has already demonstrated in their posting history.
+- Do not suggest low-fi sketches or comedic acting if the influencer is a professional athlete or premium presenter.
+- Respect their persona boundaries:
+  - @cristipedroche is a high-profile presenter who won't do comedy sketches, low-fi meme trends, or TikTok dances.
+  - @ferminaldeguer_54 is an athlete who won't do sketches or TikTok dances.
+  - @antonlofer, @dante_caro, and @mariavalero are sketch creators where comedic acting/sketches are fair game.
 
 Write every recommendation and its reason in BOTH English and Spanish.
 
 Respond ONLY with JSON in this exact shape, no other text:
-{{"bullets": [{{"text": {{"en": "short recommendation in English, max ~20 words", "es": "the same recommendation in Spanish"}}, "reason": {{"en": "the specific stat or content that motivated it, in English", "es": "the same reason in Spanish"}}, "shortcode": "the referenced post's shortcode, or null if none"}}]}}"""
+{{"bullets": [{{"kind": "past_success", "text": {{"en": "short recommendation in English, max ~20 words", "es": "the same recommendation in Spanish"}}, "reason": {{"en": "the specific stat/content mechanism that motivated it, in English", "es": "the same reason in Spanish"}}, "shortcode": "referenced post's shortcode, or null if trend"}}]}}"""
 
 
 def _validate(parsed: object) -> None:
@@ -130,8 +152,13 @@ def _validate(parsed: object) -> None:
     if not isinstance(bullets, list) or not bullets:
         raise ValueError("bullets must be a non-empty list")
     for bullet in bullets:
+        if not isinstance(bullet, dict):
+            raise ValueError("bullet must be a dictionary")
+        kind = bullet.get("kind")
+        if kind not in ("past_success", "trend"):
+            raise ValueError(f"invalid or missing bullet kind: {kind}")
         for field in ("text", "reason"):
-            value = bullet.get(field) if isinstance(bullet, dict) else None
+            value = bullet.get(field)
             if not isinstance(value, dict) or "en" not in value or "es" not in value:
                 raise ValueError(f"bullet {field} missing en/es")
 

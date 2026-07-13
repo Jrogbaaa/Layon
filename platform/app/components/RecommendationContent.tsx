@@ -5,6 +5,7 @@ import { useLanguage } from "@/app/components/LanguageProvider";
 
 type BilingualText = { en: string; es: string };
 type Bullet = {
+  kind?: "past_success" | "trend" | null;
   text: string | BilingualText;
   reason?: string | BilingualText | null;
   shortcode?: string | null;
@@ -40,6 +41,19 @@ export function RecommendationContent({ content }: { content: string }) {
               {String(i + 1).padStart(2, "0")}
             </span>
             <div>
+              {bullet.kind ? (
+                <div className="mb-1.5 flex items-center gap-2">
+                  <span className={`inline-block font-mono text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded-sm border ${
+                    bullet.kind === "past_success"
+                      ? "border-border-faint text-muted bg-surface"
+                      : "bg-accent text-canvas-deep border-accent font-semibold"
+                  }`}>
+                    {bullet.kind === "past_success"
+                      ? (lang === "en" ? "Past Success" : "Éxito Pasado")
+                      : (lang === "en" ? "Trend" : "Tendencia")}
+                  </span>
+                </div>
+              ) : null}
               <p className="max-w-prose text-sm font-medium leading-relaxed text-ink">
                 {pick(bullet.text, lang)}
               </p>
