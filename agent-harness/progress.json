@@ -30,5 +30,15 @@
     "playwright": "n/a (scraper-only)",
     "evaluator": "PASS \u2014 avg 4.75, goal alignment 5; non-blocking follow-ups in findings.md",
     "manual": "Live run_daily on 2026-07-13: morning run had failed dante_caro yet old code marked day done; after fix + .last_run reset, retry run skipped the 4 already-captured handles, scraped only dante_caro, and marked the day complete. Supabase confirms exactly 1 profile snapshot per handle today. Plist passed plutil lint; LaunchAgent reinstall (./install_launchagent.sh) still pending to activate 13:00/17:00 fires."
+  },
+  "feature_012": {
+    "status": "built_and_verified",
+    "pytest": "146/146 passed",
+    "playwright": "11/11 passed",
+    "build": "pass",
+    "lint": "pass",
+    "tsc": "pass",
+    "evaluator": "PASS \u2014 avg 5.0, goal alignment 5; findings written to findings.md",
+    "manual": "Verified on localhost:3000 \u2014 30-day Post Engagement performance area chart with median line and detailed ER% tooltips renders correctly, Audience Log grid correctly calculates follower deltas and lists latest 7 active days, FollowerChart deleted, Typescript compile and ESLint are green."
   }
 }
