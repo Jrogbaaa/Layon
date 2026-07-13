@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 GEMINI_MODEL = "gemini-2.5-flash"
 MAX_ATTEMPTS = 2
-MAX_CHARS_PER_SOURCE = 4000
+MAX_CHARS_PER_SOURCE = 25000
 
 
 def _source_section(snapshot: dict, index: int) -> str:
@@ -54,8 +54,14 @@ def _validate(parsed: object) -> None:
         raise ValueError("headlines must be a non-empty list")
     for headline in headlines:
         text = headline.get("text") if isinstance(headline, dict) else None
-        if not isinstance(text, dict) or "en" not in text or "es" not in text:
-            raise ValueError("headline text missing en/es")
+        if (
+            not isinstance(text, dict)
+            or "en" not in text
+            or "es" not in text
+            or not isinstance(text["en"], str)
+            or not isinstance(text["es"], str)
+        ):
+            raise ValueError("headline text missing en/es or not strings")
 
 
 def _normalize_source_urls(parsed: dict, known_urls: set[str]) -> None:
