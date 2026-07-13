@@ -21,6 +21,15 @@ Make it obvious which engagement spike corresponds to which influencer post and 
 especially on mobile, by giving the chart and publication rail one synchronized
 selected-post interaction model.
 
+## Review Remediation — 2026-07-13
+
+The pre-merge review found four gaps inside the approved goal: permissive JavaScript
+date parsing, loss of persistent details when every timestamp is invalid, undersized
+dense mobile marker targets, and live-data-dependent Playwright coverage. The user
+approved correcting all four before merge. This remediation keeps the existing chart
+contract and adds a development-only fixture route for deterministic browser coverage;
+it does not add a production feature or data source.
+
 ## Why It Matters / User Problem
 
 Agency staff use the chart to triage content performance. They should be able to move
@@ -72,6 +81,12 @@ idle points stay legible and amber remains a scarce emphasis color.
   chart/rail synchronization, persistent selected detail, keyboard accessibility,
   selected guide/affordance state, improved axis/tooltip behavior, and a 390px mobile
   smoke check.
+- A development-only `platform/app/test-fixtures/engagement-chart/page.tsx` route may
+  provide deterministic edge-case inputs to the real component. It must return 404 in
+  production and must not query or persist data.
+- `platform/playwright.config.ts` may serialize the browser suite when required to make
+  the documented default `npx playwright test` command deterministic against the shared
+  local dashboard environment.
 - Reuse the existing `PostSnapshot`, `chartPosts`, `posted_at`, engagement, ER, format,
   and caption data. No new persisted fields or schema changes.
 
@@ -84,8 +99,8 @@ idle points stay legible and amber remains a scarce emphasis color.
   causal claim about publication timing.
 - No new timeline chart, post cards, always-visible date labels, navigation/auth
   changes, Audience Log changes, or unrelated dashboard work.
-- No broad Recharts refactor, new dependency, new component file, or redesign of the
-  surrounding dashboard.
+- No broad Recharts refactor, new dependency, new production component, or redesign of
+  the surrounding dashboard.
 
 ## Acceptance Criteria
 

@@ -136,12 +136,61 @@ function EngagementDot({ cx, cy, index, payload, selectedIndex, onSelect }: Enga
   );
 }
 
-function formatPublicationDate(postedAt: unknown): string | null {
-  if (typeof postedAt !== "string" || postedAt.trim().length === 0) return null;
+const ISO_TIMESTAMP_WITH_TIME_ZONE =
+  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,6}))?(Z|([+-])(\d{2}):(\d{2}))$/;
 
-  const timestamp = new Date(postedAt).getTime();
-  if (!Number.isFinite(timestamp)) return null;
+export function parsePublicationTimestamp(postedAt: unknown): number | null {
+  if (typeof postedAt !== "string" || postedAt.length === 0 || postedAt !== postedAt.trim()) return null;
 
+  const match = ISO_TIMESTAMP_WITH_TIME_ZONE.exec(postedAt);
+  if (!match) return null;
+
+  const [
+    ,
+    yearText,
+    monthText,
+    dayText,
+    hourText,
+    minuteText,
+    secondText,
+    ,
+    ,
+    ,
+    offsetHourText,
+    offsetMinuteText,
+  ] = match;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  const second = Number(secondText);
+  const offsetHour = offsetHourText ? Number(offsetHourText) : 0;
+  const offsetMinute = offsetMinuteText ? Number(offsetMinuteText) : 0;
+  const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const daysInMonth = [31, leapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+  if (
+    year === 0 ||
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > daysInMonth[month - 1] ||
+    hour > 23 ||
+    minute > 59 ||
+    second > 59 ||
+    offsetHour > 14 ||
+    offsetMinute > 59 ||
+    (offsetHour === 14 && offsetMinute !== 0)
+  ) {
+    return null;
+  }
+
+  const timestamp = Date.parse(postedAt);
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function formatPublicationDate(timestamp: number): string {
   return new Date(timestamp).toLocaleDateString("en-US", {
     timeZone: DISPLAY_TIME_ZONE,
     month: "short",
@@ -150,12 +199,7 @@ function formatPublicationDate(postedAt: unknown): string | null {
   });
 }
 
-function formatChartDate(postedAt: unknown): string {
-  if (typeof postedAt !== "string" || postedAt.trim().length === 0) return "Date unavailable";
-
-  const timestamp = new Date(postedAt).getTime();
-  if (!Number.isFinite(timestamp)) return "Date unavailable";
-
+function formatChartDate(timestamp: number): string {
   return new Date(timestamp).toLocaleDateString("en-US", {
     timeZone: DISPLAY_TIME_ZONE,
     month: "short",
@@ -163,12 +207,8 @@ function formatChartDate(postedAt: unknown): string {
   });
 }
 
-function formatRelativeInterval(currentPostedAt: string, previousPostedAt: string | null): string | null {
-  if (!previousPostedAt) return "first plotted post";
-
-  const current = new Date(currentPostedAt).getTime();
-  const previous = new Date(previousPostedAt).getTime();
-  if (!Number.isFinite(current) || !Number.isFinite(previous)) return null;
+function formatRelativeInterval(current: number, previous: number | null): string {
+  if (previous === null) return "first plotted post";
 
   const currentDate = new Date(current).toLocaleDateString("en-CA", { timeZone: DISPLAY_TIME_ZONE });
   const previousDate = new Date(previous).toLocaleDateString("en-CA", { timeZone: DISPLAY_TIME_ZONE });
@@ -211,18 +251,76 @@ function PublicationMarkerRail({
   selectedIndex: number | null;
   onSelect: (index: number) => void;
 }) {
-  const validMarkers = data.some((point) => point.timingAvailable);
-
-  if (!validMarkers) return null;
-
   const selectedPoint = selectedIndex == null ? null : data[selectedIndex] ?? null;
+  const selectPrevious = () => onSelect(selectedIndex == null ? 0 : Math.max(0, selectedIndex - 1));
+  const selectNext = () => onSelect(selectedIndex == null ? 0 : Math.min(data.length - 1, selectedIndex + 1));
+
+  const marker = (point: EngagementPoint, index: number, interactive: boolean) => {
+    const label = point.timingAvailable
+      ? `Published ${point.publicationDate}, ${point.format}, ${point.relativeInterval}. ${formatCount(point.engagement)} engagement.`
+      : `Publication timing unavailable, ${point.format}. ${formatCount(point.engagement)} engagement.`;
+    const dot = (
+      <span
+        className={`block h-2 w-2 rounded-full border transition-[background-color,box-shadow] ${
+          point.timingAvailable
+            ? selectedIndex === index
+              ? "border-accent bg-accent shadow-[0_0_0_3px_rgba(227,176,75,0.18)]"
+              : "border-accent-deep bg-accent-deep/70 group-hover:bg-accent/80 group-focus-visible:bg-accent/80"
+            : selectedIndex === index
+              ? "border-accent bg-surface-2 shadow-[0_0_0_3px_rgba(227,176,75,0.18)]"
+              : "border-border bg-surface-2"
+        }`}
+        aria-hidden
+      />
+    );
+
+    if (!interactive) {
+      return (
+        <span
+          key={`${point.index}-${point.format}`}
+          className="relative z-10 flex h-8 min-w-0 items-center justify-center"
+          data-testid="publication-marker-visual"
+          data-selected={selectedIndex === index ? "true" : "false"}
+          aria-hidden
+        >
+          {dot}
+        </span>
+      );
+    }
+
+    return (
+      <button
+        key={`${point.index}-${point.format}`}
+        type="button"
+        className={`group relative z-10 flex h-11 min-w-0 items-center justify-center rounded-sm outline-offset-2 focus-visible:outline-2 focus-visible:outline-accent ${
+          selectedIndex === index ? "bg-accent/10" : ""
+        }`}
+        aria-label={label}
+        aria-pressed={selectedIndex === index}
+        data-testid="publication-marker"
+        data-publication-date={point.publicationDate ?? undefined}
+        data-selected={selectedIndex === index ? "true" : "false"}
+        onClick={() => onSelect(index)}
+        onFocus={() => onSelect(index)}
+        onMouseEnter={() => onSelect(index)}
+      >
+        {dot}
+      </button>
+    );
+  };
 
   return (
     <div className="mt-2" data-testid="publication-marker-rail">
-      <div className="relative h-8">
-        <span className="absolute left-0 top-2 font-mono text-[10px] tracking-widest text-faint">
+      <div className="flex items-baseline justify-between gap-4">
+        <span className="font-mono text-[10px] tracking-widest text-faint">
           POSTS · {data.length}
         </span>
+        <span className="font-mono text-[10px] text-faint lg:hidden" data-testid="selected-post-position">
+          {selectedIndex == null ? "NO POST SELECTED" : `POST ${selectedIndex + 1} / ${data.length}`}
+        </span>
+      </div>
+
+      <div className="relative mt-1 h-8 lg:hidden" data-testid="publication-marker-overview">
         <div
           className="relative grid h-8 min-w-0"
           style={{
@@ -232,42 +330,48 @@ function PublicationMarkerRail({
           }}
         >
           <span className="pointer-events-none absolute inset-x-0 top-1/2 h-px bg-border-faint" aria-hidden />
-          {data.map((point, index) => {
-            const label = point.timingAvailable
-              ? `Published ${point.publicationDate}, ${point.format}, ${point.relativeInterval}. ${formatCount(point.engagement)} engagement.`
-              : `Publication timing unavailable, ${point.format}. ${formatCount(point.engagement)} engagement.`;
-
-            return (
-              <button
-                key={`${point.date}-${point.format}-${index}`}
-                type="button"
-                className={`group relative z-10 flex h-11 min-w-0 items-center justify-center rounded-sm outline-offset-2 focus-visible:outline-2 focus-visible:outline-accent ${
-                  selectedIndex === index ? "bg-accent/10" : ""
-                }`}
-                aria-label={label}
-                aria-pressed={selectedIndex === index}
-                data-testid="publication-marker"
-                data-publication-date={point.publicationDate ?? undefined}
-                data-selected={selectedIndex === index ? "true" : "false"}
-                onClick={() => onSelect(index)}
-                onFocus={() => onSelect(index)}
-                onMouseEnter={() => onSelect(index)}
-              >
-                <span
-                  className={`block h-2 w-2 rounded-full border transition-[background-color,box-shadow] ${
-                    point.timingAvailable
-                      ? selectedIndex === index
-                        ? "border-accent bg-accent shadow-[0_0_0_3px_rgba(227,176,75,0.18)]"
-                        : "border-accent-deep bg-accent-deep/70 group-hover:bg-accent/80 group-focus-visible:bg-accent/80"
-                      : "border-border bg-surface-2"
-                  }`}
-                  aria-hidden
-                />
-              </button>
-            );
-          })}
+          {data.map((point, index) => marker(point, index, false))}
         </div>
       </div>
+
+      <div className="mt-1 hidden h-11 lg:block">
+        <div
+          className="relative grid h-11 min-w-0"
+          style={{
+            gridTemplateColumns: `repeat(${data.length}, minmax(0, 1fr))`,
+            marginLeft: 56,
+            marginRight: 28,
+          }}
+        >
+          <span className="pointer-events-none absolute inset-x-0 top-1/2 h-px bg-border-faint" aria-hidden />
+          {data.map((point, index) => marker(point, index, true))}
+        </div>
+      </div>
+
+      <div className="mt-1 flex items-center justify-between gap-3 lg:hidden" data-testid="publication-mobile-controls">
+        <button
+          type="button"
+          className="flex h-11 min-w-11 items-center justify-center rounded-md border border-border-faint bg-surface font-mono text-sm text-ink transition-colors hover:border-border hover:bg-surface-2 disabled:cursor-not-allowed disabled:text-faint disabled:opacity-50"
+          aria-label="Previous post"
+          disabled={selectedIndex == null || selectedIndex === 0}
+          onClick={selectPrevious}
+        >
+          ←
+        </button>
+        <p className="min-w-0 flex-1 text-center font-mono text-[10px] text-muted">
+          {selectedIndex == null ? "Use the arrows or select a chart point" : "Selected post"}
+        </p>
+        <button
+          type="button"
+          className="flex h-11 min-w-11 items-center justify-center rounded-md border border-border-faint bg-surface font-mono text-sm text-ink transition-colors hover:border-border hover:bg-surface-2 disabled:cursor-not-allowed disabled:text-faint disabled:opacity-50"
+          aria-label={selectedIndex == null ? "Select first post" : "Next post"}
+          disabled={selectedIndex === data.length - 1}
+          onClick={selectNext}
+        >
+          →
+        </button>
+      </div>
+
       <div className="mt-1 min-h-11">
         {selectedPoint ? (
           <PublicationDetails point={selectedPoint} />
@@ -311,25 +415,26 @@ export function EngagementChart({ posts, followers }: EngagementChartProps) {
         : (sortedEngagement[mid - 1] + sortedEngagement[mid]) / 2;
   }
 
-  const previousPostedAtByIndex = posts.map((_, index) =>
-    posts
-      .slice(0, index)
-      .reverse()
-      .find((post) => formatPublicationDate(post.posted_at) !== null)?.posted_at ?? null,
+  const parsedTimestamps = posts.map((post) => parsePublicationTimestamp(post.posted_at));
+  const previousTimestamps = parsedTimestamps.map(
+    (_, index) =>
+      parsedTimestamps
+        .slice(0, index)
+        .reverse()
+        .find((timestamp): timestamp is number => timestamp !== null) ?? null,
   );
   const data = posts.map((post, index) => {
     const engagement = post.likes + post.comments;
     const er = followers > 0 ? (engagement / followers) * 100 : 0;
-    const publicationDate = formatPublicationDate(post.posted_at);
-    const timingAvailable = publicationDate !== null;
-    const relativeInterval = timingAvailable
-      ? formatRelativeInterval(post.posted_at, previousPostedAtByIndex[index])
-      : null;
+    const timestamp = parsedTimestamps[index];
+    const timingAvailable = timestamp !== null;
+    const publicationDate = timestamp === null ? null : formatPublicationDate(timestamp);
+    const relativeInterval = timestamp === null ? null : formatRelativeInterval(timestamp, previousTimestamps[index]);
 
     return {
       index,
       x: index,
-      date: timingAvailable ? formatChartDate(post.posted_at) : "Date unavailable",
+      date: timestamp === null ? "Date unavailable" : formatChartDate(timestamp),
       publicationDate,
       relativeInterval,
       timingAvailable,

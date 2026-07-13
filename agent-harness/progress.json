@@ -40,5 +40,15 @@
     "tsc": "pass",
     "evaluator": "PASS \u2014 avg 5.0, goal alignment 5; findings written to findings.md",
     "manual": "Verified on localhost:3000 \u2014 30-day Post Engagement performance area chart with median line and detailed ER% tooltips renders correctly, Audience Log grid correctly calculates follower deltas and lists latest 7 active days, FollowerChart deleted, Typescript compile and ESLint are green."
+  },
+  "feature_014": {
+    "status": "built_and_verified",
+    "pytest": "n/a (platform-only)",
+    "playwright": "default npx playwright test 16/16 passed with committed single-worker configuration; strengthened dense-mobile case 1/1 passed",
+    "build": "pass; development-only fixture route verified HTTP 404 under production server",
+    "lint": "pass \u2014 0 errors, 1 unrelated existing warning",
+    "tsc": "pass",
+    "evaluator": "PASS — fresh independent re-evaluation 4.75/5; no actionable findings",
+    "manual": "Verified the live 30-post chart and development fixtures on localhost:3000 at desktop and 390px; selected guide, marker, details, mobile controls, and no horizontal overflow confirmed."
   }
 }
