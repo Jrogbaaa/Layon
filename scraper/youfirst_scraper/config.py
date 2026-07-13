@@ -18,9 +18,9 @@ IG_USERNAME = os.environ.get("IG_USERNAME", "")
 INFLUENCERS_FILE = PACKAGE_DIR / "influencers.txt"
 
 TREND_SOURCES = [
-    "https://trends.google.com/trending/rss?geo=ES",
-    "https://www.20minutos.es/rss/gente/",
-    "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/cultura/portada",
+    "https://ads.tiktok.com/business/es-LA/next",
+    "https://metricool.com/es/tendencias-instagram/",
+    "https://metricool.com/es/tendencias-estrategias-tiktok/",
 ]
 
 # Seconds to wait between profile requests, to avoid hammering Instagram.
