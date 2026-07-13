@@ -96,10 +96,20 @@ def test_build_prompt_requests_bilingual_output():
     assert "BOTH English and Spanish" in prompt
 
 
-def test_build_prompt_has_no_trend_report_section():
-    prompt = recommendations.build_prompt("handle", _metrics(), [])
-    assert "trend report" not in prompt.lower()
-    assert "Source:" not in prompt
+def test_build_prompt_omits_trend_section_when_no_trend_items():
+    prompt = recommendations.build_prompt("handle", _metrics(), [], trend_items=None)
+    assert "trending in Spain" not in prompt
+    prompt = recommendations.build_prompt("handle", _metrics(), [], trend_items=[])
+    assert "trending in Spain" not in prompt
+
+
+def test_build_prompt_includes_trend_items_and_naming_instruction():
+    trend_items = ["La Revuelta's viral interview with Rosalia", "OT 2026 gala shock elimination"]
+    prompt = recommendations.build_prompt("handle", _metrics(), [], trend_items=trend_items)
+    assert "La Revuelta's viral interview with Rosalia" in prompt
+    assert "OT 2026 gala shock elimination" in prompt
+    assert "NAME the specific show" in prompt
+    assert "vague placeholder" in prompt
 
 
 def test_build_prompt_includes_highlights():
@@ -162,6 +172,24 @@ def test_generate_recommendation_calls_gemini_and_returns_valid_json():
     _, kwargs = fake_client.models.generate_content.call_args
     assert kwargs["model"] == recommendations.GEMINI_MODEL
     assert "handle" in kwargs["contents"]
+
+
+def test_generate_recommendation_passes_trend_items_into_prompt():
+    profile_snapshots = [{"followers": 1000}]
+    posts = []
+
+    fake_response = MagicMock()
+    fake_response.text = _valid_bullet_response()
+    fake_client = MagicMock()
+    fake_client.models.generate_content.return_value = fake_response
+
+    with patch("youfirst_scraper.recommendations.genai.Client", return_value=fake_client):
+        recommendations.generate_recommendation(
+            "handle", profile_snapshots, posts, trend_items=["La Revuelta's viral interview with Rosalia"]
+        )
+
+    _, kwargs = fake_client.models.generate_content.call_args
+    assert "La Revuelta's viral interview with Rosalia" in kwargs["contents"]
 
 
 def test_generate_recommendation_retries_once_on_malformed_json_then_succeeds():

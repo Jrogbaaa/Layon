@@ -1,7 +1,7 @@
 import json
 import logging
 import time
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 import requests
 
@@ -117,7 +117,31 @@ def run_trend_headlines(client) -> None:
         logger.exception("Failed to generate trend headlines — keeping previous")
 
 
+def _latest_trend_texts(client) -> list[str] | None:
+    """English texts of the latest stored trend headlines, or None if absent/stale/invalid."""
+    try:
+        row = db.get_latest_trend_headlines(client)
+    except Exception:
+        logger.exception("Failed to fetch trend headlines — recommendations proceed without trends")
+        return None
+    if not row:
+        return None
+    try:
+        # The prompt presents these as today's trends; a row kept from a failed
+        # generation day must not be passed off as fresh.
+        generated_at = datetime.fromisoformat(row["generated_at"])
+        if datetime.now(generated_at.tzinfo) - generated_at > timedelta(hours=24):
+            logger.warning("Latest trend headlines are stale — recommendations proceed without trends")
+            return None
+        headlines = json.loads(row["content"])["headlines"]
+        texts = [h["text"]["en"] for h in headlines]
+        return texts or None
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+        return None
+
+
 def run_recommendations(client) -> None:
+    trend_items = _latest_trend_texts(client)
     for influencer in db.list_influencers(client):
         handle = influencer["handle"]
         try:
@@ -137,6 +161,7 @@ def run_recommendations(client) -> None:
                 highlights,
                 content_map,
                 alltime_top_posts,
+                trend_items,
             )
             if content is None:
                 logger.warning("No valid recommendation generated for %s — keeping previous", handle)

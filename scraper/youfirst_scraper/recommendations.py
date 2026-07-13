@@ -34,6 +34,7 @@ def build_prompt(
     highlights: list[dict] | None = None,
     content_map: dict[str, dict] | None = None,
     alltime_top_posts: list[dict] | None = None,
+    trend_items: list[str] | None = None,
 ) -> str:
     content_map = content_map or {}
     deduped: dict[str, dict] = {}
@@ -81,6 +82,18 @@ approaches the all-time numbers. If recent posts sit far below the ceiling, say 
 plainly and base recommendations on what the all-time winners did.
 """
 
+    trends_section = ""
+    if trend_items:
+        trend_lines = "\n".join(f"- {t}" for t in trend_items)
+        trends_section = f"""
+What's trending in Spain today (scraped today — the ONLY trends you may reference):
+{trend_lines}
+If a recommendation ties into a trend, NAME the specific show, event, person, or moment
+from this list in the recommendation text itself. Never write a vague placeholder like
+"a currently trending Spanish TV show" or "a viral moment". If none of these trends fit
+the persona, base the recommendation on the performance data instead of inventing a trend.
+"""
+
     return f"""You are a social media strategist for a talent agency's Instagram influencer.
 
 Influencer: @{handle}
@@ -96,8 +109,8 @@ Recent posts ranked by engagement (last ~12):
 {top_section or '(no recent posts)'}
 {weakest_section}
 The target audience is Spain / Spanish-speaking, not the USA — recommendations should fit
-Spanish social media culture and trends, not US ones.
-
+Spanish social media culture, not US ones.
+{trends_section}
 Write 3-5 short, specific, actionable creative recommendations for this influencer's next
 posts. Each recommendation must reference the specific top-performing post (by its content,
 not just its shortcode) or metric that motivated it — e.g. "Follow up on [post topic], it
@@ -131,10 +144,18 @@ def generate_recommendation(
     highlights: list[dict] | None = None,
     content_map: dict[str, dict] | None = None,
     alltime_top_posts: list[dict] | None = None,
+    trend_items: list[str] | None = None,
 ) -> str | None:
     computed_metrics = metrics.compute_metrics(profile_snapshots, posts)
     prompt = build_prompt(
-        handle, computed_metrics, posts, persona, highlights, content_map, alltime_top_posts
+        handle,
+        computed_metrics,
+        posts,
+        persona,
+        highlights,
+        content_map,
+        alltime_top_posts,
+        trend_items,
     )
 
     client = genai.Client(api_key=config.GOOGLE_API_KEY)
