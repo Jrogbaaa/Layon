@@ -196,3 +196,18 @@ pipeline already runs on Jack's Mac. The 90%-drop corruption class is caught by 
 manual), webhook/email alerts (new infra), and Graph API migration (Phase 2, declined).
 On a failure day, Gemini steps may run up to 3x. If the Mac is asleep at all three fire
 times, the day is still lost — accepted, matches existing launchd decision.
+
+### 2026-07-13 — Feature 014 planning: keep post selection local to EngagementChart
+
+**Decision:** Plan one selected-post interaction model shared by the engagement chart
+and publication rail inside `EngagementChart.tsx`; do not lift selection into the
+influencer page or change the post data contract.
+
+**Reason:** The problem is local to the two existing visual surfaces. Keeping the state
+local makes the change surgical, preserves the existing `chartPosts`/`posted_at` data
+flow, and avoids unrelated dashboard state or schema work.
+
+**Tradeoffs:** The selection is intentionally ephemeral UI state and will not be
+deep-linkable or shared with other dashboard sections. Approved interaction details:
+dates use `Europe/Madrid`; hover commits the same persistent selection as click/focus;
+and `Escape` clears it while pointer exit and blank chart space do not.

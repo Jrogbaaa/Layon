@@ -4,9 +4,17 @@ Questions that require human judgment. Append active questions; move to Resolved
 
 ## Active Questions
 
-- None
+None.
 
 ## Resolved Questions
+
+- **Feature 014 date display timezone and format?** → `Europe/Madrid`, with compact
+  month/day axis labels and full month/day/year selected detail. (2026-07-13)
+- **How should Feature 014 persistent selection be cleared?** → Selection persists until
+  another post is selected; `Escape` is the explicit clear action. Pointer exit and
+  blank chart space do not clear it. (2026-07-13)
+- **Should Feature 014 hover commit selection?** → Yes. Hover, click, and keyboard focus
+  select the same post, and the last hovered post remains selected. (2026-07-13)
 
 - **instagram-php-scraper or a maintained alternative?** → Instaloader (actively
   maintained). (2026-07-06)

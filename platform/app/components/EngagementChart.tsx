@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine } from "recharts";
 import type { PostSnapshot } from "@/app/lib/types";
 import { formatCount } from "@/app/lib/metrics";
@@ -9,16 +10,23 @@ type EngagementChartProps = {
   followers: number;
 };
 
+type EngagementPoint = {
+  index: number;
+  x: number;
+  date: string;
+  publicationDate: string | null;
+  relativeInterval: string | null;
+  timingAvailable: boolean;
+  format: string;
+  engagement: number;
+  likes: number;
+  comments: number;
+  er: number;
+  caption: string;
+};
+
 interface TooltipPayloadItem {
-  payload: {
-    date: string;
-    format: string;
-    engagement: number;
-    likes: number;
-    comments: number;
-    er: number;
-    caption: string;
-  };
+  payload: EngagementPoint;
 }
 
 interface CustomTooltipProps {
@@ -26,12 +34,23 @@ interface CustomTooltipProps {
   payload?: TooltipPayloadItem[];
 }
 
+type EngagementDotProps = {
+  cx?: number;
+  cy?: number;
+  index?: number;
+  payload?: EngagementPoint;
+  selectedIndex: number | null;
+  onSelect: (index: number) => void;
+};
+
+const DISPLAY_TIME_ZONE = "Europe/Madrid";
+
 // Custom tooltips to show format, likes, comments, ER% and caption context
 function CustomTooltip({ active, payload }: CustomTooltipProps) {
   if (active && payload && payload.length) {
     const d = payload[0].payload;
     return (
-      <div className="border border-border-faint bg-[#241819] p-3 rounded-lg text-xs font-mono">
+      <div className="w-[min(260px,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] rounded-lg border border-border-faint bg-[#241819] p-3 text-xs font-mono">
         <p className="text-[#f4ede2] font-bold mb-2">
           {d.date} · <span className="capitalize">{d.format}</span>
         </p>
@@ -40,6 +59,11 @@ function CustomTooltip({ active, payload }: CustomTooltipProps) {
           Likes: {d.likes.toLocaleString()} · Comments: {d.comments.toLocaleString()}
         </p>
         <p className="text-accent mt-1">ER: {d.er}%</p>
+        <p className="text-muted mt-2 border-t border-border-faint pt-2">
+          {d.timingAvailable
+            ? `Published ${d.publicationDate} · ${d.relativeInterval}`
+            : "Publication timing unavailable"}
+        </p>
         {d.caption && (
           <p className="text-muted mt-2 border-t border-border-faint pt-2 text-[10px] line-clamp-2 max-w-[220px]">
             &ldquo;{d.caption}&rdquo;
@@ -51,7 +75,224 @@ function CustomTooltip({ active, payload }: CustomTooltipProps) {
   return null;
 }
 
+function EngagementDot({ cx, cy, index, payload, selectedIndex, onSelect }: EngagementDotProps) {
+  if (cx == null || cy == null || index == null || payload == null) return null;
+
+  const isSelected = selectedIndex === index;
+  const label = payload.timingAvailable
+    ? `${payload.publicationDate}, ${payload.format}, ${formatCount(payload.engagement)} engagement`
+    : `Publication timing unavailable, ${payload.format}, ${formatCount(payload.engagement)} engagement`;
+  const retainFocus = () => {
+    requestAnimationFrame(() => {
+      document.querySelector<SVGGElement>(`[data-testid="engagement-point-${index}"]`)?.focus();
+    });
+  };
+
+  return (
+    <g
+      className="group cursor-pointer outline-none"
+      role="button"
+      tabIndex={0}
+      aria-label={`Select post: ${label}`}
+      aria-pressed={isSelected}
+      data-testid={`engagement-point-${index}`}
+      onClick={() => {
+        onSelect(index);
+        retainFocus();
+      }}
+      onFocus={() => {
+        onSelect(index);
+        retainFocus();
+      }}
+      onMouseEnter={() => onSelect(index)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onSelect(index);
+        }
+      }}
+    >
+      <circle cx={cx} cy={cy} r={12} fill="transparent" stroke="none" />
+      <circle
+        cx={cx}
+        cy={cy}
+        r={isSelected ? 7 : 5.5}
+        fill="none"
+        stroke="#e3b04b"
+        strokeWidth={1.5}
+        className="opacity-0 transition-opacity group-focus-visible:opacity-100"
+        aria-hidden
+      />
+      <circle
+        cx={cx}
+        cy={cy}
+        r={isSelected ? 4.5 : 2.5}
+        fill={isSelected ? "#f0c96a" : "#7e2230"}
+        stroke="#120b0d"
+        strokeWidth={isSelected ? 2 : 1.5}
+        className="transition-[r,fill]"
+      />
+    </g>
+  );
+}
+
+function formatPublicationDate(postedAt: unknown): string | null {
+  if (typeof postedAt !== "string" || postedAt.trim().length === 0) return null;
+
+  const timestamp = new Date(postedAt).getTime();
+  if (!Number.isFinite(timestamp)) return null;
+
+  return new Date(timestamp).toLocaleDateString("en-US", {
+    timeZone: DISPLAY_TIME_ZONE,
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function formatChartDate(postedAt: unknown): string {
+  if (typeof postedAt !== "string" || postedAt.trim().length === 0) return "Date unavailable";
+
+  const timestamp = new Date(postedAt).getTime();
+  if (!Number.isFinite(timestamp)) return "Date unavailable";
+
+  return new Date(timestamp).toLocaleDateString("en-US", {
+    timeZone: DISPLAY_TIME_ZONE,
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function formatRelativeInterval(currentPostedAt: string, previousPostedAt: string | null): string | null {
+  if (!previousPostedAt) return "first plotted post";
+
+  const current = new Date(currentPostedAt).getTime();
+  const previous = new Date(previousPostedAt).getTime();
+  if (!Number.isFinite(current) || !Number.isFinite(previous)) return null;
+
+  const currentDate = new Date(current).toLocaleDateString("en-CA", { timeZone: DISPLAY_TIME_ZONE });
+  const previousDate = new Date(previous).toLocaleDateString("en-CA", { timeZone: DISPLAY_TIME_ZONE });
+  const days = Math.max(
+    0,
+    Math.round((Date.parse(`${currentDate}T00:00:00Z`) - Date.parse(`${previousDate}T00:00:00Z`)) / (24 * 60 * 60 * 1000)),
+  );
+  if (days === 0) return "same day as previous post";
+  return `${days} day${days === 1 ? "" : "s"} after previous post`;
+}
+
+function PublicationDetails({ point }: { point: EngagementPoint }) {
+  return (
+    <div
+      className="rounded-md border border-border-faint bg-surface px-3 py-2 font-mono text-[11px]"
+      data-testid="publication-details"
+      aria-live="polite"
+    >
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <span className="text-ink">
+          {point.timingAvailable ? `Published ${point.publicationDate}` : "Publication timing unavailable"}
+        </span>
+        <span className="capitalize text-faint">{point.format}</span>
+        {point.relativeInterval ? <span className="text-accent">{point.relativeInterval}</span> : null}
+      </div>
+      <p className="mt-1 text-muted">
+        {formatCount(point.engagement)} engagement · {point.er}% ER · {point.likes.toLocaleString()} likes ·{" "}
+        {point.comments.toLocaleString()} comments
+      </p>
+    </div>
+  );
+}
+
+function PublicationMarkerRail({
+  data,
+  selectedIndex,
+  onSelect,
+}: {
+  data: EngagementPoint[];
+  selectedIndex: number | null;
+  onSelect: (index: number) => void;
+}) {
+  const validMarkers = data.some((point) => point.timingAvailable);
+
+  if (!validMarkers) return null;
+
+  const selectedPoint = selectedIndex == null ? null : data[selectedIndex] ?? null;
+
+  return (
+    <div className="mt-2" data-testid="publication-marker-rail">
+      <div className="relative h-8">
+        <span className="absolute left-0 top-2 font-mono text-[10px] tracking-widest text-faint">
+          POSTS · {data.length}
+        </span>
+        <div
+          className="relative grid h-8 min-w-0"
+          style={{
+            gridTemplateColumns: `repeat(${data.length}, minmax(0, 1fr))`,
+            marginLeft: 56,
+            marginRight: 28,
+          }}
+        >
+          <span className="pointer-events-none absolute inset-x-0 top-1/2 h-px bg-border-faint" aria-hidden />
+          {data.map((point, index) => {
+            const label = point.timingAvailable
+              ? `Published ${point.publicationDate}, ${point.format}, ${point.relativeInterval}. ${formatCount(point.engagement)} engagement.`
+              : `Publication timing unavailable, ${point.format}. ${formatCount(point.engagement)} engagement.`;
+
+            return (
+              <button
+                key={`${point.date}-${point.format}-${index}`}
+                type="button"
+                className={`group relative z-10 flex h-11 min-w-0 items-center justify-center rounded-sm outline-offset-2 focus-visible:outline-2 focus-visible:outline-accent ${
+                  selectedIndex === index ? "bg-accent/10" : ""
+                }`}
+                aria-label={label}
+                aria-pressed={selectedIndex === index}
+                data-testid="publication-marker"
+                data-publication-date={point.publicationDate ?? undefined}
+                data-selected={selectedIndex === index ? "true" : "false"}
+                onClick={() => onSelect(index)}
+                onFocus={() => onSelect(index)}
+                onMouseEnter={() => onSelect(index)}
+              >
+                <span
+                  className={`block h-2 w-2 rounded-full border transition-[background-color,box-shadow] ${
+                    point.timingAvailable
+                      ? selectedIndex === index
+                        ? "border-accent bg-accent shadow-[0_0_0_3px_rgba(227,176,75,0.18)]"
+                        : "border-accent-deep bg-accent-deep/70 group-hover:bg-accent/80 group-focus-visible:bg-accent/80"
+                      : "border-border bg-surface-2"
+                  }`}
+                  aria-hidden
+                />
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <div className="mt-1 min-h-11">
+        {selectedPoint ? (
+          <PublicationDetails point={selectedPoint} />
+        ) : (
+          <p className="pl-[4.75rem] font-mono text-[10px] text-faint">
+            Select a point to identify the post and compare its timing with the spike.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function EngagementChart({ posts, followers }: EngagementChartProps) {
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    const clearSelection = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSelectedIndex(null);
+    };
+
+    window.addEventListener("keydown", clearSelection);
+    return () => window.removeEventListener("keydown", clearSelection);
+  }, []);
+
   if (posts.length === 0) {
     return <p className="text-sm text-muted">No post engagement data yet.</p>;
   }
@@ -70,11 +311,28 @@ export function EngagementChart({ posts, followers }: EngagementChartProps) {
         : (sortedEngagement[mid - 1] + sortedEngagement[mid]) / 2;
   }
 
-  const data = posts.map((post) => {
+  const previousPostedAtByIndex = posts.map((_, index) =>
+    posts
+      .slice(0, index)
+      .reverse()
+      .find((post) => formatPublicationDate(post.posted_at) !== null)?.posted_at ?? null,
+  );
+  const data = posts.map((post, index) => {
     const engagement = post.likes + post.comments;
     const er = followers > 0 ? (engagement / followers) * 100 : 0;
+    const publicationDate = formatPublicationDate(post.posted_at);
+    const timingAvailable = publicationDate !== null;
+    const relativeInterval = timingAvailable
+      ? formatRelativeInterval(post.posted_at, previousPostedAtByIndex[index])
+      : null;
+
     return {
-      date: new Date(post.posted_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      index,
+      x: index,
+      date: timingAvailable ? formatChartDate(post.posted_at) : "Date unavailable",
+      publicationDate,
+      relativeInterval,
+      timingAvailable,
       engagement,
       likes: post.likes,
       comments: post.comments,
@@ -86,59 +344,105 @@ export function EngagementChart({ posts, followers }: EngagementChartProps) {
 
   const values = data.map((d) => d.engagement);
   const maxVal = Math.max(...values, 0);
+  const selectIndex = (index: number) => setSelectedIndex(Math.max(0, Math.min(index, data.length - 1)));
+  const axisTicks = Array.from(
+    new Set(
+      Array.from({ length: Math.min(6, data.length) }, (_, tickIndex) =>
+        data.length === 1 ? 0 : Math.round((tickIndex * (data.length - 1)) / (Math.min(6, data.length) - 1)),
+      ),
+    ),
+  );
 
   return (
-    <ResponsiveContainer width="100%" height={260}>
-      <AreaChart data={data} margin={{ top: 12, right: 28, bottom: 0, left: 0 }}>
-        <defs>
-          <linearGradient id="engagementFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#e3b04b" stopOpacity={0.28} />
-            <stop offset="60%" stopColor="#7e2230" stopOpacity={0.12} />
-            <stop offset="100%" stopColor="#7e2230" stopOpacity={0} />
-          </linearGradient>
-        </defs>
-        <CartesianGrid strokeDasharray="2 6" stroke="#362527" vertical={false} />
-        <XAxis
-          dataKey="date"
-          stroke="#97897f"
-          fontSize={11}
-          fontFamily="var(--font-mono)"
-          tickLine={false}
-          axisLine={{ stroke: "#362527" }}
-        />
-        <YAxis
-          stroke="#97897f"
-          fontSize={11}
-          fontFamily="var(--font-mono)"
-          width={56}
-          tickLine={false}
-          axisLine={false}
-          domain={[0, maxVal * 1.1]}
-          tickFormatter={formatCount}
-        />
-        <Tooltip content={<CustomTooltip />} cursor={{ stroke: "#362527", strokeWidth: 1 }} />
-        <ReferenceLine
-          y={median}
-          stroke="#7e2230"
-          strokeDasharray="4 4"
-          label={{
-            value: `Median: ${formatCount(median)}`,
-            fill: "#97897f",
-            position: "top",
-            fontSize: 10,
-            fontFamily: "var(--font-mono)",
-          }}
-        />
-        <Area
-          type="monotone"
-          dataKey="engagement"
-          stroke="#e3b04b"
-          strokeWidth={2}
-          fill="url(#engagementFill)"
-          dot={false}
-          activeDot={{ r: 3.5, fill: "#f0c96a", stroke: "#120b0d", strokeWidth: 2 }}
-        />
-      </AreaChart>
-    </ResponsiveContainer>
+    <div className="w-full">
+      <div className="h-[260px] w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart
+            data={data}
+            margin={{ top: 12, right: 28, bottom: 0, left: 0 }}
+            onMouseMove={(state) => {
+              if (typeof state?.activeTooltipIndex === "number") selectIndex(state.activeTooltipIndex);
+            }}
+            onClick={(state) => {
+              if (typeof state?.activeTooltipIndex === "number") selectIndex(state.activeTooltipIndex);
+            }}
+          >
+            <defs>
+              <linearGradient id="engagementFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#e3b04b" stopOpacity={0.28} />
+                <stop offset="60%" stopColor="#7e2230" stopOpacity={0.12} />
+                <stop offset="100%" stopColor="#7e2230" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="2 6" stroke="#362527" vertical={false} />
+            <XAxis
+              dataKey="x"
+              type="number"
+              domain={[-0.5, Math.max(0.5, data.length - 0.5)]}
+              ticks={axisTicks}
+              tickFormatter={(value) => data[value]?.date ?? ""}
+              minTickGap={24}
+              stroke="#97897f"
+              fontSize={11}
+              fontFamily="var(--font-mono)"
+              tickLine={false}
+              axisLine={{ stroke: "#362527" }}
+            />
+            <YAxis
+              stroke="#97897f"
+              fontSize={11}
+              fontFamily="var(--font-mono)"
+              width={56}
+              tickLine={false}
+              axisLine={false}
+              domain={[0, maxVal * 1.1]}
+              tickFormatter={formatCount}
+            />
+            <Tooltip
+              content={<CustomTooltip />}
+              cursor={{ stroke: "#362527", strokeWidth: 1 }}
+              wrapperStyle={{ maxWidth: "calc(100vw - 2rem)" }}
+            />
+            {selectedIndex !== null ? (
+              <ReferenceLine
+                x={selectedIndex}
+                stroke="#e3b04b"
+                strokeOpacity={0.6}
+                strokeDasharray="2 4"
+                data-testid="selected-publication-guide"
+              />
+            ) : null}
+            <ReferenceLine
+              y={median}
+              stroke="#7e2230"
+              strokeDasharray="4 4"
+              label={{
+                value: `Median: ${formatCount(median)}`,
+                fill: "#97897f",
+                position: "top",
+                fontSize: 10,
+                fontFamily: "var(--font-mono)",
+              }}
+            />
+            <Area
+              type="monotone"
+              dataKey="engagement"
+              stroke="#e3b04b"
+              strokeWidth={2}
+              fill="url(#engagementFill)"
+              dot={(dotProps) => (
+                <EngagementDot
+                  {...dotProps}
+                  selectedIndex={selectedIndex}
+                  onSelect={selectIndex}
+                />
+              )}
+              activeDot={false}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+      <PublicationMarkerRail data={data} selectedIndex={selectedIndex} onSelect={selectIndex} />
+    </div>
   );
 }
