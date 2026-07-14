@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useLanguage } from "@/app/components/LanguageProvider";
-import { LanguageToggle } from "@/app/components/LanguageToggle";
 import type { BriefingPayload } from "@/app/lib/types";
 
 function parseBriefing(content: string): BriefingPayload | null {
@@ -40,7 +39,6 @@ export function RosterBriefing({
             .toLocaleDateString("en-US", { month: "short", day: "numeric" })
             .toUpperCase()}
         </h2>
-        <LanguageToggle />
       </div>
 
       {/* The week's story, told as a pull-quote. */}

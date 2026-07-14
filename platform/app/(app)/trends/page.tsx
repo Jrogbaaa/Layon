@@ -1,9 +1,14 @@
 import { getLatestTrendHeadlines, getLatestTrends } from "@/app/lib/data";
 import { parseTrendHeadlines } from "@/app/lib/trends";
 import { TrendHeadlinesList } from "@/app/components/TrendHeadlinesList";
-import { LanguageToggle } from "@/app/components/LanguageToggle";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "The Wire | Look After You",
+  description: "What moved the Spanish social landscape today, distilled to headlines.",
+};
 
 export default async function TrendsPage() {
   const headlinesRow = await getLatestTrendHeadlines();
@@ -28,7 +33,6 @@ export default async function TrendsPage() {
                 .toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
                 .toUpperCase()}
             </span>
-            <LanguageToggle />
           </div>
         ) : null}
       </div>
@@ -43,10 +47,15 @@ export default async function TrendsPage() {
         <div className="space-y-10">
           {trends.map((trend, i) => (
             <article key={`${trend.source_url}-${i}`} className="max-w-3xl">
-              <p className="font-mono text-xs text-faint">
-                {new Date(trend.captured_at)
-                  .toLocaleDateString("en-US", { month: "short", day: "numeric" })
-                  .toUpperCase()}
+              <p className="font-mono text-[10px] text-faint flex items-center gap-2">
+                <span>
+                  {new Date(trend.captured_at)
+                    .toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                    .toUpperCase()}
+                </span>
+                <span className="text-accent-deep border border-border-faint px-1 rounded-[2px] text-[8px] tracking-wide">
+                  RAW REPORT · ORIGINAL SPANISH
+                </span>
               </p>
               <h2 className="font-display mt-2 text-2xl text-ink">{trend.title || trend.source_url}</h2>
               <p className="mt-3 line-clamp-4 max-w-prose text-sm leading-relaxed text-muted">

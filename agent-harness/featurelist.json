@@ -429,6 +429,37 @@
       ],
       "verification": "npm run lint (0 errors), npx tsc --noEmit, npm run build, and npx playwright test (16/16, includes new fixture href assertions against the dev server) all pass 2026-07-14.",
       "notes": "Spec: agent-harness/spec.md (rewritten 2026-07-14). Selection state on chart dots moves from aria-pressed to data-selected because aria-pressed is invalid on links. No separate Evaluator subagent pass run this session (same pattern as feature_003/004); request one before merge if desired."
+    },
+    {
+      "id": "feature_016",
+      "name": "Platform UX and Frontend Overhaul",
+      "goal": "Resolve primary UX flaws: implement search/filter/sort, add column headers, restore mobile delta visibility, fix chart click-lock select override, expose bio/counts metadata, unify global language toggle, and add Next.js skeleton loader.",
+      "why_it_matters": "Managers need functional click actions on charts, mobile triage deltas, clear column headers, and search filters to scan and operate on talent metrics efficiently.",
+      "non_goals": [
+        "No database schema modifications or scraper additions",
+        "No API changes or external third-party metric integrations",
+        "No styling overrides violating the Medianoche garnet/amber scheme"
+      ],
+      "status": "in_progress",
+      "priority": "medium",
+      "owner_agent": "generator",
+      "acceptance_criteria": [
+        "Global language selector in Nav; local toggles removed",
+        "Nav link standardizes on 'Wire' routing to /trends",
+        "Roster table shows column headers and client-side search/filter/sort",
+        "Roster delta metrics are visible on mobile screens",
+        "Influencer page displays biography text, total posts, and following counts",
+        "Engagement chart separates hover tooltip from click selection lock; close button and Escape clear lock",
+        "Trends page date/article fallback handles translation labels correctly",
+        "Next.js App Router loading skeleton renders immediately on dynamic fetches",
+        "Login password field has a show/hide text visibility toggle",
+        "E2E tests verify all new features and elements; tsc/lint/build passes"
+      ],
+      "dependencies": [
+        "feature_015"
+      ],
+      "verification": "Pending Generator and Evaluator passes 2026-07-14",
+      "notes": "Spec: agent-harness/spec.md (rewritten 2026-07-14). Clean codebase is maintained by deleting placeholder empty directories."
     }
   ]
 }

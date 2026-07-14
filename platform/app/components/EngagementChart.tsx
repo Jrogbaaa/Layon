@@ -42,6 +42,7 @@ type EngagementDotProps = {
   payload?: EngagementPoint;
   selectedIndex: number | null;
   onSelect: (index: number) => void;
+  onHover: (index: number) => void;
 };
 
 const DISPLAY_TIME_ZONE = "Europe/Madrid";
@@ -80,7 +81,7 @@ function CustomTooltip({ active, payload }: CustomTooltipProps) {
   return null;
 }
 
-function EngagementDot({ cx, cy, index, payload, selectedIndex, onSelect }: EngagementDotProps) {
+function EngagementDot({ cx, cy, index, payload, selectedIndex, onSelect, onHover }: EngagementDotProps) {
   if (cx == null || cy == null || index == null || payload == null) return null;
 
   const isSelected = selectedIndex === index;
@@ -110,7 +111,7 @@ function EngagementDot({ cx, cy, index, payload, selectedIndex, onSelect }: Enga
         onSelect(index);
         retainFocus();
       }}
-      onMouseEnter={() => onSelect(index)}
+      onMouseEnter={() => onHover(index)}
     >
       <circle cx={cx} cy={cy} r={12} fill="transparent" stroke="none" />
       <circle
@@ -220,14 +221,24 @@ function formatRelativeInterval(current: number, previous: number | null): strin
   return `${days} day${days === 1 ? "" : "s"} after previous post`;
 }
 
-function PublicationDetails({ point }: { point: EngagementPoint }) {
+function PublicationDetails({ point, onClear }: { point: EngagementPoint; onClear?: () => void }) {
   return (
     <div
-      className="rounded-md border border-border-faint bg-surface px-3 py-2 font-mono text-[11px]"
+      className="relative rounded-md border border-border-faint bg-surface px-3 py-2 font-mono text-[11px]"
       data-testid="publication-details"
       aria-live="polite"
     >
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+      {onClear && (
+        <button
+          type="button"
+          onClick={onClear}
+          className="absolute right-2 top-2 h-5 w-5 flex items-center justify-center rounded-full border border-border text-muted hover:text-ink hover:bg-surface-2 transition-colors text-xs cursor-pointer"
+          aria-label="Clear selection"
+        >
+          ×
+        </button>
+      )}
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 pr-6">
         <span className="text-ink">
           {point.timingAvailable ? `Published ${point.publicationDate}` : "Publication timing unavailable"}
         </span>
@@ -255,10 +266,16 @@ function PublicationMarkerRail({
   data,
   selectedIndex,
   onSelect,
+  onHover,
+  onClear,
+  isLocked,
 }: {
   data: EngagementPoint[];
   selectedIndex: number | null;
   onSelect: (index: number) => void;
+  onHover: (index: number) => void;
+  onClear: () => void;
+  isLocked: boolean;
 }) {
   const selectedPoint = selectedIndex == null ? null : data[selectedIndex] ?? null;
   const selectPrevious = () => onSelect(selectedIndex == null ? 0 : Math.max(0, selectedIndex - 1));
@@ -311,7 +328,7 @@ function PublicationMarkerRail({
         data-selected={selectedIndex === index ? "true" : "false"}
         onClick={() => onSelect(index)}
         onFocus={() => onSelect(index)}
-        onMouseEnter={() => onSelect(index)}
+        onMouseEnter={() => onHover(index)}
       >
         {dot}
       </button>
@@ -360,7 +377,7 @@ function PublicationMarkerRail({
       <div className="mt-1 flex items-center justify-between gap-3 lg:hidden" data-testid="publication-mobile-controls">
         <button
           type="button"
-          className="flex h-11 min-w-11 items-center justify-center rounded-md border border-border-faint bg-surface font-mono text-sm text-ink transition-colors hover:border-border hover:bg-surface-2 disabled:cursor-not-allowed disabled:text-faint disabled:opacity-50"
+          className="flex h-11 min-w-11 items-center justify-center rounded-md border border-border-faint bg-surface font-mono text-sm text-ink transition-colors hover:border-border hover:bg-surface-2 disabled:cursor-not-allowed disabled:text-faint disabled:opacity-50 cursor-pointer"
           aria-label="Previous post"
           disabled={selectedIndex == null || selectedIndex === 0}
           onClick={selectPrevious}
@@ -372,7 +389,7 @@ function PublicationMarkerRail({
         </p>
         <button
           type="button"
-          className="flex h-11 min-w-11 items-center justify-center rounded-md border border-border-faint bg-surface font-mono text-sm text-ink transition-colors hover:border-border hover:bg-surface-2 disabled:cursor-not-allowed disabled:text-faint disabled:opacity-50"
+          className="flex h-11 min-w-11 items-center justify-center rounded-md border border-border-faint bg-surface font-mono text-sm text-ink transition-colors hover:border-border hover:bg-surface-2 disabled:cursor-not-allowed disabled:text-faint disabled:opacity-50 cursor-pointer"
           aria-label={selectedIndex == null ? "Select first post" : "Next post"}
           disabled={selectedIndex === data.length - 1}
           onClick={selectNext}
@@ -383,7 +400,7 @@ function PublicationMarkerRail({
 
       <div className="mt-1 min-h-11">
         {selectedPoint ? (
-          <PublicationDetails point={selectedPoint} />
+          <PublicationDetails point={selectedPoint} onClear={isLocked ? onClear : undefined} />
         ) : (
           <p className="pl-[4.75rem] font-mono text-[10px] text-faint">
             Select a point to identify the post and compare its timing with the spike.
@@ -396,10 +413,14 @@ function PublicationMarkerRail({
 
 export function EngagementChart({ posts, followers }: EngagementChartProps) {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [isLocked, setIsLocked] = useState(false);
 
   useEffect(() => {
     const clearSelection = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setSelectedIndex(null);
+      if (event.key === "Escape") {
+        setSelectedIndex(null);
+        setIsLocked(false);
+      }
     };
 
     window.addEventListener("keydown", clearSelection);
@@ -460,6 +481,20 @@ export function EngagementChart({ posts, followers }: EngagementChartProps) {
   const values = data.map((d) => d.engagement);
   const maxVal = Math.max(...values, 0);
   const selectIndex = (index: number) => setSelectedIndex(Math.max(0, Math.min(index, data.length - 1)));
+  const hoverSelect = (index: number) => {
+    if (!isLocked) {
+      selectIndex(index);
+    }
+  };
+  const lockSelect = (index: number) => {
+    selectIndex(index);
+    setIsLocked(true);
+  };
+  const clearLock = () => {
+    setSelectedIndex(null);
+    setIsLocked(false);
+  };
+
   const axisTicks = Array.from(
     new Set(
       Array.from({ length: Math.min(6, data.length) }, (_, tickIndex) =>
@@ -476,10 +511,10 @@ export function EngagementChart({ posts, followers }: EngagementChartProps) {
             data={data}
             margin={{ top: 12, right: 28, bottom: 0, left: 0 }}
             onMouseMove={(state) => {
-              if (typeof state?.activeTooltipIndex === "number") selectIndex(state.activeTooltipIndex);
+              if (typeof state?.activeTooltipIndex === "number") hoverSelect(state.activeTooltipIndex);
             }}
             onClick={(state) => {
-              if (typeof state?.activeTooltipIndex === "number") selectIndex(state.activeTooltipIndex);
+              if (typeof state?.activeTooltipIndex === "number") lockSelect(state.activeTooltipIndex);
             }}
           >
             <defs>
@@ -549,7 +584,8 @@ export function EngagementChart({ posts, followers }: EngagementChartProps) {
                 <EngagementDot
                   {...dotProps}
                   selectedIndex={selectedIndex}
-                  onSelect={selectIndex}
+                  onSelect={lockSelect}
+                  onHover={hoverSelect}
                 />
               )}
               activeDot={false}
@@ -557,7 +593,14 @@ export function EngagementChart({ posts, followers }: EngagementChartProps) {
           </AreaChart>
         </ResponsiveContainer>
       </div>
-      <PublicationMarkerRail data={data} selectedIndex={selectedIndex} onSelect={selectIndex} />
+      <PublicationMarkerRail
+        data={data}
+        selectedIndex={selectedIndex}
+        onSelect={lockSelect}
+        onHover={hoverSelect}
+        onClear={clearLock}
+        isLocked={isLocked}
+      />
     </div>
   );
 }

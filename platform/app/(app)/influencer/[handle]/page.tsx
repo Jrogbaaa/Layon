@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ViewTransition } from "react";
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import { getInfluencerDashboard } from "@/app/lib/data";
 import {
   dailyHistory,
@@ -15,9 +16,16 @@ import { Avatar } from "@/app/components/Avatar";
 import { HighlightContent } from "@/app/components/HighlightContent";
 import { RecentPostsTable } from "@/app/components/RecentPostsTable";
 import { RecommendationContent } from "@/app/components/RecommendationContent";
-import { LanguageToggle } from "@/app/components/LanguageToggle";
 import { CountUp } from "@/app/components/CountUp";
 import { Reveal } from "@/app/components/Reveal";
+
+export async function generateMetadata({ params }: { params: Promise<{ handle: string }> }): Promise<Metadata> {
+  const { handle } = await params;
+  return {
+    title: `@${handle} | Look After You`,
+    description: `Instagram performance metrics, logs, and creative recommendations for @${handle}.`,
+  };
+}
 
 export default async function InfluencerPage({ params }: { params: Promise<{ handle: string }> }) {
   const { handle } = await params;
@@ -88,18 +96,23 @@ export default async function InfluencerPage({ params }: { params: Promise<{ han
           <p className="font-mono mt-2 text-sm text-faint">
             {influencer.display_name ? `@${influencer.handle} · Instagram` : "Instagram"}
           </p>
+          {latestSnapshot?.bio && (
+            <p className="font-display mt-4 max-w-xl text-base italic leading-relaxed text-muted">
+              &ldquo;{latestSnapshot.bio}&rdquo;
+            </p>
+          )}
         </div>
       </div>
 
       {/* Stat band */}
-      <dl className="mt-10 mb-14 grid grid-cols-2 gap-y-8 border-y border-border-faint py-6 sm:grid-cols-4 sm:divide-x sm:divide-border-faint">
-        <div className="sm:pr-8">
+      <dl className="mt-10 mb-14 grid grid-cols-2 gap-x-4 gap-y-8 border-y border-border-faint py-6 sm:grid-cols-6 sm:divide-x sm:divide-border-faint">
+        <div className="sm:pr-4">
           <dt className="text-xs text-faint">Followers</dt>
           <dd className="font-mono mt-2 text-3xl text-ink">
             {followers > 0 ? <CountUp value={followers} /> : "—"}
           </dd>
         </div>
-        <div className="sm:px-8">
+        <div className="sm:px-4">
           <dt className="text-xs text-faint">Change · {change.label}</dt>
           <dd
             className={`font-mono tnum mt-2 text-3xl ${
@@ -114,18 +127,30 @@ export default async function InfluencerPage({ params }: { params: Promise<{ han
             {change.delta.toLocaleString("en-US")}
           </dd>
         </div>
-        <div className="sm:px-8">
+        <div className="sm:px-4">
           <dt className="text-xs text-faint">Engagement rate</dt>
           <dd className="font-mono tnum mt-2 text-3xl text-ink">{rate}%</dd>
-          <dd className="mt-1 text-xs text-faint">avg per post, % of followers</dd>
+          <dd className="mt-1 text-[10px] text-faint">avg per post, % of followers</dd>
         </div>
-        <div className="sm:pl-8">
+        <div className="sm:px-4">
           <dt className="text-xs text-faint">Cadence</dt>
           <dd className="font-mono tnum mt-2 text-3xl text-ink">
             {cadence != null ? `${cadence}/wk` : "—"}
           </dd>
-          <dd className="mt-1 text-xs text-faint">
-            {cadence != null ? `across ${recentPosts.length} tracked posts` : "need 2+ posts"}
+          <dd className="mt-1 text-[10px] text-faint">
+            {cadence != null ? `across ${recentPosts.length} posts` : "need 2+ posts"}
+          </dd>
+        </div>
+        <div className="sm:px-4">
+          <dt className="text-xs text-faint">Following</dt>
+          <dd className="font-mono tnum mt-2 text-3xl text-ink">
+            {latestSnapshot ? latestSnapshot.following.toLocaleString("en-US") : "—"}
+          </dd>
+        </div>
+        <div className="sm:pl-4">
+          <dt className="text-xs text-faint">Total Posts</dt>
+          <dd className="font-mono tnum mt-2 text-3xl text-ink">
+            {latestSnapshot ? latestSnapshot.media_count.toLocaleString("en-US") : "—"}
           </dd>
         </div>
       </dl>
@@ -256,7 +281,6 @@ export default async function InfluencerPage({ params }: { params: Promise<{ han
           <h2 className="font-mono text-xs tracking-widest text-accent">
             THE BRIEF · CREATIVE RECOMMENDATIONS
           </h2>
-          {latestRecommendation ? <LanguageToggle /> : null}
         </div>
         {latestRecommendation ? (
           <>

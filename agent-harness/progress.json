@@ -50,5 +50,15 @@
     "tsc": "pass",
     "evaluator": "PASS — fresh independent re-evaluation 4.75/5; no actionable findings",
     "manual": "Verified the live 30-post chart and development fixtures on localhost:3000 at desktop and 390px; selected guide, marker, details, mobile controls, and no horizontal overflow confirmed."
+  },
+  "feature_016": {
+    "status": "built_and_verified",
+    "pytest": "n/a (platform-only)",
+    "playwright": "17/17 passed",
+    "build": "pass",
+    "lint": "pass",
+    "tsc": "pass",
+    "evaluator": "PASS — 5.0/5 average score; findings written to findings.md",
+    "manual": "Verified global language toggle navigation placement, client-side roster filter/sort (without search bar), mobile delta stacking, dynamic metadata page titles, biography, following/posts counts, hover-and-click engagement chart locking (Escape/close button), and password show/hide eye icon toggle."
   }
 }
