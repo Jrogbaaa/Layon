@@ -13,6 +13,7 @@ type EngagementChartProps = {
 type EngagementPoint = {
   index: number;
   x: number;
+  shortcode: string;
   date: string;
   publicationDate: string | null;
   relativeInterval: string | null;
@@ -44,6 +45,10 @@ type EngagementDotProps = {
 };
 
 const DISPLAY_TIME_ZONE = "Europe/Madrid";
+
+function instagramPostUrl(shortcode: string): string {
+  return `https://www.instagram.com/p/${shortcode}/`;
+}
 
 // Custom tooltips to show format, likes, comments, ER% and caption context
 function CustomTooltip({ active, payload }: CustomTooltipProps) {
@@ -84,17 +89,18 @@ function EngagementDot({ cx, cy, index, payload, selectedIndex, onSelect }: Enga
     : `Publication timing unavailable, ${payload.format}, ${formatCount(payload.engagement)} engagement`;
   const retainFocus = () => {
     requestAnimationFrame(() => {
-      document.querySelector<SVGGElement>(`[data-testid="engagement-point-${index}"]`)?.focus();
+      document.querySelector<SVGAElement>(`[data-testid="engagement-point-${index}"]`)?.focus();
     });
   };
 
   return (
-    <g
+    <a
+      href={instagramPostUrl(payload.shortcode)}
+      target="_blank"
+      rel="noopener noreferrer"
       className="group cursor-pointer outline-none"
-      role="button"
-      tabIndex={0}
-      aria-label={`Select post: ${label}`}
-      aria-pressed={isSelected}
+      aria-label={`Open Instagram post: ${label}`}
+      data-selected={isSelected ? "true" : "false"}
       data-testid={`engagement-point-${index}`}
       onClick={() => {
         onSelect(index);
@@ -105,12 +111,6 @@ function EngagementDot({ cx, cy, index, payload, selectedIndex, onSelect }: Enga
         retainFocus();
       }}
       onMouseEnter={() => onSelect(index)}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          onSelect(index);
-        }
-      }}
     >
       <circle cx={cx} cy={cy} r={12} fill="transparent" stroke="none" />
       <circle
@@ -132,7 +132,7 @@ function EngagementDot({ cx, cy, index, payload, selectedIndex, onSelect }: Enga
         strokeWidth={isSelected ? 2 : 1.5}
         className="transition-[r,fill]"
       />
-    </g>
+    </a>
   );
 }
 
@@ -238,6 +238,15 @@ function PublicationDetails({ point }: { point: EngagementPoint }) {
         {formatCount(point.engagement)} engagement · {point.er}% ER · {point.likes.toLocaleString()} likes ·{" "}
         {point.comments.toLocaleString()} comments
       </p>
+      <a
+        href={instagramPostUrl(point.shortcode)}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-1 inline-block text-accent hover:text-accent-bright"
+        data-testid="publication-details-link"
+      >
+        View on Instagram →
+      </a>
     </div>
   );
 }
@@ -434,6 +443,7 @@ export function EngagementChart({ posts, followers }: EngagementChartProps) {
     return {
       index,
       x: index,
+      shortcode: post.shortcode,
       date: timestamp === null ? "Date unavailable" : formatChartDate(timestamp),
       publicationDate,
       relativeInterval,

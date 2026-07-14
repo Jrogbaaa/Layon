@@ -402,6 +402,33 @@
       ],
       "verification": "Fresh independent evaluator PASS (4.75/5); default Playwright 16/16, lint, type-check, build, production fixture 404, localhost desktop/mobile audit, and git diff checks pass.",
       "notes": "Selection stays local to EngagementChart.tsx; Europe/Madrid dates, hover-commit, persistent detail, and window-level Escape clear were approved. Review remediation adds strict timezone-aware parsing, all-invalid details, mobile post navigation, and a development-only fixture route."
+    },
+    {
+      "id": "feature_015",
+      "name": "Direct Instagram links from engagement chart posts",
+      "goal": "Let staff jump from a plotted chart post straight to the actual Instagram post, and rename the nav tab Trends to Tips (trivial, bundled).",
+      "why_it_matters": "The chart shows which post spiked but verifying what the post was requires manually searching Instagram; shortcodes are already stored on every PostSnapshot.",
+      "non_goals": [
+        "No database, query, scraper, or schema changes",
+        "No /trends route rename — label only",
+        "No marker rail, tooltip, or Audience Log changes",
+        "No link-validity checking against Instagram"
+      ],
+      "status": "built_and_verified",
+      "priority": "medium",
+      "owner_agent": "generator",
+      "acceptance_criteria": [
+        "Clicking a chart dot opens https://www.instagram.com/p/{shortcode}/ in a new tab; hover/focus selection sync from feature_014 unchanged",
+        "Dots are keyboard-reachable links with accessible names naming date/format/engagement",
+        "Selected-post detail panel shows a View on Instagram link with the correct href",
+        "Nav tab reads Tips and still routes to /trends with active styling",
+        "Existing chart behaviors stay green; lint, tsc, build, and Playwright pass in platform/"
+      ],
+      "dependencies": [
+        "feature_014"
+      ],
+      "verification": "npm run lint (0 errors), npx tsc --noEmit, npm run build, and npx playwright test (16/16, includes new fixture href assertions against the dev server) all pass 2026-07-14.",
+      "notes": "Spec: agent-harness/spec.md (rewritten 2026-07-14). Selection state on chart dots moves from aria-pressed to data-selected because aria-pressed is invalid on links. No separate Evaluator subagent pass run this session (same pattern as feature_003/004); request one before merge if desired."
     }
   ]
 }

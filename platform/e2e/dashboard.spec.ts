@@ -70,10 +70,12 @@ test("influencer engagement chart exposes publication timing markers", async ({ 
   await expect(page.getByTestId("publication-details")).toContainText(/engagement/);
 
   const firstPoint = page.getByTestId("engagement-point-0");
+  await expect(firstPoint).toHaveAttribute("href", /instagram\.com\/p\//);
   await firstPoint.focus();
   await expect(firstPoint).toBeFocused();
-  await expect(firstPoint).toHaveAttribute("aria-pressed", "true");
+  await expect(firstPoint).toHaveAttribute("data-selected", "true");
   await expect(firstMarker).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByTestId("publication-details-link")).toHaveAttribute("href", /instagram\.com\/p\//);
 
   const persistentMarker = markerCount > 1 ? markers.nth(1) : firstMarker;
   const persistentPoint = markerCount > 1 ? page.getByTestId("engagement-point-1") : firstPoint;
@@ -82,7 +84,7 @@ test("influencer engagement chart exposes publication timing markers", async ({ 
     await expect(firstMarker).toHaveAttribute("aria-pressed", "false");
   }
   await persistentPoint.hover();
-  await expect(persistentPoint).toHaveAttribute("aria-pressed", "true");
+  await expect(persistentPoint).toHaveAttribute("data-selected", "true");
   await expect(persistentMarker).toHaveAttribute("aria-pressed", "true");
   const backLink = page.getByRole("link", { name: "← THE ROSTER" });
   await backLink.hover();
@@ -122,10 +124,18 @@ test("engagement chart strictly validates publication timestamps", async ({ page
   }
 
   await markers.nth(0).click();
-  await expect(page.getByTestId("engagement-point-0")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByTestId("engagement-point-0")).toHaveAttribute("data-selected", "true");
   await markers.nth(1).click();
-  await expect(page.getByTestId("engagement-point-1")).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByTestId("engagement-point-0")).toHaveAttribute("aria-pressed", "false");
+  await expect(page.getByTestId("engagement-point-1")).toHaveAttribute("data-selected", "true");
+  await expect(page.getByTestId("engagement-point-0")).toHaveAttribute("data-selected", "false");
+  await expect(page.getByTestId("engagement-point-1")).toHaveAttribute(
+    "href",
+    "https://www.instagram.com/p/fixture-1/",
+  );
+  await expect(page.getByTestId("publication-details-link")).toHaveAttribute(
+    "href",
+    "https://www.instagram.com/p/fixture-1/",
+  );
 });
 
 test("engagement details remain available when every timestamp is invalid", async ({ page }) => {
@@ -173,7 +183,7 @@ test("dense mobile chart uses bounded post navigation and tooltip", async ({ pag
   await nextButton.click();
   await expect(page.getByTestId("selected-post-position")).toHaveText("POST 1 / 30");
   await expect(page.getByTestId("publication-marker-visual").nth(0)).toHaveAttribute("data-selected", "true");
-  await expect(page.getByTestId("engagement-point-0")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByTestId("engagement-point-0")).toHaveAttribute("data-selected", "true");
   await expect(page.getByTestId("publication-details")).toContainText("Published Jun 1, 2026");
   await expect(page.getByTestId("publication-details")).toContainText("reel");
   await expect(page.getByTestId("publication-details")).toContainText("first plotted post");
@@ -183,8 +193,8 @@ test("dense mobile chart uses bounded post navigation and tooltip", async ({ pag
   await expect(page.getByTestId("selected-post-position")).toHaveText("POST 2 / 30");
   await expect(page.getByTestId("publication-marker-visual").nth(1)).toHaveAttribute("data-selected", "true");
   await expect(page.getByTestId("publication-marker-visual").nth(0)).toHaveAttribute("data-selected", "false");
-  await expect(page.getByTestId("engagement-point-1")).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByTestId("engagement-point-0")).toHaveAttribute("aria-pressed", "false");
+  await expect(page.getByTestId("engagement-point-1")).toHaveAttribute("data-selected", "true");
+  await expect(page.getByTestId("engagement-point-0")).toHaveAttribute("data-selected", "false");
   await expect(page.getByTestId("publication-details")).toContainText("Published Jun 2, 2026");
   await expect(page.getByTestId("publication-details")).toContainText("photo");
   await expect(page.getByTestId("publication-details")).toContainText("1 day after previous post");
@@ -197,7 +207,7 @@ test("dense mobile chart uses bounded post navigation and tooltip", async ({ pag
   await expect(tooltip).toContainText("Published Jun 30, 2026 · 1 day after previous post");
   await expect(page.getByTestId("selected-post-position")).toHaveText("POST 30 / 30");
   await expect(page.getByTestId("publication-marker-visual").nth(29)).toHaveAttribute("data-selected", "true");
-  await expect(page.getByTestId("engagement-point-29")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByTestId("engagement-point-29")).toHaveAttribute("data-selected", "true");
   await expect(page.getByTestId("publication-details")).toContainText("Published Jun 30, 2026");
   await expect(page.getByTestId("publication-details")).toContainText("photo");
   await expect(page.getByTestId("publication-details")).toContainText("1 day after previous post");
