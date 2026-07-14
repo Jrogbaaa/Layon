@@ -1,82 +1,76 @@
-# Spec - Feature 015: Direct Instagram Links from Engagement Chart Posts
+# Spec - Feature 016: Platform UX and Frontend Overhaul
 
 ## Previous Feature Context
 
-Feature_014 synchronized chart-point and publication-rail selection inside
-`EngagementChart.tsx` (hover/click/focus select the same post, persistent detail panel,
-Europe/Madrid dates, deterministic fixture route). Its evaluator returned PASS (4.75/5)
-with the default Playwright suite 16/16.
-
-Alongside this feature (below the triviality threshold, no spec required): the nav tab
-label "Trends" is renamed to "Tips" in `NavLinks.tsx`. The `/trends` route, page
-content, and data flow are unchanged.
+Feature_015 added direct Instagram links from the engagement chart points and renamed the nav tab from "Trends" to "Tips". Its evaluator pass was verified successfully.
 
 ## Goal
 
-Let a staff member jump from a plotted post on the engagement chart straight to the
-actual Instagram post, so a spike can be inspected at the source in one click.
+Resolve the key usability flaws, responsive blindspots, interaction bugs, underutilized data, and terminology discrepancies identified during the comprehensive UX audit.
 
 ## Why It Matters / User Problem
 
-The chart identifies which post spiked and when, but verifying *what* the post was
-still requires leaving the dashboard and searching Instagram manually. Post shortcodes
-are already stored on every `PostSnapshot`; the dashboard just never exposes them from
-the chart (only the Greatest Hits and Recent Posts tables link out today).
+1.  **Mobile Triage:** Staff checking metrics on mobile screens are currently blind to overnight delta changes and trends.
+2.  **Chart Usability:** Clicking links inside the engagement chart details box is nearly impossible because mouse movements hijack selection.
+3.  **Findability:** Finding influencers in a growing list without search/filter takes too much time.
+4.  **Information Completeness:** The platform hides influencer bios, followings, and post counts that the daily scraper collects.
+5.  **Perceived Quality:** Page titles and navigations use inconsistent wording ("Tips" vs "Wire").
 
 ## Intended User
 
-Agency staff triaging influencer performance on desktop and mobile.
+Agency talent managers reviewing daily roster performance on desktop and mobile viewports.
 
-## Design / Interaction Direction
+## Design & Interaction Direction
 
-- Chart dots become links: clicking (or pressing Enter on) a chart point opens
-  `https://www.instagram.com/p/{shortcode}/` in a new tab (`rel="noopener noreferrer"`).
-  Hover/focus still select the post exactly as in feature_014; selection state and the
-  Escape-to-clear behavior are unchanged.
-- The selected-post detail panel gains a quiet "View on Instagram →" link for the same
-  URL, so mobile users driving selection through the marker rail / arrow controls can
-  reach the post without needing to hit a small chart dot.
-- Accessible names change from "Select post: …" to "Open Instagram post: …" to match
-  the new activation behavior. Selection state moves from `aria-pressed` (invalid on
-  links) to a `data-selected` attribute; rail markers keep `aria-pressed`.
-- Amber stays scarce: the new detail-panel link uses the existing accent link
-  treatment already used elsewhere (e.g. "Source →", "View →").
+*   **Global Language Toggle:** Render the bilingual EN/ES toggle inside the global `Nav` header (on the right next to the logout button). Remove the local selectors from "The Dispatch" card on the Roster page, "The Brief" on the Influencer page, and "The Wire" page head to unify the control.
+*   **Term Standardizations:** Rename navigation tab "Tips" to "Wire". The URL remains `/trends`, and the page header stays "The Wire".
+*   **Roster Table Headers & Mobile Layout:**
+    *   Add an uppercase, mono-font table header row: `01 · TALENT · FOLLOWERS · OVERNIGHT CHANGE · TRAJECTORY`.
+    *   Add responsive grid columns. On mobile screens (`max-width: 639px`), the overnight delta value is displayed on a second row stacked underneath the handle or next to the followers count.
+*   **Sort:**
+    *   Introduce client-side sorting: sort by Followers (desc), Overnight Change (desc), or Handle (asc). The "Needs Attention" warnings filter checkbox was removed/omitted to keep the controls simple.
+*   **Influencer Profile Completeness:**
+    *   Expose bio text under the display name.
+    *   Expose "Following" and "Total Posts" count metrics in the stats band.
+*   **Engagement Chart Lock:**
+    *   Implement hover-for-tooltip and click-to-lock interactions.
+    *   Clicking a point sets a `lockedIndex` and renders a persistent guide line. Hovering over adjacent points changes tooltips but *does not* override the locked selection details card at the bottom.
+    *   Add a close button (`×`) in the details card, and support pressing `Escape` or clicking empty chart areas to clear selection lock.
+*   **Skeleton Loading Page:**
+    *   Add a Next.js dynamic loading skeleton component (`loading.tsx`) to show skeleton outlines when fetching data from Supabase.
+*   **Login password field:** Add a show/hide eye-toggle to change input type between `password` and `text`.
 
 ## Scope
 
-- `platform/app/components/EngagementChart.tsx` only (add `shortcode` to the local
-  chart point mapping, convert the dot `<g role="button">` to an SVG `<a>`, add the
-  detail-panel link).
-- `platform/app/components/NavLinks.tsx` label rename (trivial, bundled).
-- Update existing Playwright assertions in `platform/e2e/dashboard.spec.ts` that
-  checked `aria-pressed` on chart points; add coverage that a chart dot and the detail
-  panel expose the Instagram href.
+- `platform/app/components/Nav.tsx`, `platform/app/components/NavLinks.tsx` (global navigation modifications).
+- `platform/app/(app)/page.tsx` (roster filter, sort, headers, and mobile deltas).
+- `platform/app/(app)/influencer/[handle]/page.tsx` (metadata titles, bio display, stats band, language toggle cleanup).
+- `platform/app/(app)/trends/page.tsx` (metadata titles, local language toggle removal, fallback tags).
+- `platform/app/components/EngagementChart.tsx` (hover tooltip + click lock, Escape/close button).
+- `platform/app/login/page.tsx` (password visibility toggle).
+- `platform/app/(app)/loading.tsx` (NEW loader skeleton).
+- `platform/app/trends/` and `platform/app/influencer/` (DELETE placeholder directories).
+- `platform/e2e/dashboard.spec.ts` and `platform/e2e/trends.spec.ts` (E2E assertions update).
 
 ## Non-Goals / Out of Scope
 
-- No database, query, scraper, or schema changes — `shortcode` is already fetched.
-- No route rename: `/trends` keeps its URL; only the visible tab label changes.
-- No changes to the marker rail interaction model, tooltip content, Audience Log,
-  or any other dashboard section.
-- No link-validity checking against Instagram (deleted posts will 404 there; accepted).
+- No scraper logic modifications or third-party metrics scrapers.
+- No Supabase database schema modifications.
 
 ## Acceptance Criteria
 
-1. Clicking a chart dot opens the post's Instagram URL in a new tab; hover and focus
-   still drive the synchronized selection from feature_014.
-2. Each dot is keyboard reachable and activates as a link with an accessible name
-   naming the post's date/format/engagement.
-3. The selected-post detail panel shows a "View on Instagram →" link with the correct
-   `https://www.instagram.com/p/{shortcode}/` href.
-4. The nav tab reads "Tips" and still routes to `/trends` with active-state styling.
-5. Existing chart behaviors (selection sync, Escape clear, mobile arrows, invalid
-   timing states, empty/one-post states) remain green in the Playwright suite.
-6. `npm run lint`, `npx tsc --noEmit`, `npm run build`, and `npx playwright test`
-   pass in `platform/`.
+1.  Language setting is unified in the global header, and all localized card toggles are deleted.
+2.  Navigation link text is "Wire" and routes to `/trends` successfully.
+3.  The Roster page features table headers, warnings filter, and sorting dropdown.
+4.  Follower overnight delta is visible on mobile viewports for each roster row.
+5.  Influencer profile page displays bio text, following count, and post count.
+6.  The engagement chart locks the selection details on click, allowing users to hover other points and click the details links without selection hijacking. An "Escape" key or "x" button clears lock.
+7.  The LoginPage has a password show/hide visibility toggle.
+8.  Next.js loader skeleton renders dynamically during routing delays.
+9.  Orphan empty folders `platform/app/trends` and `platform/app/influencer` are removed.
+10. All Playwright E2E tests, TypeScript compilation, and linting pass green.
 
 ## Verification Plan
 
-- Update and run the Playwright dashboard + trends suites locally against the dev
-  server, including the fixture scenarios.
-- Manually confirm on localhost that a dot click opens the expected Instagram URL and
-  the nav shows "Tips".
+*   Run `npx playwright test` and ensure E2E tests cover search inputs, mobile view changes, and details link clicking.
+*   Manually check localhost behavior on mobile sizes.

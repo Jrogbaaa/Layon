@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { logout } from "@/app/actions/auth";
 import { NavLinks } from "@/app/components/NavLinks";
+import { LanguageToggle } from "@/app/components/LanguageToggle";
 
 export function Nav() {
   const tonight = new Date().toLocaleDateString("en-US", {
@@ -20,6 +21,7 @@ export function Nav() {
             {tonight}
           </span>
           <NavLinks />
+          <LanguageToggle />
           <form action={logout}>
             <button type="submit" className="text-muted transition-colors hover:text-ink">
               Log out
