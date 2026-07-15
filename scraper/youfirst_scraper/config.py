@@ -12,7 +12,7 @@ SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 
 # Instagram account used to authenticate scraping (session file created separately via
-# `instaloader --login=<IG_USERNAME>` — the password is never handled by this codebase).
+# `instaloader --load-cookies Chrome` — the password is never handled by this codebase).
 IG_USERNAME = os.environ.get("IG_USERNAME", "")
 
 INFLUENCERS_FILE = PACKAGE_DIR / "influencers.txt"

@@ -20,16 +20,23 @@ Edit `influencers.txt` to change the roster.
 ### Instagram login (required — anonymous scraping is blocked)
 
 Instagram aggressively blocks not-logged-in scraping (403 on public GraphQL queries).
-Create a reusable session once, interactively, in your own terminal — this codebase
-never sees or stores your password:
+Create a reusable session by importing your browser's trusted cookies — log into
+instagram.com in Chrome (a normal window, stay logged in), then run:
 
 ```bash
-.venv/bin/instaloader --login=YOUR_INSTAGRAM_USERNAME
+pip install browser_cookie3   # one-time dependency for cookie import
+.venv/bin/instaloader --load-cookies Chrome
 ```
 
-This prompts for your password (and 2FA if enabled) and saves a session file under
-`~/.config/instaloader/`. Then set `IG_USERNAME=YOUR_INSTAGRAM_USERNAME` in `.env`.
+This saves a session file under `~/.config/instaloader/`. Then set
+`IG_USERNAME=YOUR_INSTAGRAM_USERNAME` in `.env`.
 Use a dedicated agency account rather than a personal one if possible.
+
+Do NOT use `instaloader --login=...`: Instagram checkpoint-blocks its login endpoint
+for this account (each retry re-arms the block, and browser verification does not
+clear it — learned the hard way on 2026-07-15). The cookie import above skips that
+endpoint entirely. If the session ever dies again (the scraper sends a macOS
+notification), repeat the cookie import — never retry `--login`.
 
 ## Run manually
 

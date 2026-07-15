@@ -211,3 +211,28 @@ flow, and avoids unrelated dashboard state or schema work.
 deep-linkable or shared with other dashboard sections. Approved interaction details:
 dates use `Europe/Madrid`; hover commits the same persistent selection as click/focus;
 and `Escape` clears it while pointer exit and blank chart space do not.
+
+### 2026-07-14 — Feature 017 planning: database column for ad status, subtle styling badges
+
+**Decision:** Store ad status using a new `is_ad` boolean column in `post_snapshots` (and `top_posts` view) rather than parsing the caption client-side. Render as a scarce low-opacity amber badge next to format names and '· Ad' text on tooltips.
+
+**Reason:** Querying and storing `is_ad` directly in the database is more robust than parsing captions client-side for hashtags. Instaloader's `is_sponsored` property evaluates this cleanly. Displaying the ad status in tooltips, details card, tables, and Greatest Hits listings satisfies the requirements without introducing clutter.
+
+**Tradeoffs:** Requires executing a database schema migration. Historical posts already in the database will have `is_ad` set to false by default unless re-scraped or manually updated.
+
+### 2026-07-15 — Ad detection rebuilt as strict product-presence rubric, relabeled Paid Media / Organic
+
+**Decision:** Replace Feature 017's `is_sponsored`-only detection (which almost never fires) with a Gemini multimodal classifier (`scraper/youfirst_scraper/ad_detection.py`) using a strict rubric: a post is "paid" only if a product is deliberately featured/held up or mentioned in the caption (including disclosure tags). Incidental brand visibility — sponsor logos on an athlete's gear, background signage, venue mentions — is always "organic," never paid, regardless of how much brand imagery is present. Genuinely ambiguous posts return "unsure" rather than a guessed boolean, and are surfaced to the user for a manual verdict instead of silently defaulting either way. UI labels renamed from "Ad" to "Paid Media" / "Organic" throughout (`is_ad` column/type name kept as-is; only Gemini's called it "unsure" internally, `is_ad` stores false for both organic and unsure).
+
+**Reason:** The original Feature 017 prompt flagged any visible brand/logo as an ad — e.g. a MotoGP racer's sponsor-covered helmet and racing suit scored 98% ads for `ferminaldeguer_54`, which is unusable. The user's own bar for "organic" is "no product mentions," decidable by a simple look at the image/caption — the rubric now matches that directly instead of a fuzzier "promotional intent" judgment call the model previously had to make on its own.
+
+**Tradeoffs:** Requires a full retroactive re-classification (`backfill_ads.py`) of every stored post, not just previously-unflagged ones, since old `is_ad` values are untrustworthy. `post_snapshots` never persisted `thumbnail_url`/`video_url` (Feature 017 gap, only surfaced now) so the backfill re-derives media by re-scraping each influencer's profile once and matching by shortcode, stopping early once every needed shortcode for that influencer is found — this trades one extra live Instagram request per influencer (not per post) for not needing a schema/scraper change to persist media URLs going forward. "Unsure" posts require a human pass rather than being fully automated end-to-end.
+
+### 2026-07-15 — Instagram auth: cookie import (`--load-cookies`), not `instaloader --login`
+
+**Decision:** Standardize Instagram session creation/renewal on `instaloader --load-cookies Chrome` (importing an already-logged-in browser session), and stop using `instaloader --login=<user>` entirely.
+
+**Reason:** During the Feature 017 refinement backfill, an early mistake (looping `instaloader.Post.from_shortcode()` over ~1000 individual posts) got the `beautifullfootball` account checkpoint-locked. Recovery via `--login` failed repeatedly — browser verification, an overnight cooldown, a fresh session file, and confirming "this was me" on login-activity all failed to clear it, and each `--login` retry appeared to re-arm the block, since Instagram checkpoint-blocks that specific login endpoint independent of whether the account itself is fine in a browser. `--load-cookies` (via the `browser_cookie3` package) imports the browser's already-trusted session and never touches the flagged endpoint, and worked on the first attempt.
+
+**Tradeoffs:** Requires staying logged into the scraping account in a real (non-incognito) Chrome window on the machine running the scraper/backfill, and one extra pip dependency (`browser_cookie3`). Documented in `scraper/README.md`, `instagram_scraper.py` docstrings/warnings, and `run_daily.py`'s session-expiry notification so the recovery path is never confused with the blocked `--login` flow again.
+

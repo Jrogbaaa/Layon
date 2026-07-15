@@ -460,6 +460,61 @@
       ],
       "verification": "Pending Generator and Evaluator passes 2026-07-14",
       "notes": "Spec: agent-harness/spec.md (rewritten 2026-07-14). Clean codebase is maintained by deleting placeholder empty directories."
+    },
+    {
+      "id": "feature_017",
+      "name": "Ad Indicator on Engagement Chart and UI",
+      "goal": "Add support for identifying when a post is an ad, showing an indicator when hovering over chart dots, in the chart selection card, in the Greatest Hits list, and in the recent posts table.",
+      "why_it_matters": "Agency managers need to distinguish organic posts from sponsored ads to evaluate an influencer's genuine audience traction vs. commercial engagements.",
+      "non_goals": [
+        "No automated ad attribution or recommendations logic modification",
+        "No change to public Instagram data scraping restrictions (only public post.is_sponsored data is used)",
+        "No changes to page layouts other than adding text labels or tags for ads"
+      ],
+      "status": "in_progress",
+      "priority": "medium",
+      "owner_agent": "generator",
+      "acceptance_criteria": [
+        "Database schema updated with is_ad boolean column in post_snapshots and updated top_posts view",
+        "Scraper fetches is_ad using Instaloader post.is_sponsored and inserts it into post_snapshots",
+        "Next.js data fetching loads is_ad in getInfluencerDashboard queries for both raw posts and top posts",
+        "Engagement chart dots for ads are visually distinguished by rendering a thin Gilded Amber outer ring",
+        "Engagement chart tooltip renders '· Ad' next to the post format when hovering over a sponsored post dot",
+        "Engagement chart selected details card (PublicationDetails) renders an 'Ad' badge next to the format",
+        "Recent posts table shows an 'Ad' badge next to the format for sponsored posts",
+        "Influencer profile Greatest Hits list shows an 'Ad' badge next to the format for sponsored posts",
+        "E2E tests verify that ads render badges on the chart dots, tooltip, details card, and lists; tsc, lint, build, and pytest pass"
+      ],
+      "dependencies": [
+        "feature_016"
+      ]
+    },
+    {
+      "id": "feature_018",
+      "name": "Accurate Paid Media / Organic classification",
+      "goal": "Replace Feature 017's over-aggressive ad-detection prompt (any visible brand logo scored as an ad) with a strict product-presence rubric, rename the UI from 'Ad' to 'Paid Media' / 'Organic', and retroactively reclassify every stored post — surfacing genuinely ambiguous posts for manual review instead of guessing.",
+      "why_it_matters": "The original prompt scored ferminaldeguer_54 (a MotoGP racer whose gear is naturally covered in sponsor logos) at 98% ads, making the feature unusable. Managers need the paid/organic split to actually be trustworthy.",
+      "non_goals": [
+        "No three-way is_ad column - stays boolean (paid -> true, organic/unsure -> false)",
+        "No automated resolution of unsure posts - always a human verdict",
+        "No change to how is_ad propagates through data.ts/types.ts",
+        "No Instagram Graph API migration or paid scraping provider"
+      ],
+      "status": "built_and_live_verified",
+      "priority": "high",
+      "owner_agent": "generator",
+      "acceptance_criteria": [
+        "ad_detection.detect_ad returns paid/organic/unsure per a strict rubric: paid only if a product is deliberately featured/held-up or mentioned/promoted in the caption (including disclosure tags); organic even with visible brand logos on gear/background/signage; unsure when genuinely ambiguous, never guessed - done",
+        "backfill_ads.py re-classifies every unique (influencer, shortcode) post_snapshots row (not just previously-unflagged ones), re-derives media via one profile re-scrape per influencer with early-stop shortcode matching (post_snapshots never persisted thumbnail_url/video_url), and prints a per-influencer paid/organic/unsure breakdown plus a full unsure list with Instagram links for manual review - done",
+        "Chart tooltip/details card show 'Paid Media' or 'Organic'; Recent Posts table and Greatest Hits show a 'Paid Media' badge only (Signal Rule - amber stays scarce) - done",
+        "scraper pytest (158/158, including new test_ad_detection.py and test_backfill_ads.py unit coverage), platform npm run lint, npx tsc --noEmit, npx playwright test (17/17) all pass - done",
+        "Instagram auth standardized on `instaloader --load-cookies Chrome`; `--login` removed from all docs/notifications as it checkpoint-blocks this account - done",
+        "Backfill executed against real Instagram/Supabase data and per-influencer results + unsure list reviewed with the user before commit - done: 260 posts, 89 paid / 171 organic / 0 unsure after user verdicts; ferminaldeguer_54 dropped from 98% to 40% paid, confirming the rubric fix"
+      ],
+      "dependencies": [
+        "feature_017"
+      ],
+      "notes": "Spec: agent-harness/spec.md (rewritten 2026-07-15). Discovered mid-session that post_snapshots never stored media URLs (Feature 017 gap) and that Post.from_shortcode in a loop gets the scraping account checkpoint-locked - see agent-harness/decisions.md 2026-07-15 entries. Live backfill run 2026-07-15: dante_caro paid=15/organic=36 (1 unsure resolved organic by user), mariavalero paid=12/organic=42 (1 unsure resolved organic by user), antonlofer paid=21/organic=31, ferminaldeguer_54 paid=20/organic=30, cristipedroche paid=21/organic=32. First Evaluator pass (feature_018) returned NEEDS REVISION: backfill_ads.py silently skipped the is_ad write when a shortcode's media couldn't be re-located (leaving stale values unreviewed) and neither new module had test coverage despite the featurelist claiming pytest was green. Both fixed same session: the skip path now explicitly writes is_ad=False, and test_ad_detection.py / test_backfill_ads.py were added (11 new tests covering the rubric short-circuit, classification fallback-to-unsure paths, dedup, and early-stop shortcode matching). Re-evaluation PASS (4.875/5): both fixes verified against current code, full suite re-run clean (158/158 pytest, lint/tsc/18/18 playwright)."
     }
   ]
 }
