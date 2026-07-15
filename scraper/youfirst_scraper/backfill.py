@@ -3,7 +3,7 @@ import time
 
 import requests
 
-from . import config, db, instagram_scraper, metrics, recommendations
+from . import ad_detection, config, db, instagram_scraper, metrics, recommendations
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -37,6 +37,7 @@ def run_backfill_scrape(client) -> None:
                     logger.exception("Failed to update avatar for %s — continuing", handle)
 
             db.insert_profile_snapshot(client, influencer_id, result["profile"])
+            result["posts"] = ad_detection.detect_ads(result["posts"])
             db.insert_post_snapshots(client, influencer_id, result["posts"])
 
             profile_snapshots = db.get_profile_snapshots(client, influencer_id)

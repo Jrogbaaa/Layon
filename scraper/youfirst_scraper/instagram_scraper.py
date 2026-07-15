@@ -11,10 +11,13 @@ def build_loader() -> instaloader.Instaloader:
     """Build an Instaloader instance, authenticated if IG_USERNAME has a saved session.
 
     Anonymous (not-logged-in) requests are aggressively blocked by Instagram, so a
-    logged-in session is strongly recommended. Create one once via:
-        instaloader --login=<IG_USERNAME>
-    which prompts for the password interactively and saves a reusable session file —
-    this codebase never handles the password directly.
+    logged-in session is strongly recommended. Create one by logging into instagram.com
+    in Chrome, then running:
+        instaloader --load-cookies Chrome
+    which imports the browser's trusted session and saves a reusable session file.
+    Avoid `instaloader --login=<IG_USERNAME>`: Instagram checkpoint-blocks that login
+    endpoint for this account (learned 2026-07-15), and each retry re-arms the block.
+    This codebase never handles the password directly either way.
     """
     loader = instaloader.Instaloader(
         download_pictures=False,
@@ -30,9 +33,9 @@ def build_loader() -> instaloader.Instaloader:
             logger.info("Loaded Instagram session for %s", config.IG_USERNAME)
         except FileNotFoundError:
             logger.warning(
-                "No saved session for IG_USERNAME=%s — run `instaloader --login=%s` once. "
+                "No saved session for IG_USERNAME=%s — log into instagram.com in Chrome, "
+                "then run `instaloader --load-cookies Chrome` once. "
                 "Proceeding anonymously, which Instagram is likely to block.",
-                config.IG_USERNAME,
                 config.IG_USERNAME,
             )
     else:
@@ -84,6 +87,13 @@ def _view_count(post: instaloader.Post) -> int | None:
     return None
 
 
+def _is_sponsored(post: instaloader.Post) -> bool:
+    try:
+        return post.is_sponsored
+    except Exception:
+        return False
+
+
 def scrape_profile(
     loader: instaloader.Instaloader, handle: str, post_limit: int | None = None
 ) -> dict:
@@ -117,6 +127,7 @@ def scrape_profile(
                 "posted_at": post.date_utc.isoformat() + "Z",
                 "video_url": post.video_url if post.is_video else None,
                 "thumbnail_url": post.url,
+                "is_ad": _is_sponsored(post),
             }
         )
         if len(posts) >= limit:

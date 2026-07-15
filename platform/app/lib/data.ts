@@ -84,7 +84,7 @@ export async function getInfluencerDashboard(handle: string): Promise<Influencer
 
   const { data: rawPosts } = await client
     .from("post_snapshots")
-    .select("shortcode, post_type, likes, comments, views, caption, posted_at, captured_at")
+    .select("shortcode, post_type, likes, comments, views, caption, posted_at, captured_at, is_ad")
     .eq("influencer_id", influencer.id)
     .order("captured_at", { ascending: false })
     .limit(100);
@@ -101,6 +101,7 @@ export async function getInfluencerDashboard(handle: string): Promise<Influencer
         views: post.views,
         caption: post.caption,
         posted_at: post.posted_at,
+        is_ad: post.is_ad,
       });
     }
   }
@@ -127,7 +128,7 @@ export async function getInfluencerDashboard(handle: string): Promise<Influencer
 
   const { data: topPosts } = await client
     .from("top_posts")
-    .select("shortcode, post_type, likes, comments, views, caption, posted_at, engagement")
+    .select("shortcode, post_type, likes, comments, views, caption, posted_at, engagement, is_ad")
     .eq("influencer_id", influencer.id)
     .order("engagement", { ascending: false })
     .limit(5);

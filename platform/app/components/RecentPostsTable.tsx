@@ -39,7 +39,14 @@ export function RecentPostsTable({
                   year: "numeric",
                 })}
               </td>
-              <td className="py-3 pr-4 capitalize text-muted">{post.post_type}</td>
+              <td className="py-3 pr-4 capitalize text-muted">
+                {post.post_type}
+                {post.is_ad && (
+                  <span className="ml-1.5 rounded bg-accent/10 px-1 py-0.5 text-[9px] font-semibold text-accent uppercase tracking-wider">
+                    Paid Media
+                  </span>
+                )}
+              </td>
               <td className="font-mono tnum py-3 pr-4 text-right text-ink">{formatCount(post.likes)}</td>
               <td className="font-mono tnum py-3 pr-4 text-right text-ink">
                 {formatCount(post.comments)}
