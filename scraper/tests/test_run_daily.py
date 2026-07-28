@@ -728,13 +728,43 @@ def test_wait_for_network_returns_true_once_dns_resolves(monkeypatch):
 def test_wait_for_network_gives_up_after_attempt_cap(monkeypatch):
     monkeypatch.setattr(run_daily, "NETWORK_READY_DELAY_SECONDS", 0)
     monkeypatch.setattr(run_daily, "NETWORK_READY_ATTEMPTS", 4)
+    attempts = []
 
     def always_fails(host, port):
+        attempts.append(host)
         raise socket.gaierror("no dns")
 
     monkeypatch.setattr(run_daily.socket, "getaddrinfo", always_fails)
 
     assert run_daily.wait_for_network() is False
+    assert len(attempts) == 4
+
+
+def test_wait_for_network_probes_the_supabase_host(monkeypatch):
+    monkeypatch.setattr(run_daily.config, "SUPABASE_URL", "https://project-ref.supabase.co")
+    attempts = []
+    monkeypatch.setattr(
+        run_daily.socket, "getaddrinfo", lambda host, port: attempts.append((host, port)) or [("info",)]
+    )
+
+    assert run_daily.wait_for_network() is True
+    assert attempts == [("project-ref.supabase.co", 443)]
+
+
+def test_wait_for_network_survives_non_gaierror_os_errors(monkeypatch):
+    """getaddrinfo can raise other OSErrors while an interface is transitioning."""
+    monkeypatch.setattr(run_daily, "NETWORK_READY_DELAY_SECONDS", 0)
+    attempts = []
+
+    def flaky_getaddrinfo(host, port):
+        attempts.append(host)
+        if len(attempts) < 2:
+            raise OSError("interface going down")
+        return [("info",)]
+
+    monkeypatch.setattr(run_daily.socket, "getaddrinfo", flaky_getaddrinfo)
+
+    assert run_daily.wait_for_network() is True
 
 
 def test_main_exits_without_marking_done_when_network_never_comes_up(tmp_path, monkeypatch):
@@ -742,15 +772,19 @@ def test_main_exits_without_marking_done_when_network_never_comes_up(tmp_path, m
     monkeypatch.setattr(run_daily, "wait_for_network", lambda: False)
     scrape_calls = []
     monkeypatch.setattr(run_daily, "run_instagram_scrape", lambda c: scrape_calls.append(c))
+    notify_calls = []
+    monkeypatch.setattr(run_daily, "_notify", lambda title, message: notify_calls.append(title))
 
     run_daily.main()
 
     assert scrape_calls == []
     assert not (tmp_path / ".last_run").exists()
+    assert notify_calls == ["You First scraper: no network"]
 
 
 def test_db_with_retry_recovers_from_transient_transport_error(monkeypatch):
     monkeypatch.setattr(run_daily, "TRANSIENT_RETRY_BACKOFF_SECONDS", 0)
+    monkeypatch.setattr(run_daily, "wait_for_network", lambda: True)
     calls = []
 
     def flaky():
@@ -763,20 +797,59 @@ def test_db_with_retry_recovers_from_transient_transport_error(monkeypatch):
     assert len(calls) == 2
 
 
+def test_db_with_retry_waits_for_network_before_each_retry(monkeypatch):
+    """The laptop sleeps mid-run, so a retry is worthless until DNS is back."""
+    monkeypatch.setattr(run_daily, "TRANSIENT_RETRY_BACKOFF_SECONDS", 0)
+    waits = []
+    monkeypatch.setattr(run_daily, "wait_for_network", lambda: waits.append(1) or True)
+    calls = []
+
+    def flaky():
+        calls.append(1)
+        if len(calls) < 3:
+            raise httpx.ConnectError("nodename nor servname provided")
+        return "ok"
+
+    assert run_daily._db_with_retry("influencer lookup", flaky) == "ok"
+    assert len(waits) == 2
+
+
 def test_db_with_retry_reraises_after_attempt_cap(monkeypatch):
     monkeypatch.setattr(run_daily, "TRANSIENT_RETRY_BACKOFF_SECONDS", 0)
+    monkeypatch.setattr(run_daily, "wait_for_network", lambda: True)
+    calls = []
 
     def always_fails():
+        calls.append(1)
         raise httpx.ConnectError("nodename nor servname provided")
 
     with pytest.raises(httpx.ConnectError):
         run_daily._db_with_retry("influencer lookup", always_fails)
+
+    assert len(calls) == run_daily.TRANSIENT_RETRY_ATTEMPTS
+
+
+def test_db_with_retry_does_not_retry_non_transport_errors(monkeypatch):
+    """A missing table or bad query is dead on arrival — burning 90s on it helps nobody."""
+    monkeypatch.setattr(run_daily, "TRANSIENT_RETRY_BACKOFF_SECONDS", 0)
+    monkeypatch.setattr(run_daily, "wait_for_network", lambda: True)
+    calls = []
+
+    def api_error():
+        calls.append(1)
+        raise ValueError("relation does not exist")
+
+    with pytest.raises(ValueError):
+        run_daily._db_with_retry("influencer lookup", api_error)
+
+    assert len(calls) == 1
 
 
 def test_run_instagram_scrape_retries_influencer_lookup_before_failing_handle(monkeypatch):
     monkeypatch.setattr(run_daily.config, "load_roster", lambda: ["good_handle"])
     monkeypatch.setattr(run_daily.config, "PROFILE_REQUEST_DELAY_SECONDS", 0)
     monkeypatch.setattr(run_daily, "TRANSIENT_RETRY_BACKOFF_SECONDS", 0)
+    monkeypatch.setattr(run_daily, "wait_for_network", lambda: True)
     monkeypatch.setattr(
         run_daily.instagram_scraper,
         "scrape_profile",
@@ -804,11 +877,44 @@ def test_run_instagram_scrape_retries_influencer_lookup_before_failing_handle(mo
     assert len(lookups) == 2
 
 
+def test_run_instagram_scrape_retries_snapshot_history_before_failing_handle(monkeypatch):
+    """The 07-16 and 07-21 lost days both died on this call, not the influencer lookup."""
+    monkeypatch.setattr(run_daily.config, "load_roster", lambda: ["good_handle"])
+    monkeypatch.setattr(run_daily.config, "PROFILE_REQUEST_DELAY_SECONDS", 0)
+    monkeypatch.setattr(run_daily, "TRANSIENT_RETRY_BACKOFF_SECONDS", 0)
+    monkeypatch.setattr(run_daily, "wait_for_network", lambda: True)
+    monkeypatch.setattr(
+        run_daily.instagram_scraper,
+        "scrape_profile",
+        lambda loader, handle: {
+            "profile": {"followers": 1, "following": 2, "media_count": 3, "bio": ""},
+            "posts": [],
+        },
+    )
+
+    _patch_scrape_db(monkeypatch)
+    history_calls = []
+
+    def flaky_history(c, i):
+        history_calls.append(i)
+        if len(history_calls) < 2:
+            raise httpx.ReadTimeout("the read operation timed out")
+        return []
+
+    monkeypatch.setattr(run_daily.db, "get_profile_snapshots", flaky_history)
+
+    with patch("instaloader.Instaloader"):
+        failed = run_daily.run_instagram_scrape(MagicMock())
+
+    assert failed == []
+    assert len(history_calls) >= 2
+
+
 def test_main_does_not_mark_done_when_handles_failed(tmp_path, monkeypatch):
     monkeypatch.setattr(run_daily.config, "LAST_RUN_FILE", tmp_path / ".last_run")
     monkeypatch.setattr(run_daily.db, "get_client", lambda: MagicMock())
     monkeypatch.setattr(run_daily, "wait_for_network", lambda: True)
-    monkeypatch.setattr(run_daily, "run_instagram_scrape", lambda c:["missed_handle"])
+    monkeypatch.setattr(run_daily, "run_instagram_scrape", lambda c: ["missed_handle"])
     monkeypatch.setattr(run_daily, "run_trend_scrape", lambda c: None)
     monkeypatch.setattr(run_daily, "run_trend_headlines", lambda c: None)
     monkeypatch.setattr(run_daily, "run_recommendations", lambda c: None)
@@ -826,7 +932,7 @@ def test_main_marks_done_when_all_handles_succeed(tmp_path, monkeypatch):
     monkeypatch.setattr(run_daily.config, "LAST_RUN_FILE", tmp_path / ".last_run")
     monkeypatch.setattr(run_daily.db, "get_client", lambda: MagicMock())
     monkeypatch.setattr(run_daily, "wait_for_network", lambda: True)
-    monkeypatch.setattr(run_daily, "run_instagram_scrape", lambda c:[])
+    monkeypatch.setattr(run_daily, "run_instagram_scrape", lambda c: [])
     monkeypatch.setattr(run_daily, "run_trend_scrape", lambda c: None)
     monkeypatch.setattr(run_daily, "run_trend_headlines", lambda c: None)
     monkeypatch.setattr(run_daily, "run_recommendations", lambda c: None)

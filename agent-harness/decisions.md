@@ -236,3 +236,28 @@ and `Escape` clears it while pointer exit and blank chart space do not.
 
 **Tradeoffs:** Requires staying logged into the scraping account in a real (non-incognito) Chrome window on the machine running the scraper/backfill, and one extra pip dependency (`browser_cookie3`). Documented in `scraper/README.md`, `instagram_scraper.py` docstrings/warnings, and `run_daily.py`'s session-expiry notification so the recovery path is never confused with the blocked `--login` flow again.
 
+
+### 2026-07-28 — Network-readiness gate for the daily scraper, harness flow skipped
+
+**Decision:** Fix the recurring `Daily run INCOMPLETE — missing handles` failures with a
+`wait_for_network()` DNS gate in `main()` plus a `_db_with_retry` wrapper that itself waits
+for DNS before each retry, applied to the two Supabase calls that open the roster loop. Ship
+this as a direct bugfix without a `spec.md` / `featurelist.json` cycle.
+
+**Reason:** Root cause is not Instagram — 45 of the recorded scrape failures are
+`[Errno 8] nodename nor servname provided`, hitting Supabase, Instagram and the trend sources
+alike, and the failing call is `db.get_or_create_influencer`, the first line of the per-handle
+loop, which sat outside `_scrape_with_retry`. The machine is a laptop, so launchd fires the
+missed `StartCalendarInterval` on lid-open before Wi-Fi associates (`09:00:01.036` session
+loaded → `09:00:01.040` first failure). It also sleeps *mid-run*: consecutive handles are
+1h51m apart on 2026-07-26 despite `PROFILE_REQUEST_DELAY_SECONDS = 20`, which is why the
+startup gate alone is insufficient and the wait is repeated inside the retry path. The harness
+flow was skipped because this is a diagnosed production bug with a known root cause, not a
+feature with open design questions — there was nothing for a Planner to decide.
+
+**Tradeoffs:** The remaining Supabase calls in the loop (highlights, post content) are still
+unprotected and rely on next-fire retry; covering everything would add latency to genuinely
+dead handles for diminishing returns. The gate can add up to 5 minutes before a run starts.
+The fix cannot be verified against the condition it targets except by observing a real
+launchd fire on a waking laptop. It also does not address the `ProfileNotExistsException`
+failures for live handles, which are Instagram soft-blocking the session — a separate issue.

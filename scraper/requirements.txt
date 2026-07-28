@@ -1,5 +1,6 @@
 instaloader>=4.13
 supabase>=2.6
+httpx>=0.27
 requests>=2.31
 beautifulsoup4>=4.12
 python-dotenv>=1.0
