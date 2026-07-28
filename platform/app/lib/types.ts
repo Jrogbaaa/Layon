@@ -5,6 +5,35 @@ export type Influencer = {
   avatar_url: string | null;
 };
 
+export type PostClassificationStatus = "paid" | "organic" | "needs_review";
+
+export type PostClassification = {
+  status: PostClassificationStatus;
+  decision_code: string;
+  evidence: {
+    caption_mentions: string[];
+    tagged_users: string[];
+    sponsor_users: string[];
+    caption_brand_mentions: { text: string; reason: string }[];
+    tagged_accounts: {
+      username: string;
+      account_type: "person" | "commercial_brand" | "noncommercial_org" | "unknown";
+      reason: string;
+    }[];
+    visual_brand_mentions: {
+      name: string;
+      prominence: "central" | "incidental" | "unknown";
+      reason: string;
+    }[];
+    disclosure_terms: string[];
+    incidental_visual_brand: boolean;
+    summary: string | null;
+  };
+  classifier_version: string;
+  input_hash: string;
+  classified_at: string;
+};
+
 export type ProfileSnapshot = {
   followers: number;
   following: number;
@@ -22,6 +51,7 @@ export type PostSnapshot = {
   caption: string | null;
   posted_at: string;
   is_ad?: boolean;
+  classification?: PostClassification | null;
 };
 
 export type Highlight = {

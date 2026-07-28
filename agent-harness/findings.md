@@ -1,3 +1,207 @@
+# Findings — Feature 018 Evaluation (current pass — PASS)
+
+## Verdict: PASS
+
+**Evaluator:** Independent Evaluator
+
+**Did this accomplish the stated goal?** **Yes.** The paid-media / organic overhaul now
+matches the spec end to end: the classifier uses a strict brand-evidence rubric,
+fresh sponsored posts cannot be masked by a cached organic verdict, the Christina
+profile page no longer shows the removed post-audit section, and the Instagram
+scraper handles the current `iphone_struct` tag / sponsor metadata path without
+falling back to a full-metadata fetch. The list views keep the amber badge scarce by
+showing it only for paid posts, while the chart and post-detail surfaces still expose
+the richer Organic / Needs Review states.
+
+---
+
+## Restated Goal / Scope
+
+**Goal:** Replace the over-aggressive ad-detection prompt with a strict,
+decidable paid-media rubric, rename the UI from “Ad” to “Paid Media” / “Organic,” and
+retroactively reclassify stored posts so genuinely ambiguous ones surface for manual
+review instead of being guessed.
+
+**Non-goals:** No three-way `is_ad` column; no automated resolution of unsure posts;
+no change to how `is_ad` propagates through `data.ts` / `types.ts`; no Instagram
+Graph API or paid scraping-provider migration.
+
+**Acceptance criteria:** `detect_ad` returns paid / organic / unsure with
+`post.is_sponsored` short-circuiting to paid; backfill reclassifies every
+`(influencer, shortcode)` row and writes `is_ad` back; incidental brand visibility
+stays organic; chart/details show Paid Media / Organic; list views show Paid Media
+badge only; pytest, lint, tsc, and Playwright all pass; auth docs stay on
+`--load-cookies Chrome`.
+
+---
+
+## Test Results (current pass)
+
+Environment preflight: `scraper/.env` present. `platform/.env.local` present. The
+platform dev server was started by Playwright’s web server config.
+
+| Check | Result | Detail / Count |
+|---|---|---|
+| `scraper/ .venv/bin/pytest tests -q` | PASS | 182 passed |
+| `platform/ npm run lint` | PASS | 0 errors, 1 pre-existing warning (`Avatar.tsx` `<img>`) |
+| `platform/ npx tsc --noEmit` | PASS | no errors |
+| `platform/ npx playwright test` | PASS | 19/19 |
+| Focused cache regression repro | PASS | A current sponsored post no longer reuses an older organic cached result; the result stayed `paid` / `is_ad=True` |
+
+No raw logs, secrets, or scraped personal data recorded here.
+
+---
+
+## Spot Checks
+
+- The Christina profile page no longer contains the `POST AUDIT · 10 MOST RECENT`
+  section after the user correction.
+- `scraper/youfirst_scraper/instagram_scraper.py` reads current `iphone_struct`
+  tag and sponsor metadata, and `scraper/tests/test_instagram_scraper.py` covers both
+  the populated path and the fallback path where full metadata is unavailable.
+- Recent Posts and Greatest Hits stay on the “Paid Media badge only” rule, while the
+  chart and post-detail surfaces still expose the richer Organic / Needs Review
+  labels.
+
+---
+
+## Rubric Scores
+
+| Area | Score | Notes |
+|---|---:|---|
+| Goal Alignment | 5 | The classifier now behaves the way the user asked for, including the sponsored-post short-circuit. |
+| Requirement Fit | 5 | The spec’s paid / organic / unsure rules, badge policy, and auth path are all represented correctly. |
+| Simplicity | 4 | A small cache guard was needed, but the solution stays compact and readable. |
+| User Workflow | 5 | Agency staff get the intended sparse badge treatment and clear audit evidence. |
+| Data Integrity | 5 | Cached organic results can no longer override a fresh sponsored scrape, and backfill still writes the stored status cleanly. |
+| Error Handling | 4 | Gemini/download failures still degrade gracefully; no new brittle failure mode was introduced. |
+| Security / Privacy | 5 | No secret exposure observed; only public Instagram data is handled. |
+| Maintainability | 5 | The regression test for the cache short-circuit makes the key edge case easy to protect going forward. |
+
+**Average: 4.75/5.**
+
+## Verdict
+
+**PASS**
+
+## Recommended Next Generator Task
+
+None required for this feature. If anything further is desired later, it would be
+optional polish only, not a blocker.
+
+---
+
+# Findings — Feature 018 Evaluation (current pass — NEEDS REVISION)
+
+## Verdict: NEEDS REVISION
+
+**Evaluator:** Independent Evaluator
+
+**Did this accomplish the stated goal?** **Mostly, but not fully.** The new
+brand-evidence payload and the UI rename are coherent, the Christina profile page no
+longer shows the removed `POST AUDIT · 10 MOST RECENT` section, and the scraper now
+handles current `iphone_struct` tag/sponsor metadata without requiring a full
+metadata fetch. But the core paid-media rule is still bypassable: the cache path in
+`classify_posts()` can reuse an older organic verdict even when the freshly scraped
+post has `is_ad=True`, as long as the stored input hash matches. I reproduced that
+directly in a focused Python check: the result came back `organic` and `is_ad=False`
+for a post whose current scrape was marked sponsored. That violates the spec’s
+platform-declared paid-partnership short-circuit and leaves a stale organic verdict
+in place for posts that should now be paid.
+
+---
+
+## Restated Goal / Scope
+
+**Goal:** Replace Feature 017’s over-aggressive ad-detection prompt with a strict,
+decidable paid-media rubric, rename the UI from “Ad” to “Paid Media” / “Organic,” and
+retroactively reclassify stored posts so genuinely ambiguous ones surface for manual
+review instead of being guessed.
+
+**Non-goals:** No three-way `is_ad` column; no automated resolution of unsure posts;
+no change to how `is_ad` propagates through `data.ts` / `types.ts`; no Instagram
+Graph API or paid scraping-provider migration.
+
+**Acceptance criteria:** `detect_ad` returns paid / organic / unsure with
+`post.is_sponsored` short-circuiting to paid; backfill reclassifies every
+`(influencer, shortcode)` row and writes `is_ad` back; incidental brand visibility
+stays organic; chart/details show Paid Media / Organic; list views show Paid Media
+badge only; pytest, lint, tsc, and Playwright all pass; auth docs stay on
+`--load-cookies Chrome`.
+
+---
+
+## Critical Issue
+
+1. **Cached classifications can override a fresh sponsored-post signal.** In
+   `scraper/youfirst_scraper/ad_detection.py`, `classify_posts()` reuses a stored
+   classification whenever `classifier_version` and `input_hash` match. The hash does
+   not include `is_ad`, so a post that was previously organic but is now scraped with
+   `is_ad=True` can still reuse the old organic classification and end up written back
+   as `is_ad=False`. That means the paid-partnership short-circuit is not reliable for
+   re-scrapes or daily jobs that encounter a previously-seen shortcode.
+
+---
+
+## Test Results (current pass)
+
+Environment preflight: `scraper/.env` present. `platform/.env.local` present. The
+platform dev server was started by Playwright’s web server config.
+
+| Check | Result | Detail / Count |
+|---|---|---|
+| `scraper/ .venv/bin/pytest tests/test_ad_detection.py tests/test_backfill_ads.py tests/test_instagram_scraper.py tests/test_run_daily.py -q` | PASS | 84 passed |
+| `platform/ npm run lint` | PASS | 0 errors, 1 pre-existing warning (`Avatar.tsx` `<img>`) |
+| `platform/ npx tsc --noEmit` | PASS | no errors |
+| `platform/ npx playwright test` | PASS | 19/19 |
+| Focused reproduction of cached sponsored-post path | FAIL | `classify_posts()` returned `organic` / `is_ad=False` for a post with `is_ad=True` when the cached hash matched |
+
+No raw logs, secrets, or scraped personal data recorded here.
+
+---
+
+## Spot Checks
+
+- The Christina profile page no longer contains the `POST AUDIT · 10 MOST RECENT`
+  section after the user correction.
+- `scraper/youfirst_scraper/instagram_scraper.py` still reads current `iphone_struct`
+  tag and sponsor metadata, and the test fixture in
+  `scraper/tests/test_instagram_scraper.py` covers both the populated path and the
+  fallback path where full metadata is unavailable.
+- Recent Posts and Greatest Hits stay on the “Paid Media badge only” rule, while the
+  chart and post-detail surfaces still expose the richer organic / needs-review labels.
+
+---
+
+## Rubric Scores
+
+| Area | Score | Notes |
+|---|---:|---|
+| Goal Alignment | 3 | The new rubric is mostly right, but the cached organic verdict can still override a fresh paid signal. |
+| Requirement Fit | 3 | Acceptance criterion 1 is not fully met for re-scraped posts because the cache path bypasses the sponsored short-circuit. |
+| Simplicity | 4 | The implementation is reasonably compact, though the cache rule needs one more branch or hash input. |
+| User Workflow | 4 | The UI is coherent, and the list-view badge rule matches the sparse-amber requirement. |
+| Data Integrity | 2 | A post can retain or regain a stale organic result even when Instagram now marks it sponsored. |
+| Error Handling | 4 | Failures still degrade gracefully; the issue is correctness, not crash behavior. |
+| Security / Privacy | 5 | No secret exposure observed; only public Instagram data is handled. |
+| Maintainability | 4 | The structure is understandable, but the cache-vs-sponsored interaction needs a regression test. |
+
+**Average: 3.6/5.**
+
+## Verdict
+
+**NEEDS REVISION**
+
+## Recommended Next Generator Task
+
+Fix `classify_posts()` so a fresh `is_ad=True` signal cannot be masked by a cached
+organic classification. The simplest safe options are to include `is_ad` in the cache
+hash or to bypass the cached classification whenever the current post is sponsored.
+Add a regression test that proves a cached organic result is not reused once the
+current scrape marks the post as sponsored.
+
+---
+
 # Findings — Feature 018 Evaluation (re-evaluation)
 
 ## Verdict: PASS

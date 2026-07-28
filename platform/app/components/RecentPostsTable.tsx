@@ -1,5 +1,6 @@
 import type { PostSnapshot } from "@/app/lib/types";
 import { formatCount, postEngagementRate } from "@/app/lib/metrics";
+import { getListPostStatusLabel, getPostStatus, getPostStatusBadgeClass } from "@/app/lib/post-status";
 
 export function RecentPostsTable({
   posts,
@@ -27,48 +28,52 @@ export function RecentPostsTable({
           </tr>
         </thead>
         <tbody>
-          {posts.map((post) => (
-            <tr
-              key={post.shortcode}
-              className="border-b border-border-faint transition-colors last:border-b-0 hover:bg-surface"
-            >
-              <td className="py-3 pr-4 text-muted">
-                {new Date(post.posted_at).toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                })}
-              </td>
-              <td className="py-3 pr-4 capitalize text-muted">
-                {post.post_type}
-                {post.is_ad && (
-                  <span className="ml-1.5 rounded bg-accent/10 px-1 py-0.5 text-[9px] font-semibold text-accent uppercase tracking-wider">
-                    Paid Media
-                  </span>
-                )}
-              </td>
-              <td className="font-mono tnum py-3 pr-4 text-right text-ink">{formatCount(post.likes)}</td>
-              <td className="font-mono tnum py-3 pr-4 text-right text-ink">
-                {formatCount(post.comments)}
-              </td>
-              <td className="font-mono tnum py-3 pr-4 text-right text-muted">
-                {post.views != null ? formatCount(post.views) : "—"}
-              </td>
-              <td className="font-mono tnum py-3 pr-4 text-right text-ink">
-                {postEngagementRate(post, followers)}%
-              </td>
-              <td className="py-3">
-                <a
-                  href={`https://www.instagram.com/p/${post.shortcode}/`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-accent hover:text-accent-bright"
-                >
-                  View
-                </a>
-              </td>
-            </tr>
-          ))}
+          {posts.map((post) => {
+            const status = getPostStatus(post);
+            const badgeLabel = getListPostStatusLabel(status);
+            return (
+              <tr
+                key={post.shortcode}
+                className="border-b border-border-faint transition-colors last:border-b-0 hover:bg-surface"
+              >
+                <td className="py-3 pr-4 text-muted">
+                  {new Date(post.posted_at).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
+                </td>
+                <td className="py-3 pr-4 capitalize text-muted">
+                  {post.post_type}
+                  {badgeLabel ? (
+                    <span className={`ml-1.5 ${getPostStatusBadgeClass(status)}`}>
+                      {badgeLabel}
+                    </span>
+                  ) : null}
+                </td>
+                <td className="font-mono tnum py-3 pr-4 text-right text-ink">{formatCount(post.likes)}</td>
+                <td className="font-mono tnum py-3 pr-4 text-right text-ink">
+                  {formatCount(post.comments)}
+                </td>
+                <td className="font-mono tnum py-3 pr-4 text-right text-muted">
+                  {post.views != null ? formatCount(post.views) : "—"}
+                </td>
+                <td className="font-mono tnum py-3 pr-4 text-right text-ink">
+                  {postEngagementRate(post, followers)}%
+                </td>
+                <td className="py-3">
+                  <a
+                    href={`https://www.instagram.com/p/${post.shortcode}/`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-accent hover:text-accent-bright"
+                  >
+                    View
+                  </a>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

@@ -18,6 +18,7 @@ import { RecentPostsTable } from "@/app/components/RecentPostsTable";
 import { RecommendationContent } from "@/app/components/RecommendationContent";
 import { CountUp } from "@/app/components/CountUp";
 import { Reveal } from "@/app/components/Reveal";
+import { getListPostStatusLabel, getPostStatus, getPostStatusBadgeClass } from "@/app/lib/post-status";
 
 export async function generateMetadata({ params }: { params: Promise<{ handle: string }> }): Promise<Metadata> {
   const { handle } = await params;
@@ -235,47 +236,51 @@ export default async function InfluencerPage({ params }: { params: Promise<{ han
             <p className="text-sm text-muted">No post history yet — appears after the next scrape.</p>
           ) : (
             <ol className="divide-y divide-border-faint">
-              {topPosts.map((post, i) => (
-                <li key={post.shortcode} className="flex items-baseline gap-5 py-4 first:pt-0 last:pb-0">
-                  <span className="font-mono text-xs text-accent" aria-hidden>
-                    {String(i + 1).padStart(2, "0")}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm text-ink">
-                      <span className="capitalize">{post.post_type}</span>
-                      {post.is_ad && (
-                        <span className="ml-1.5 rounded bg-accent/10 px-1 py-0.5 text-[9px] font-semibold text-accent uppercase tracking-wider">
-                          Paid Media
+              {topPosts.map((post, i) => {
+                const status = getPostStatus(post);
+                const badgeLabel = getListPostStatusLabel(status);
+                return (
+                  <li key={post.shortcode} className="flex items-baseline gap-5 py-4 first:pt-0 last:pb-0">
+                    <span className="font-mono text-xs text-accent" aria-hidden>
+                      {String(i + 1).padStart(2, "0")}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm text-ink">
+                        <span className="capitalize">{post.post_type}</span>
+                        {badgeLabel ? (
+                          <span className={`ml-1.5 ${getPostStatusBadgeClass(status)}`}>
+                            {badgeLabel}
+                          </span>
+                        ) : null}
+                        <span className="text-faint">
+                          {" · "}
+                          {new Date(post.posted_at).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })}
                         </span>
-                      )}
-                      <span className="text-faint">
-                        {" · "}
-                        {new Date(post.posted_at).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
-                      </span>
-                    </p>
-                    <p className="font-mono mt-1 text-xs text-muted">
-                      {post.likes.toLocaleString("en-US")} likes · {post.comments.toLocaleString("en-US")}{" "}
-                      comments
-                      {post.views != null ? ` · ${formatCount(post.views)} views` : ""}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-mono tnum text-xl text-ink">{formatCount(post.engagement)}</p>
-                    <a
-                      href={`https://www.instagram.com/p/${post.shortcode}/`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-accent hover:text-accent-bright"
-                    >
-                      View →
-                    </a>
-                  </div>
-                </li>
-              ))}
+                      </p>
+                      <p className="font-mono mt-1 text-xs text-muted">
+                        {post.likes.toLocaleString("en-US")} likes · {post.comments.toLocaleString("en-US")}{" "}
+                        comments
+                        {post.views != null ? ` · ${formatCount(post.views)} views` : ""}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-mono tnum text-xl text-ink">{formatCount(post.engagement)}</p>
+                      <a
+                        href={`https://www.instagram.com/p/${post.shortcode}/`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-accent hover:text-accent-bright"
+                      >
+                        View →
+                      </a>
+                    </div>
+                  </li>
+                );
+              })}
             </ol>
           )}
         </Reveal>

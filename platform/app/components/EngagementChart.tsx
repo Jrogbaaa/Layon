@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine } from "recharts";
 import type { PostSnapshot } from "@/app/lib/types";
 import { formatCount } from "@/app/lib/metrics";
+import { getPostStatus, getPostStatusBadgeClass, getPostStatusLabel } from "@/app/lib/post-status";
 
 type EngagementChartProps = {
   posts: PostSnapshot[];
@@ -25,6 +26,7 @@ type EngagementPoint = {
   er: number;
   caption: string;
   is_ad?: boolean;
+  classification?: PostSnapshot["classification"];
 };
 
 interface TooltipPayloadItem {
@@ -56,19 +58,16 @@ function instagramPostUrl(shortcode: string): string {
 function CustomTooltip({ active, payload }: CustomTooltipProps) {
   if (active && payload && payload.length) {
     const d = payload[0].payload;
+    const status = d.classification?.status ?? (d.is_ad ? "paid" : "organic");
     return (
       <div className="w-[min(260px,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] rounded-lg border border-border-faint bg-[#241819] p-3 text-xs font-mono">
         <p className="text-[#f4ede2] font-bold mb-2">
           {d.date} · <span className="capitalize">{d.format}</span>
-          {d.is_ad ? (
-            <span className="ml-2 font-bold text-accent uppercase tracking-wider text-[10px]">
-              · Paid Media
-            </span>
-          ) : (
-            <span className="ml-2 font-bold text-faint uppercase tracking-wider text-[10px]">
-              · Organic
-            </span>
-          )}
+          <span className={`ml-2 font-bold uppercase tracking-wider text-[10px] ${
+            status === "paid" ? "text-accent" : status === "needs_review" ? "text-faint" : "text-faint"
+          }`}>
+            · {getPostStatusLabel(status)}
+          </span>
         </p>
         <p className="text-accent font-semibold">Engagement: {d.engagement.toLocaleString()}</p>
         <p className="text-faint mt-1">
@@ -94,11 +93,12 @@ function CustomTooltip({ active, payload }: CustomTooltipProps) {
 function EngagementDot({ cx, cy, index, payload, selectedIndex, onSelect, onHover }: EngagementDotProps) {
   if (cx == null || cy == null || index == null || payload == null) return null;
 
+  const status = getPostStatus(payload);
   const isSelected = selectedIndex === index;
-  const adPrefix = payload.is_ad ? "Paid media, " : "";
+  const statusPrefix = status === "paid" ? "Paid media, " : status === "needs_review" ? "Needs review, " : "";
   const label = payload.timingAvailable
-    ? `${adPrefix}${payload.publicationDate}, ${payload.format}, ${formatCount(payload.engagement)} engagement`
-    : `${adPrefix}Publication timing unavailable, ${payload.format}, ${formatCount(payload.engagement)} engagement`;
+    ? `${statusPrefix}${payload.publicationDate}, ${payload.format}, ${formatCount(payload.engagement)} engagement`
+    : `${statusPrefix}Publication timing unavailable, ${payload.format}, ${formatCount(payload.engagement)} engagement`;
   const retainFocus = () => {
     requestAnimationFrame(() => {
       document.querySelector<SVGAElement>(`[data-testid="engagement-point-${index}"]`)?.focus();
@@ -113,7 +113,8 @@ function EngagementDot({ cx, cy, index, payload, selectedIndex, onSelect, onHove
       className="group cursor-pointer outline-none"
       aria-label={`Open Instagram post: ${label}`}
       data-selected={isSelected ? "true" : "false"}
-      data-ad={payload.is_ad ? "true" : "false"}
+      data-ad={status === "paid" ? "true" : "false"}
+      data-status={status}
       data-testid={`engagement-point-${index}`}
       onClick={() => {
         onSelect(index);
@@ -136,7 +137,7 @@ function EngagementDot({ cx, cy, index, payload, selectedIndex, onSelect, onHove
         className="opacity-0 transition-opacity group-focus-visible:opacity-100"
         aria-hidden
       />
-      {payload.is_ad && (
+      {status === "paid" && (
         <circle
           cx={cx}
           cy={cy}
@@ -247,6 +248,7 @@ function formatRelativeInterval(current: number, previous: number | null): strin
 }
 
 function PublicationDetails({ point, onClear }: { point: EngagementPoint; onClear?: () => void }) {
+  const status = getPostStatus(point);
   return (
     <div
       className="relative rounded-md border border-border-faint bg-surface px-3 py-2 font-mono text-[11px]"
@@ -269,15 +271,7 @@ function PublicationDetails({ point, onClear }: { point: EngagementPoint; onClea
         </span>
         <span className="capitalize text-faint">
           {point.format}
-          {point.is_ad ? (
-            <span className="ml-1.5 rounded bg-accent/10 px-1 py-0.5 text-[9px] font-semibold text-accent uppercase tracking-wider">
-              Paid Media
-            </span>
-          ) : (
-            <span className="ml-1.5 rounded border border-border-faint px-1 py-0.5 text-[9px] font-semibold text-muted uppercase tracking-wider">
-              Organic
-            </span>
-          )}
+          <span className={`ml-1.5 ${getPostStatusBadgeClass(status)}`}>{getPostStatusLabel(status)}</span>
         </span>
         {point.relativeInterval ? <span className="text-accent">{point.relativeInterval}</span> : null}
       </div>
@@ -489,7 +483,7 @@ export function EngagementChart({ posts, followers }: EngagementChartProps) {
         .reverse()
         .find((timestamp): timestamp is number => timestamp !== null) ?? null,
   );
-  const data = posts.map((post, index) => {
+      const data = posts.map((post, index) => {
     const engagement = post.likes + post.comments;
     const er = followers > 0 ? (engagement / followers) * 100 : 0;
     const timestamp = parsedTimestamps[index];
@@ -512,6 +506,7 @@ export function EngagementChart({ posts, followers }: EngagementChartProps) {
       format: post.post_type,
       caption: post.caption || "",
       is_ad: post.is_ad ?? false,
+      classification: post.classification ?? null,
     };
   });
 
