@@ -46,6 +46,25 @@ notification), repeat the cookie import — never retry `--login`.
 
 Safe to re-run the same day — it will log "already ran today" and exit.
 
+## Roll out evidence-backed paid media classifications
+
+The daily job classifies posts for every roster profile, but it is incremental: it
+skips profiles already captured that day and does not revisit every historical post.
+After deploying the evidence-backed classifier, run this one-time rollout:
+
+1. Apply `migration_002_add_post_classifications.sql` to the existing Supabase
+   project (via the SQL Editor or `psql`).
+2. From `scraper/`, run:
+
+   ```bash
+   .venv/bin/python -m youfirst_scraper.backfill_ads
+   ```
+
+The backfill selects every active influencer, re-scrapes each profile once, and
+reclassifies every unique stored post it can still locate. Posts whose media is no
+longer available are stored as `needs_review` instead of being guessed. After this
+one-time backfill, `run_daily` keeps classifications current for every roster handle.
+
 ## Run once a day automatically (macOS)
 
 ```bash
