@@ -153,6 +153,71 @@ Return JSON with this exact schema:
     return json.loads(response.text)
 
 
+def _validate_facts(facts: Any) -> dict[str, Any]:
+    if not isinstance(facts, dict):
+        raise TypeError("classification evidence must be a JSON object")
+
+    required_fields = {
+        "summary",
+        "caption_brand_mentions",
+        "tagged_accounts",
+        "visual_brand_mentions",
+        "disclosure_terms",
+        "uncertain",
+    }
+    missing_fields = required_fields - facts.keys()
+    if missing_fields:
+        raise ValueError(f"classification evidence is missing required fields: {sorted(missing_fields)}")
+
+    object_list_fields = (
+        "caption_brand_mentions",
+        "tagged_accounts",
+        "visual_brand_mentions",
+    )
+    for field in object_list_fields:
+        value = facts.get(field, [])
+        if not isinstance(value, list) or any(not isinstance(item, dict) for item in value):
+            raise TypeError(f"{field} must be a list of objects")
+
+    disclosure_terms = facts.get("disclosure_terms", [])
+    if not isinstance(disclosure_terms, list) or any(not isinstance(term, str) for term in disclosure_terms):
+        raise TypeError("disclosure_terms must be a list of strings")
+
+    if not isinstance(facts["uncertain"], bool):
+        raise TypeError("uncertain must be a boolean")
+    if not isinstance(facts["summary"], str) or not facts["summary"].strip():
+        raise TypeError("summary must be a non-empty string")
+
+    valid_account_types = {"person", "commercial_brand", "noncommercial_org", "unknown"}
+    for mention in facts.get("caption_brand_mentions", []):
+        if not isinstance(mention.get("text"), str) or not mention["text"].strip():
+            raise ValueError("caption brand mention must have non-empty text")
+        if not isinstance(mention.get("reason"), str) or not mention["reason"].strip():
+            raise ValueError("caption brand mention must have a non-empty reason")
+
+    for account in facts.get("tagged_accounts", []):
+        if not isinstance(account.get("username"), str) or not account["username"].strip():
+            raise ValueError("tagged account must have a non-empty username")
+        if account.get("account_type") not in valid_account_types:
+            raise ValueError("tagged account has an invalid account_type")
+        if not isinstance(account.get("reason"), str) or not account["reason"].strip():
+            raise ValueError("tagged account must have a non-empty reason")
+
+    valid_prominence = {"central", "incidental", "unknown"}
+    for item in facts.get("visual_brand_mentions", []):
+        if not isinstance(item.get("name"), str) or not item["name"].strip():
+            raise ValueError("visual brand must have a non-empty name")
+        if item.get("prominence") not in valid_prominence:
+            raise ValueError("visual brand has an invalid prominence")
+        if not isinstance(item.get("reason"), str) or not item["reason"].strip():
+            raise ValueError("visual brand must have a non-empty reason")
+
+    if any(not term.strip() for term in disclosure_terms):
+        raise ValueError("disclosure terms must be non-empty strings")
+
+    return facts
+
+
 def _decide_classification(post: dict, facts: dict[str, Any]) -> dict[str, Any]:
     disclosure_terms = [term for term in facts.get("disclosure_terms", []) if term]
     caption_brand_mentions = facts.get("caption_brand_mentions", [])
@@ -243,9 +308,29 @@ def classify_post(client: genai.Client, post: dict, loader=None, profile_context
             "classified_at": datetime.now(timezone.utc).isoformat(),
         }
 
-    facts = _extract_facts(client, post, profile_contexts)
-    facts["input_hash"] = input_hash
-    return _decide_classification(post, facts)
+    try:
+        facts = _validate_facts(_extract_facts(client, post, profile_contexts))
+        facts["input_hash"] = input_hash
+        return _decide_classification(post, facts)
+    except Exception:
+        logger.exception("Failed to process classification evidence for post %s", post.get("shortcode"))
+        return {
+            "status": "needs_review",
+            "decision_code": "classification_error",
+            "evidence": {
+                "caption_mentions": _normalize_usernames(post.get("caption_mentions")),
+                "tagged_users": _normalize_usernames(post.get("tagged_users")),
+                "sponsor_users": _normalize_usernames(post.get("sponsor_users")),
+                "caption_brand_mentions": [],
+                "tagged_accounts": [],
+                "visual_brand_mentions": [],
+                "disclosure_terms": [],
+                "summary": "Automated evidence extraction failed, so this post needs manual review.",
+            },
+            "classifier_version": CLASSIFIER_VERSION,
+            "input_hash": input_hash,
+            "classified_at": datetime.now(timezone.utc).isoformat(),
+        }
 
 
 def classify_posts(posts: list[dict], client: genai.Client, loader=None, known: dict[str, dict[str, Any]] | None = None) -> list[dict]:

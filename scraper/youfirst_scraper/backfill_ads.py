@@ -84,6 +84,18 @@ def _update_snapshot_classification(client, influencer_id: int, shortcode: str, 
     )
 
 
+def _persist_classification(client, influencer_id: int, post: dict) -> None:
+    # Persist evidence first. If the snapshot update then fails, a retry can reuse
+    # the cached evidence and only needs to repeat the inexpensive boolean write.
+    db.upsert_post_classifications(client, influencer_id, [post])
+    _update_snapshot_classification(
+        client,
+        influencer_id,
+        post["shortcode"],
+        post["classification"]["status"],
+    )
+
+
 def main() -> None:
     client = db.get_client()
     loader = instagram_scraper.build_loader()
@@ -104,7 +116,6 @@ def main() -> None:
     paid, organic, needs_review = [], [], []
     media_cache: dict[int, dict[str, dict]] = {}
     classification_cache: dict[int, dict[str, dict]] = {}
-    classified_by_influencer: dict[int, list[dict]] = {}
 
     for i, post in enumerate(posts_to_check):
         logger.info("Analyzing post %d/%d (shortcode: %s)", i + 1, len(posts_to_check), post["shortcode"])
@@ -162,7 +173,6 @@ def main() -> None:
             classification = classified_post["classification"]
             updated_post = classified_post
 
-        classified_by_influencer.setdefault(influencer_id, []).append(updated_post)
         classification_cache[influencer_id][post["shortcode"]] = classification
 
         if classification["status"] == "paid":
@@ -172,12 +182,7 @@ def main() -> None:
         else:
             needs_review.append(post)
 
-        _update_snapshot_classification(
-            client,
-            influencer_id,
-            post["shortcode"],
-            classification["status"],
-        )
+        _persist_classification(client, influencer_id, updated_post)
 
     logger.info("--- BACKFILL COMPLETE ---")
     logger.info("Paid: %d, Organic: %d, Needs review: %d", len(paid), len(organic), len(needs_review))
@@ -194,9 +199,6 @@ def main() -> None:
             counts["organic"],
             counts["needs_review"],
         )
-
-    for influencer_id, posts in classified_by_influencer.items():
-        db.upsert_post_classifications(client, influencer_id, posts)
 
     if needs_review:
         logger.info("--- POSTS NEEDING MANUAL REVIEW (%d) ---", len(needs_review))

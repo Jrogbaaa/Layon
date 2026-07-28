@@ -243,3 +243,84 @@ def test_classify_posts_cache_ignores_rotating_instagram_url_signatures():
     assert result["classification"] is cached["abc"]
     assert result["is_ad"] is False
     client.models.generate_content.assert_not_called()
+
+
+def test_classify_post_marks_evidence_extraction_failure_for_review():
+    client = MagicMock()
+    post = {
+        **_post(),
+        "caption_mentions": ["person"],
+        "tagged_users": ["person"],
+        "sponsor_users": [],
+    }
+
+    with patch("youfirst_scraper.ad_detection._extract_facts", side_effect=ValueError("malformed JSON")):
+        result = ad_detection.classify_post(client, post)
+
+    assert result["status"] == "needs_review"
+    assert result["decision_code"] == "classification_error"
+    assert result["evidence"]["caption_mentions"] == ["person"]
+    assert result["evidence"]["tagged_users"] == ["person"]
+
+
+def test_classify_post_marks_invalid_evidence_shapes_for_review():
+    client = MagicMock()
+    invalid_evidence = [
+        [],
+        {},
+        {"summary": "could not extract evidence"},
+        {
+            "summary": "missing tagged accounts",
+            "caption_brand_mentions": [],
+            "visual_brand_mentions": [],
+            "disclosure_terms": [],
+            "uncertain": False,
+        },
+        {
+            "summary": "tagged accounts null",
+            "caption_brand_mentions": [],
+            "tagged_accounts": None,
+            "visual_brand_mentions": [],
+            "disclosure_terms": [],
+            "uncertain": False,
+        },
+        {
+            "summary": "tagged accounts invalid",
+            "caption_brand_mentions": [],
+            "tagged_accounts": ["brand"],
+            "visual_brand_mentions": [],
+            "disclosure_terms": [],
+            "uncertain": False,
+        },
+        {
+            "summary": "caption brands invalid",
+            "caption_brand_mentions": "none",
+            "tagged_accounts": [],
+            "visual_brand_mentions": [],
+            "disclosure_terms": [],
+            "uncertain": False,
+        },
+        {
+            "summary": "disclosures invalid",
+            "caption_brand_mentions": [],
+            "tagged_accounts": [],
+            "visual_brand_mentions": [],
+            "disclosure_terms": "none",
+            "uncertain": False,
+        },
+        {
+            "summary": "account type invalid",
+            "caption_brand_mentions": [],
+            "tagged_accounts": [{"account_type": "company"}],
+            "visual_brand_mentions": [],
+            "disclosure_terms": [],
+            "uncertain": False,
+        },
+    ]
+
+    for facts in invalid_evidence:
+        with patch("youfirst_scraper.ad_detection._extract_facts", return_value=facts):
+            result = ad_detection.classify_post(client, _post())
+
+        assert result["status"] == "needs_review"
+        assert result["decision_code"] == "classification_error"
