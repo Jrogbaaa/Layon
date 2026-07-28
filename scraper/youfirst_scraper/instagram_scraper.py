@@ -1,10 +1,13 @@
 import logging
+import re
 
 import instaloader
 
 from . import config
 
 logger = logging.getLogger(__name__)
+
+CAPTION_MENTION_RE = re.compile(r"(?<![\w.])@([A-Za-z0-9._]+)")
 
 
 def build_loader() -> instaloader.Instaloader:
@@ -88,10 +91,129 @@ def _view_count(post: instaloader.Post) -> int | None:
 
 
 def _is_sponsored(post: instaloader.Post) -> bool:
+    iphone_struct = _iphone_struct(post)
+    if "is_paid_partnership" in iphone_struct:
+        return bool(iphone_struct["is_paid_partnership"])
     try:
         return post.is_sponsored
     except Exception:
         return False
+
+
+def _iphone_struct(post: instaloader.Post) -> dict:
+    node = getattr(post, "_node", {})
+    if not isinstance(node, dict):
+        return {}
+    iphone_struct = node.get("iphone_struct")
+    return iphone_struct if isinstance(iphone_struct, dict) else {}
+
+
+def _caption_mentions(post: instaloader.Post) -> list[str]:
+    mentions: list[str] = []
+    caption = post.caption or ""
+    for username in CAPTION_MENTION_RE.findall(caption):
+        username = username.lower()
+        if username not in mentions:
+            mentions.append(username)
+    try:
+        extracted = post.caption_mentions
+    except Exception:
+        extracted = []
+    for username in extracted:
+        username = username.lower()
+        if username not in mentions:
+            mentions.append(username)
+    return mentions
+
+
+def _tagged_usernames(post: instaloader.Post) -> list[str]:
+    iphone_struct = _iphone_struct(post)
+    if "usertags" in iphone_struct:
+        usernames = []
+        for tag in (iphone_struct.get("usertags") or {}).get("in", []):
+            username = str((tag.get("user") or {}).get("username") or "").lower()
+            if username and username not in usernames:
+                usernames.append(username)
+        return usernames
+    try:
+        return list(dict.fromkeys(username.lower() for username in post.tagged_users))
+    except Exception:
+        return []
+
+
+def _sponsor_usernames(post: instaloader.Post) -> list[str]:
+    iphone_struct = _iphone_struct(post)
+    if "sponsor_tags" in iphone_struct:
+        usernames = []
+        for tag in iphone_struct.get("sponsor_tags") or []:
+            username = str((tag.get("sponsor") or {}).get("username") or "").lower()
+            if username and username not in usernames:
+                usernames.append(username)
+        return usernames
+    try:
+        return [profile.username.lower() for profile in post.sponsor_users]
+    except Exception:
+        return []
+
+
+def _media_assets(post: instaloader.Post) -> list[dict[str, str]]:
+    assets: list[dict[str, str]] = []
+    try:
+        if post.typename == "GraphSidecar":
+            for node in post.get_sidecar_nodes():
+                url = node.video_url if node.is_video else node.display_url
+                if url:
+                    assets.append(
+                        {
+                            "kind": "video" if node.is_video else "image",
+                            "mime_type": "video/mp4" if node.is_video else "image/jpeg",
+                            "url": url,
+                        }
+                    )
+        else:
+            url = post.video_url if post.is_video else post.url
+            if url:
+                assets.append(
+                    {
+                        "kind": "video" if post.is_video else "image",
+                        "mime_type": "video/mp4" if post.is_video else "image/jpeg",
+                        "url": url,
+                    }
+                )
+    except Exception:
+        logger.exception("Failed to extract media assets for %s — falling back to cover media", post.shortcode)
+
+    if not assets:
+        url = post.video_url if post.is_video else post.url
+        if url:
+            assets.append(
+                {
+                    "kind": "video" if post.is_video else "image",
+                    "mime_type": "video/mp4" if post.is_video else "image/jpeg",
+                    "url": url,
+                }
+            )
+
+    return assets
+
+
+def build_post_record(post: instaloader.Post) -> dict:
+    return {
+        "shortcode": post.shortcode,
+        "post_type": _post_type(post),
+        "likes": post.likes,
+        "comments": _comment_count(post),
+        "views": _view_count(post),
+        "caption": post.caption,
+        "posted_at": post.date_utc.isoformat() + "Z",
+        "video_url": post.video_url if post.is_video else None,
+        "thumbnail_url": post.url,
+        "caption_mentions": _caption_mentions(post),
+        "tagged_users": _tagged_usernames(post),
+        "sponsor_users": _sponsor_usernames(post),
+        "media_assets": _media_assets(post),
+        "is_ad": _is_sponsored(post),
+    }
 
 
 def scrape_profile(
@@ -116,20 +238,7 @@ def scrape_profile(
 
     posts = []
     for post in profile.get_posts():
-        posts.append(
-            {
-                "shortcode": post.shortcode,
-                "post_type": _post_type(post),
-                "likes": post.likes,
-                "comments": _comment_count(post),
-                "views": _view_count(post),
-                "caption": post.caption,
-                "posted_at": post.date_utc.isoformat() + "Z",
-                "video_url": post.video_url if post.is_video else None,
-                "thumbnail_url": post.url,
-                "is_ad": _is_sponsored(post),
-            }
-        )
+        posts.append(build_post_record(post))
         if len(posts) >= limit:
             break
 

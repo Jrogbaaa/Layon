@@ -155,3 +155,62 @@ def test_scrape_profile_includes_is_ad(monkeypatch):
     assert len(result["posts"]) == 1
     assert result["posts"][0]["is_ad"] is True
 
+
+def test_build_post_record_reads_current_instagram_tag_shape():
+    post = MagicMock()
+    post.shortcode = "taggedcode"
+    post.is_video = False
+    post.typename = "GraphImage"
+    post.likes = 50
+    post._node = {
+        "comments": 5,
+        "iphone_struct": {
+            "is_paid_partnership": True,
+            "sponsor_tags": [{"sponsor": {"username": "BimboEsp"}}],
+            "usertags": {
+                "in": [
+                    {"user": {"username": "CristiPedroche"}},
+                    {"user": {"username": "ImproveClinica"}},
+                ]
+            },
+        },
+    }
+    post.caption = "Publi. Producto de Bimbo®️\n@BimboEsp"
+    post.caption_mentions = []
+    post.date_utc.isoformat.return_value = "2026-07-14T12:00:00"
+    post.url = "pic_url"
+
+    record = instagram_scraper.build_post_record(post)
+
+    assert record["caption_mentions"] == ["bimboesp"]
+    assert record["tagged_users"] == ["cristipedroche", "improveclinica"]
+    assert record["sponsor_users"] == ["bimboesp"]
+    assert record["is_ad"] is True
+
+
+def test_build_post_record_does_not_fetch_missing_full_metadata():
+    post = MagicMock()
+    post.shortcode = "organiccode"
+    post.is_video = False
+    post.typename = "GraphImage"
+    post.likes = 50
+    post._node = {
+        "comments": 5,
+        "iphone_struct": {
+            "is_paid_partnership": False,
+            "sponsor_tags": None,
+            "usertags": None,
+        },
+    }
+    post.caption = "A personal family note"
+    post.caption_mentions = []
+    post.tagged_users = ["this-would-require-full-metadata"]
+    post.sponsor_users = ["this-would-require-full-metadata"]
+    post.date_utc.isoformat.return_value = "2026-07-14T12:00:00"
+    post.url = "pic_url"
+
+    record = instagram_scraper.build_post_record(post)
+
+    assert record["tagged_users"] == []
+    assert record["sponsor_users"] == []
+    assert record["is_ad"] is False

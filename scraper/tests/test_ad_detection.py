@@ -130,3 +130,116 @@ def test_detect_ads_skips_gemini_client_when_every_post_is_known():
 
 def test_detect_ads_empty_list_returns_empty():
     assert ad_detection.detect_ads([]) == []
+
+
+def test_decide_classification_treats_people_only_tags_as_organic():
+    classification = ad_detection._decide_classification(
+        _post(),
+        {
+            "summary": "people only",
+            "caption_brand_mentions": [],
+            "tagged_accounts": [
+                {"username": "marta", "account_type": "person", "reason": "friend"},
+                {"username": "domi", "account_type": "person", "reason": "friend"},
+            ],
+            "visual_brand_mentions": [],
+            "disclosure_terms": [],
+            "uncertain": False,
+        },
+    )
+
+    assert classification["status"] == "organic"
+    assert classification["decision_code"] == "people_only_or_incidental_brand"
+
+
+def test_decide_classification_marks_caption_brand_mentions_as_paid():
+    classification = ad_detection._decide_classification(
+        _post(),
+        {
+            "summary": "brand name in caption",
+            "caption_brand_mentions": [{"text": "Bimbo", "reason": "brand named in caption"}],
+            "tagged_accounts": [],
+            "visual_brand_mentions": [],
+            "disclosure_terms": [],
+            "uncertain": False,
+        },
+    )
+
+    assert classification["status"] == "paid"
+    assert classification["decision_code"] == "caption_brand_mention"
+
+
+def test_decide_classification_marks_unknown_tags_as_needs_review():
+    classification = ad_detection._decide_classification(
+        _post(),
+        {
+            "summary": "ambiguous tag",
+            "caption_brand_mentions": [],
+            "tagged_accounts": [{"username": "mystery", "account_type": "unknown", "reason": "unclear"}],
+            "visual_brand_mentions": [],
+            "disclosure_terms": [],
+            "uncertain": False,
+        },
+    )
+
+    assert classification["status"] == "needs_review"
+    assert classification["decision_code"] == "ambiguous"
+
+
+def test_classify_posts_fresh_paid_partnership_overrides_cached_organic():
+    client = MagicMock()
+    old_post = _post(is_ad=False)
+    cached = {
+        "abc": {
+            "status": "organic",
+            "decision_code": "people_only_or_incidental_brand",
+            "evidence": {},
+            "classifier_version": ad_detection.CLASSIFIER_VERSION,
+            "input_hash": ad_detection._hash_classification_inputs(old_post, []),
+            "classified_at": "2026-07-27T00:00:00+00:00",
+        }
+    }
+    current_post = _post(is_ad=True)
+
+    result = ad_detection.classify_posts([current_post], client, known=cached)[0]
+
+    assert result["classification"]["status"] == "paid"
+    assert result["classification"]["decision_code"] == "instagram_paid_partnership"
+    assert result["is_ad"] is True
+    client.models.generate_content.assert_not_called()
+
+
+def test_classify_posts_cache_ignores_rotating_instagram_url_signatures():
+    client = MagicMock()
+    original = {
+        **_post(),
+        "media_assets": [{
+            "kind": "image",
+            "mime_type": "image/jpeg",
+            "url": "https://instagram.example/image.jpg?signature=old",
+        }],
+    }
+    cached = {
+        "abc": {
+            "status": "organic",
+            "decision_code": "people_only_or_incidental_brand",
+            "evidence": {},
+            "classifier_version": ad_detection.CLASSIFIER_VERSION,
+            "input_hash": ad_detection._hash_classification_inputs(original, []),
+            "classified_at": "2026-07-27T00:00:00+00:00",
+        }
+    }
+    current = {
+        **original,
+        "media_assets": [{
+            "kind": "image",
+            "mime_type": "image/jpeg",
+            "url": "https://instagram.example/image.jpg?signature=new",
+        }],
+    }
+
+    result = ad_detection.classify_posts([current], client, known=cached)[0]
+
+    assert result["classification"] is cached["abc"]
+    assert result["is_ad"] is False
+    client.models.generate_content.assert_not_called()

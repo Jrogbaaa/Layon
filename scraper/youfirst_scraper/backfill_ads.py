@@ -1,4 +1,7 @@
 import logging
+from datetime import datetime, timezone
+import hashlib
+import json
 
 import instaloader
 
@@ -6,6 +9,8 @@ from . import ad_detection, db, instagram_scraper
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
+
+POST_SNAPSHOT_PAGE_SIZE = 1000
 
 
 def _media_urls_by_shortcode(loader, handle: str, needed: set[str]) -> dict[str, dict]:
@@ -20,10 +25,7 @@ def _media_urls_by_shortcode(loader, handle: str, needed: set[str]) -> dict[str,
     for post in profile.get_posts():
         checked += 1
         if post.shortcode in needed:
-            found[post.shortcode] = {
-                "video_url": post.video_url if post.is_video else None,
-                "thumbnail_url": post.url,
-            }
+            found[post.shortcode] = instagram_scraper.build_post_record(post)
             if len(found) == len(needed):
                 break
         # Safety cap: don't page deep into profile history for shortcodes that may
@@ -39,26 +41,70 @@ def _dedupe_posts(rows: list[dict]) -> list[dict]:
     return list({(row["influencer_id"], row["shortcode"]): row for row in rows}.values())
 
 
+def _fetch_post_snapshot_page(
+    client,
+    active_influencer_ids: list[int],
+    start: int,
+    page_size: int = POST_SNAPSHOT_PAGE_SIZE,
+) -> list[dict]:
+    result = (
+        client.table("post_snapshots")
+        .select("id, shortcode, influencer_id, caption, is_ad")
+        .in_("influencer_id", active_influencer_ids)
+        .order("id")
+        .range(start, start + page_size - 1)
+        .execute()
+    )
+    return result.data
+
+
+def _load_posts_to_backfill(
+    client,
+    active_influencer_ids: list[int],
+    page_size: int = POST_SNAPSHOT_PAGE_SIZE,
+) -> list[dict]:
+    rows: list[dict] = []
+    start = 0
+    while True:
+        page = _fetch_post_snapshot_page(client, active_influencer_ids, start, page_size)
+        rows.extend(page)
+        if len(page) < page_size:
+            break
+        start += page_size
+    return _dedupe_posts(rows)
+
+
+def _update_snapshot_classification(client, influencer_id: int, shortcode: str, status: str) -> None:
+    (
+        client.table("post_snapshots")
+        .update({"is_ad": status == "paid"})
+        .eq("influencer_id", influencer_id)
+        .eq("shortcode", shortcode)
+        .execute()
+    )
+
+
 def main() -> None:
     client = db.get_client()
     loader = instagram_scraper.build_loader()
+    genai_client = ad_detection.genai.Client(api_key=ad_detection.config.GOOGLE_API_KEY)
 
     influencers = db.list_influencers(client)
+    active_influencer_ids = [influencer["id"] for influencer in influencers]
+    if not active_influencer_ids:
+        logger.info("No active influencers — nothing to backfill.")
+        return
 
     # Re-check every post; the previous prompt was too aggressive so stored is_ad
     # values are not trustworthy and must be re-derived.
     logger.info("Fetching all posts to classify...")
-    result = client.table("post_snapshots").select(
-        "shortcode, influencer_id, caption, is_ad"
-    ).execute()
-    posts_to_check = _dedupe_posts(result.data)
+    posts_to_check = _load_posts_to_backfill(client, active_influencer_ids)
 
     logger.info("Found %d posts to analyze via Gemini.", len(posts_to_check))
-
-    genai_client = ad_detection.genai.Client(api_key=ad_detection.config.GOOGLE_API_KEY)
-
-    paid, organic, unsure = [], [], []
+    paid, organic, needs_review = [], [], []
     media_cache: dict[int, dict[str, dict]] = {}
+    classification_cache: dict[int, dict[str, dict]] = {}
+    classified_by_influencer: dict[int, list[dict]] = {}
 
     for i, post in enumerate(posts_to_check):
         logger.info("Analyzing post %d/%d (shortcode: %s)", i + 1, len(posts_to_check), post["shortcode"])
@@ -70,47 +116,91 @@ def main() -> None:
             try:
                 media_cache[influencer_id] = _media_urls_by_shortcode(loader, handle, needed) if handle else {}
             except Exception:
-                logger.exception("Failed to scrape profile for influencer %s — its posts will be unsure", influencer_id)
+                logger.exception(
+                    "Failed to scrape profile for influencer %s — its posts will need review",
+                    influencer_id,
+                )
                 media_cache[influencer_id] = {}
 
-        media_urls = media_cache[influencer_id].get(post["shortcode"])
-        if media_urls is None:
-            logger.warning("No media found for post %s (not in recent profile posts) — marking unsure", post["shortcode"])
-            unsure.append(post)
-            # Unsure always means is_ad=False for now, same as a classified-unsure post
-            # below — never leave a stale (possibly wrong) value sitting unreviewed.
-            client.table("post_snapshots").update({"is_ad": False}).eq("shortcode", post["shortcode"]).execute()
-            continue
+        if influencer_id not in classification_cache:
+            classification_cache[influencer_id] = db.get_post_classifications(client, influencer_id)
 
-        # Don't let the stale is_ad value short-circuit detect_ad's early return.
-        post_to_check = {**post, **media_urls, "is_ad": False}
-        classification = ad_detection.detect_ad(genai_client, post_to_check)
+        media_record = media_cache[influencer_id].get(post["shortcode"])
+        if media_record is None:
+            logger.warning(
+                "No media found for post %s (not in recent profile posts) — marking needs review",
+                post["shortcode"],
+            )
+            classification = {
+                "status": "needs_review",
+                "decision_code": "media_missing",
+                "evidence": {
+                    "caption_mentions": [],
+                    "tagged_users": [],
+                    "sponsor_users": [],
+                    "caption_brand_mentions": [],
+                    "tagged_accounts": [],
+                    "visual_brand_mentions": [],
+                    "disclosure_terms": [],
+                    "summary": "The post could not be re-located in the profile scrape, so it needs manual review.",
+                },
+                "classifier_version": ad_detection.CLASSIFIER_VERSION,
+                "input_hash": hashlib.sha256(json.dumps(post, sort_keys=True, default=str).encode("utf-8")).hexdigest(),
+                "classified_at": datetime.now(timezone.utc).isoformat(),
+            }
+            updated_post = {**post, "is_ad": False, "classification": classification}
+        else:
+            # media_record comes from the live Instagram scrape, so its is_ad value
+            # is Instagram's current paid-partnership flag, not the stale DB boolean.
+            post_to_check = media_record
+            classified_post = ad_detection.classify_posts(
+                [post_to_check],
+                genai_client,
+                loader=loader,
+                known=classification_cache[influencer_id],
+            )[0]
+            classification = classified_post["classification"]
+            updated_post = classified_post
 
-        if classification == "paid":
+        classified_by_influencer.setdefault(influencer_id, []).append(updated_post)
+        classification_cache[influencer_id][post["shortcode"]] = classification
+
+        if classification["status"] == "paid":
             paid.append(post)
-        elif classification == "organic":
+        elif classification["status"] == "organic":
             organic.append(post)
         else:
-            unsure.append(post)
+            needs_review.append(post)
 
-        # Unconditional write: snapshot rows of the same shortcode can disagree on
-        # is_ad, so comparing against the one deduped row could skip needed updates.
-        new_is_ad = classification == "paid"
-        client.table("post_snapshots").update({"is_ad": new_is_ad}).eq("shortcode", post["shortcode"]).execute()
+        _update_snapshot_classification(
+            client,
+            influencer_id,
+            post["shortcode"],
+            classification["status"],
+        )
 
     logger.info("--- BACKFILL COMPLETE ---")
-    logger.info("Paid: %d, Organic: %d, Unsure: %d", len(paid), len(organic), len(unsure))
+    logger.info("Paid: %d, Organic: %d, Needs review: %d", len(paid), len(organic), len(needs_review))
 
     by_influencer: dict[str, dict[str, int]] = {}
-    for post, key in [(p, "paid") for p in paid] + [(p, "organic") for p in organic] + [(p, "unsure") for p in unsure]:
-        counts = by_influencer.setdefault(post["influencer_id"], {"paid": 0, "organic": 0, "unsure": 0})
+    for post, key in [(p, "paid") for p in paid] + [(p, "organic") for p in organic] + [(p, "needs_review") for p in needs_review]:
+        counts = by_influencer.setdefault(post["influencer_id"], {"paid": 0, "organic": 0, "needs_review": 0})
         counts[key] += 1
     for influencer_id, counts in by_influencer.items():
-        logger.info(" - %s: paid=%d organic=%d unsure=%d", influencer_id, counts["paid"], counts["organic"], counts["unsure"])
+        logger.info(
+            " - %s: paid=%d organic=%d needs_review=%d",
+            influencer_id,
+            counts["paid"],
+            counts["organic"],
+            counts["needs_review"],
+        )
 
-    if unsure:
-        logger.info("--- POSTS NEEDING MANUAL REVIEW (%d) ---", len(unsure))
-        for p in unsure:
+    for influencer_id, posts in classified_by_influencer.items():
+        db.upsert_post_classifications(client, influencer_id, posts)
+
+    if needs_review:
+        logger.info("--- POSTS NEEDING MANUAL REVIEW (%d) ---", len(needs_review))
+        for p in needs_review:
             logger.info(
                 " - %s: https://www.instagram.com/p/%s/ (influencer: %s)",
                 p["shortcode"], p["shortcode"], p["influencer_id"],

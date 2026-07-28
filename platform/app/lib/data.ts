@@ -6,6 +6,7 @@ import type {
   Highlight,
   Influencer,
   InfluencerDashboard,
+  PostClassification,
   PostSnapshot,
   ProfileSnapshot,
   Recommendation,
@@ -15,6 +16,8 @@ import type {
   TrendHeadlines,
   TrendSnapshot,
 } from "@/app/lib/types";
+
+type PostClassificationRow = PostClassification & { shortcode: string };
 
 // cache(): the nav tape and the roster page both call this within one request.
 export const getRoster = cache(async function getRoster(): Promise<RosterEntry[]> {
@@ -89,6 +92,22 @@ export async function getInfluencerDashboard(handle: string): Promise<Influencer
     .order("captured_at", { ascending: false })
     .limit(100);
 
+  let rawClassifications: unknown[] = [];
+  try {
+    const { data } = await client
+      .from("post_classifications")
+      .select("shortcode, status, decision_code, evidence, classifier_version, input_hash, classified_at")
+      .eq("influencer_id", influencer.id)
+      .order("classified_at", { ascending: false });
+    rawClassifications = data ?? [];
+  } catch {
+    rawClassifications = [];
+  }
+
+  const classificationByShortcode = new Map(
+    (rawClassifications as PostClassificationRow[]).map((row) => [row.shortcode, row] as const),
+  );
+
   const latestByShortcode = new Map<string, PostSnapshot>();
   for (const row of rawPosts ?? []) {
     const post = row as PostSnapshot & { captured_at: string };
@@ -102,6 +121,7 @@ export async function getInfluencerDashboard(handle: string): Promise<Influencer
         caption: post.caption,
         posted_at: post.posted_at,
         is_ad: post.is_ad,
+        classification: classificationByShortcode.get(post.shortcode) ?? null,
       });
     }
   }
@@ -133,6 +153,11 @@ export async function getInfluencerDashboard(handle: string): Promise<Influencer
     .order("engagement", { ascending: false })
     .limit(5);
 
+  const topPostsWithClassification = (topPosts ?? []).map((post) => ({
+    ...post,
+    classification: classificationByShortcode.get(post.shortcode) ?? null,
+  }));
+
   return {
     influencer: influencer as Influencer,
     profileHistory: [...(profileHistory ?? [])].reverse() as ProfileSnapshot[],
@@ -140,7 +165,7 @@ export async function getInfluencerDashboard(handle: string): Promise<Influencer
     chartPosts,
     latestRecommendation: ((recommendations ?? [])[0] as Recommendation) ?? null,
     highlights: (highlights ?? []) as Highlight[],
-    topPosts: (topPosts ?? []) as TopPost[],
+    topPosts: topPostsWithClassification as TopPost[],
   };
 }
 

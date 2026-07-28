@@ -256,6 +256,22 @@ test("influencer page renders creative recommendations section", async ({ page }
   await expect(page.getByRole("heading", { name: /THE BRIEF/ })).toBeVisible();
 });
 
+test("list views keep organic posts unbadged", async ({ page }) => {
+  await login(page);
+
+  await openFirstInfluencer(page);
+
+  const recentPostsSection = page
+    .getByRole("heading", { name: "THE LOG · RECENT POSTS" })
+    .locator("xpath=..");
+  const greatestHitsSection = page
+    .getByRole("heading", { name: "GREATEST HITS · ALL-TIME" })
+    .locator("xpath=..");
+
+  await expect(recentPostsSection.getByText("Organic", { exact: true })).toHaveCount(0);
+  await expect(greatestHitsSection.getByText("Organic", { exact: true })).toHaveCount(0);
+});
+
 test("influencer page renders top performing posts with Instagram links when present", async ({ page }) => {
   await login(page);
 

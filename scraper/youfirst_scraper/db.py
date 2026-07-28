@@ -192,6 +192,37 @@ def get_top_posts(client: Client, influencer_id: int, limit: int = 5) -> list[di
     return result.data
 
 
+def get_post_classifications(client: Client, influencer_id: int) -> dict[str, dict]:
+    result = (
+        client.table("post_classifications")
+        .select(
+            "shortcode, status, decision_code, evidence, classifier_version, input_hash, classified_at"
+        )
+        .eq("influencer_id", influencer_id)
+        .execute()
+    )
+    return {row["shortcode"]: row for row in result.data}
+
+
+def upsert_post_classifications(client: Client, influencer_id: int, classifications: list[dict]) -> None:
+    if not classifications:
+        return
+    rows = [
+        {
+            "influencer_id": influencer_id,
+            "shortcode": row["shortcode"],
+            "status": row["classification"]["status"],
+            "decision_code": row["classification"]["decision_code"],
+            "evidence": row["classification"]["evidence"],
+            "classifier_version": row["classification"]["classifier_version"],
+            "input_hash": row["classification"]["input_hash"],
+            "classified_at": row["classification"]["classified_at"],
+        }
+        for row in classifications
+    ]
+    client.table("post_classifications").upsert(rows, on_conflict="influencer_id,shortcode").execute()
+
+
 def get_analyzed_shortcodes(client: Client, influencer_id: int) -> set[str]:
     result = (
         client.table("post_content")

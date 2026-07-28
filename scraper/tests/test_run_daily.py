@@ -41,6 +41,8 @@ def _patch_scrape_db(monkeypatch):
     monkeypatch.setattr(run_daily.db, "profile_scraped_today", lambda c, i: False)
     monkeypatch.setattr(run_daily.db, "insert_profile_snapshot", lambda c, i, p: None)
     monkeypatch.setattr(run_daily.db, "insert_post_snapshots", lambda c, i, p: None)
+    monkeypatch.setattr(run_daily.db, "get_post_classifications", lambda c, i: {})
+    monkeypatch.setattr(run_daily.db, "upsert_post_classifications", lambda c, i, p: None)
     monkeypatch.setattr(run_daily.db, "get_analyzed_shortcodes", lambda c, i: set())
     monkeypatch.setattr(run_daily.db, "get_ad_flags", lambda c, i, s: {})
     monkeypatch.setattr(run_daily.content_analysis, "analyze_posts", lambda posts, analyzed: [])
@@ -156,7 +158,7 @@ def test_run_instagram_scrape_continues_when_avatar_download_fails(monkeypatch):
     assert highlight_calls == [7]
 
 
-def test_run_instagram_scrape_reuses_stored_ad_flags(monkeypatch):
+def test_run_instagram_scrape_reuses_stored_classifications(monkeypatch):
     monkeypatch.setattr(run_daily.config, "load_roster", lambda: ["good_handle"])
     monkeypatch.setattr(run_daily.config, "PROFILE_REQUEST_DELAY_SECONDS", 0)
 
@@ -171,17 +173,103 @@ def test_run_instagram_scrape_reuses_stored_ad_flags(monkeypatch):
     )
 
     _patch_scrape_db(monkeypatch)
-    monkeypatch.setattr(run_daily.db, "get_ad_flags", lambda c, i, s: {"known": True})
+    monkeypatch.setattr(
+        run_daily.db,
+        "get_post_classifications",
+        lambda c, i: {
+            "known": {
+                "shortcode": "known",
+                "status": "paid",
+                "decision_code": "instagram_paid_partnership",
+                "evidence": {},
+                "classifier_version": "brand-evidence-v1",
+                "input_hash": "cached",
+                "classified_at": datetime.now(timezone.utc).isoformat(),
+            }
+        },
+    )
     inserted = []
-    monkeypatch.setattr(run_daily.db, "insert_post_snapshots", lambda c, i, p: inserted.extend(p))
+    monkeypatch.setattr(run_daily.db, "upsert_post_classifications", lambda c, i, p: inserted.extend(p))
+
+    def fake_classify_posts(posts, client, loader=None, known=None):
+        assert known is not None and "known" in known
+        return [
+            {
+                **post,
+                "classification": {
+                    "status": "organic",
+                    "decision_code": "people_only_or_incidental_brand",
+                    "evidence": {},
+                    "classifier_version": "brand-evidence-v1",
+                    "input_hash": f"fresh-{post['shortcode']}",
+                    "classified_at": datetime.now(timezone.utc).isoformat(),
+                },
+                "is_ad": False,
+            }
+            if post["shortcode"] == "fresh"
+            else {
+                **post,
+                "classification": known["known"],
+                "is_ad": True,
+            }
+            for post in posts
+        ]
 
     with patch("instaloader.Instaloader"):
         with patch("youfirst_scraper.ad_detection.genai.Client", return_value=MagicMock()):
-            with patch("youfirst_scraper.ad_detection.detect_ad", return_value="organic") as detect:
+            with patch("youfirst_scraper.ad_detection.classify_posts", side_effect=fake_classify_posts):
                 run_daily.run_instagram_scrape(MagicMock())
 
-    assert {p["shortcode"]: p["is_ad"] for p in inserted} == {"known": True, "fresh": False}
-    assert [call.args[1]["shortcode"] for call in detect.call_args_list] == ["fresh"]
+    assert {p["shortcode"]: p["classification"]["status"] for p in inserted} == {
+        "known": "paid",
+        "fresh": "organic",
+    }
+
+
+def test_run_instagram_scrape_classifies_every_roster_profile(monkeypatch):
+    monkeypatch.setattr(run_daily.config, "load_roster", lambda: ["alpha", "beta"])
+    monkeypatch.setattr(run_daily.config, "PROFILE_REQUEST_DELAY_SECONDS", 0)
+    influencer_ids = {"alpha": 11, "beta": 22}
+    monkeypatch.setattr(
+        run_daily.instagram_scraper,
+        "scrape_profile",
+        lambda loader, handle: {
+            "profile": {"followers": 100, "following": 2, "media_count": 3, "bio": ""},
+            "posts": [{"shortcode": f"{handle}-post", "is_ad": False}],
+        },
+    )
+
+    _patch_scrape_db(monkeypatch)
+    monkeypatch.setattr(run_daily.db, "get_or_create_influencer", lambda c, h: influencer_ids[h])
+    upserts = []
+    monkeypatch.setattr(
+        run_daily.db,
+        "upsert_post_classifications",
+        lambda c, influencer_id, posts: upserts.append((influencer_id, posts[0]["shortcode"])),
+    )
+
+    def classify(posts, client, loader=None, known=None):
+        post = posts[0]
+        return [{
+            **post,
+            "is_ad": False,
+            "classification": {
+                "status": "organic",
+                "decision_code": "people_only_or_incidental_brand",
+                "evidence": {},
+                "classifier_version": "brand-evidence-v1",
+                "input_hash": f"hash-{post['shortcode']}",
+                "classified_at": datetime.now(timezone.utc).isoformat(),
+            },
+        }]
+
+    with patch("instaloader.Instaloader"):
+        with patch("youfirst_scraper.ad_detection.genai.Client", return_value=MagicMock()):
+            with patch("youfirst_scraper.ad_detection.classify_posts", side_effect=classify):
+                failed = run_daily.run_instagram_scrape(MagicMock())
+
+    assert failed == []
+    assert upserts == [(11, "alpha-post"), (22, "beta-post")]
 
 
 def test_run_trend_scrape_skips_already_scraped_source(monkeypatch):
