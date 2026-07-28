@@ -8,6 +8,7 @@ import instaloader
 import requests
 
 from . import (
+    ad_detection,
     briefing,
     config,
     content_analysis,
@@ -138,6 +139,10 @@ def run_instagram_scrape(client) -> list[str]:
                     logger.exception("Failed to update avatar for %s — continuing", handle)
 
             db.insert_profile_snapshot(client, influencer_id, result["profile"])
+            known_ad_flags = db.get_ad_flags(
+                client, influencer_id, [p["shortcode"] for p in result["posts"]]
+            )
+            result["posts"] = ad_detection.detect_ads(result["posts"], known_ad_flags)
             db.insert_post_snapshots(client, influencer_id, result["posts"])
 
             already_analyzed = db.get_analyzed_shortcodes(client, influencer_id)
@@ -160,7 +165,7 @@ def run_instagram_scrape(client) -> list[str]:
             logger.exception("Instagram session expired scraping %s — aborting roster loop", handle)
             _notify(
                 "You First scraper: session expired",
-                f"Re-login required: instaloader --login={config.IG_USERNAME}",
+                "Log into instagram.com in Chrome, then run: instaloader --load-cookies Chrome",
             )
             failed.append(handle)
             session_dead = True

@@ -24,6 +24,7 @@ type EngagementPoint = {
   comments: number;
   er: number;
   caption: string;
+  is_ad?: boolean;
 };
 
 interface TooltipPayloadItem {
@@ -59,6 +60,15 @@ function CustomTooltip({ active, payload }: CustomTooltipProps) {
       <div className="w-[min(260px,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] rounded-lg border border-border-faint bg-[#241819] p-3 text-xs font-mono">
         <p className="text-[#f4ede2] font-bold mb-2">
           {d.date} · <span className="capitalize">{d.format}</span>
+          {d.is_ad ? (
+            <span className="ml-2 font-bold text-accent uppercase tracking-wider text-[10px]">
+              · Paid Media
+            </span>
+          ) : (
+            <span className="ml-2 font-bold text-faint uppercase tracking-wider text-[10px]">
+              · Organic
+            </span>
+          )}
         </p>
         <p className="text-accent font-semibold">Engagement: {d.engagement.toLocaleString()}</p>
         <p className="text-faint mt-1">
@@ -85,9 +95,10 @@ function EngagementDot({ cx, cy, index, payload, selectedIndex, onSelect, onHove
   if (cx == null || cy == null || index == null || payload == null) return null;
 
   const isSelected = selectedIndex === index;
+  const adPrefix = payload.is_ad ? "Paid media, " : "";
   const label = payload.timingAvailable
-    ? `${payload.publicationDate}, ${payload.format}, ${formatCount(payload.engagement)} engagement`
-    : `Publication timing unavailable, ${payload.format}, ${formatCount(payload.engagement)} engagement`;
+    ? `${adPrefix}${payload.publicationDate}, ${payload.format}, ${formatCount(payload.engagement)} engagement`
+    : `${adPrefix}Publication timing unavailable, ${payload.format}, ${formatCount(payload.engagement)} engagement`;
   const retainFocus = () => {
     requestAnimationFrame(() => {
       document.querySelector<SVGAElement>(`[data-testid="engagement-point-${index}"]`)?.focus();
@@ -102,6 +113,7 @@ function EngagementDot({ cx, cy, index, payload, selectedIndex, onSelect, onHove
       className="group cursor-pointer outline-none"
       aria-label={`Open Instagram post: ${label}`}
       data-selected={isSelected ? "true" : "false"}
+      data-ad={payload.is_ad ? "true" : "false"}
       data-testid={`engagement-point-${index}`}
       onClick={() => {
         onSelect(index);
@@ -124,6 +136,19 @@ function EngagementDot({ cx, cy, index, payload, selectedIndex, onSelect, onHove
         className="opacity-0 transition-opacity group-focus-visible:opacity-100"
         aria-hidden
       />
+      {payload.is_ad && (
+        <circle
+          cx={cx}
+          cy={cy}
+          r={isSelected ? 6.5 : 4.5}
+          fill="none"
+          stroke="#e3b04b"
+          strokeWidth={1}
+          strokeOpacity={0.8}
+          className="transition-[r]"
+          aria-hidden
+        />
+      )}
       <circle
         cx={cx}
         cy={cy}
@@ -242,7 +267,18 @@ function PublicationDetails({ point, onClear }: { point: EngagementPoint; onClea
         <span className="text-ink">
           {point.timingAvailable ? `Published ${point.publicationDate}` : "Publication timing unavailable"}
         </span>
-        <span className="capitalize text-faint">{point.format}</span>
+        <span className="capitalize text-faint">
+          {point.format}
+          {point.is_ad ? (
+            <span className="ml-1.5 rounded bg-accent/10 px-1 py-0.5 text-[9px] font-semibold text-accent uppercase tracking-wider">
+              Paid Media
+            </span>
+          ) : (
+            <span className="ml-1.5 rounded border border-border-faint px-1 py-0.5 text-[9px] font-semibold text-muted uppercase tracking-wider">
+              Organic
+            </span>
+          )}
+        </span>
         {point.relativeInterval ? <span className="text-accent">{point.relativeInterval}</span> : null}
       </div>
       <p className="mt-1 text-muted">
@@ -475,6 +511,7 @@ export function EngagementChart({ posts, followers }: EngagementChartProps) {
       er: Math.round(er * 100) / 100,
       format: post.post_type,
       caption: post.caption || "",
+      is_ad: post.is_ad ?? false,
     };
   });
 

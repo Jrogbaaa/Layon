@@ -220,6 +220,34 @@ test("dense mobile chart uses bounded post navigation and tooltip", async ({ pag
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
 });
 
+test("engagement chart visualizes ad posts with badges and outer rings", async ({ page }) => {
+  await login(page);
+  await openEngagementFixture(page, "dense");
+
+  // Verify that ad dots are visually flagged with data-ad="true"
+  const adPoints = page.locator('a[data-ad="true"]');
+  await expect(adPoints).not.toHaveCount(0);
+  const firstAdPoint = adPoints.first();
+
+  // Hover over the first ad point to trigger the tooltip
+  await firstAdPoint.hover();
+  const tooltip = page.locator(".recharts-tooltip-wrapper");
+  await expect(tooltip).toBeVisible();
+  await expect(tooltip).toContainText(/· Paid Media/i);
+
+  // Click the ad point to lock selection details
+  await firstAdPoint.click();
+  await expect(page.getByTestId("publication-details")).toBeVisible();
+  // Selection details should contain the "Paid Media" badge
+  await expect(page.getByTestId("publication-details").getByText("Paid Media", { exact: true })).toBeVisible();
+
+  // A non-ad point should be labeled Organic instead
+  const organicPoints = page.locator('a[data-ad="false"]');
+  await expect(organicPoints).not.toHaveCount(0);
+  await organicPoints.first().hover();
+  await expect(tooltip).toContainText(/· Organic/i);
+});
+
 test("influencer page renders creative recommendations section", async ({ page }) => {
   await login(page);
 

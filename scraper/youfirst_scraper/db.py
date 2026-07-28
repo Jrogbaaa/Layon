@@ -61,6 +61,7 @@ def insert_post_snapshots(client: Client, influencer_id: int, posts: list[dict])
             "views": post.get("views"),
             "caption": post.get("caption"),
             "posted_at": post["posted_at"],
+            "is_ad": post.get("is_ad", False),
         }
         for post in posts
     ]
@@ -121,7 +122,7 @@ def get_profile_snapshots(client: Client, influencer_id: int, limit: int = 30) -
 def get_recent_posts(client: Client, influencer_id: int, limit: int = 12) -> list[dict]:
     result = (
         client.table("post_snapshots")
-        .select("shortcode, post_type, likes, comments, views, caption, posted_at")
+        .select("shortcode, post_type, likes, comments, views, caption, posted_at, is_ad")
         .eq("influencer_id", influencer_id)
         .order("posted_at", desc=True)
         .limit(limit)
@@ -133,7 +134,7 @@ def get_recent_posts(client: Client, influencer_id: int, limit: int = 12) -> lis
 def get_all_post_snapshots(client: Client, influencer_id: int, limit: int = 500) -> list[dict]:
     result = (
         client.table("post_snapshots")
-        .select("shortcode, post_type, likes, comments, views, caption, posted_at, captured_at")
+        .select("shortcode, post_type, likes, comments, views, caption, posted_at, captured_at, is_ad")
         .eq("influencer_id", influencer_id)
         .order("captured_at", desc=False)
         .limit(limit)
@@ -182,7 +183,7 @@ def get_latest_trend_snapshots(client: Client, limit: int = 2) -> list[dict]:
 def get_top_posts(client: Client, influencer_id: int, limit: int = 5) -> list[dict]:
     result = (
         client.table("top_posts")
-        .select("shortcode, post_type, likes, comments, views, caption, posted_at, engagement")
+        .select("shortcode, post_type, likes, comments, views, caption, posted_at, engagement, is_ad")
         .eq("influencer_id", influencer_id)
         .order("engagement", desc=True)
         .limit(limit)
@@ -199,6 +200,21 @@ def get_analyzed_shortcodes(client: Client, influencer_id: int) -> set[str]:
         .execute()
     )
     return {row["shortcode"] for row in result.data}
+
+
+def get_ad_flags(client: Client, influencer_id: int, shortcodes: list[str]) -> dict[str, bool]:
+    """Stored is_ad values for the given shortcodes, so already-classified posts can be
+    reused rather than re-sent to Gemini. Snapshot rows of the same shortcode agree."""
+    if not shortcodes:
+        return {}
+    result = (
+        client.table("post_snapshots")
+        .select("shortcode, is_ad")
+        .eq("influencer_id", influencer_id)
+        .in_("shortcode", shortcodes)
+        .execute()
+    )
+    return {row["shortcode"]: row["is_ad"] for row in result.data}
 
 
 def insert_post_content(client: Client, influencer_id: int, analyzed: list[dict]) -> None:

@@ -21,6 +21,7 @@ export type PostSnapshot = {
   views: number | null;
   caption: string | null;
   posted_at: string;
+  is_ad?: boolean;
 };
 
 export type Highlight = {

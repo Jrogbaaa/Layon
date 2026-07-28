@@ -122,3 +122,36 @@ def test_view_count_none_and_warns_for_video_without_keys(caplog):
     with caplog.at_level("WARNING"):
         assert instagram_scraper._view_count(post) is None
     assert "No view-count key" in caplog.text
+
+
+def test_scrape_profile_includes_is_ad(monkeypatch):
+    fake_profile = MagicMock()
+    fake_profile.followers = 100
+    fake_profile.followees = 10
+    fake_profile.mediacount = 5
+    fake_profile.biography = "bio"
+    fake_profile.profile_pic_url = "pic"
+
+    fake_post = MagicMock()
+    fake_post.shortcode = "adcode"
+    fake_post.is_video = False
+    fake_post.typename = "GraphImage"
+    fake_post.likes = 50
+    fake_post._node = {"comments": 5}
+    fake_post.caption = "ad caption"
+    fake_post.date_utc = MagicMock()
+    fake_post.date_utc.isoformat.return_value = "2026-07-14T12:00:00"
+    fake_post.url = "pic_url"
+    fake_post.is_sponsored = True
+
+    fake_profile.get_posts.return_value = [fake_post]
+
+    monkeypatch.setattr(
+        instagram_scraper.instaloader.Profile, "from_username", lambda ctx, handle: fake_profile
+    )
+
+    result = instagram_scraper.scrape_profile(MagicMock(), "somehandle", post_limit=1)
+
+    assert len(result["posts"]) == 1
+    assert result["posts"][0]["is_ad"] is True
+

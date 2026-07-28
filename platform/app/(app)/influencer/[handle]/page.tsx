@@ -243,6 +243,11 @@ export default async function InfluencerPage({ params }: { params: Promise<{ han
                   <div className="min-w-0 flex-1">
                     <p className="text-sm text-ink">
                       <span className="capitalize">{post.post_type}</span>
+                      {post.is_ad && (
+                        <span className="ml-1.5 rounded bg-accent/10 px-1 py-0.5 text-[9px] font-semibold text-accent uppercase tracking-wider">
+                          Paid Media
+                        </span>
+                      )}
                       <span className="text-faint">
                         {" · "}
                         {new Date(post.posted_at).toLocaleDateString("en-US", {

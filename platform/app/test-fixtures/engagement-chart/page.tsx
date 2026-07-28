@@ -11,6 +11,7 @@ function post(index: number, postedAt: string): PostSnapshot {
     views: null,
     caption: `Fixture post ${index + 1}`,
     posted_at: postedAt,
+    is_ad: index % 3 === 0,
   };
 }
 

@@ -1,76 +1,101 @@
-# Spec - Feature 016: Platform UX and Frontend Overhaul
+# Spec - Feature 018: Accurate Paid Media / Organic Classification
 
 ## Previous Feature Context
 
-Feature_015 added direct Instagram links from the engagement chart points and renamed the nav tab from "Trends" to "Tips". Its evaluator pass was verified successfully.
+Feature_017 added an `is_ad` boolean column and UI badges driven by Instaloader's
+`post.is_sponsored` flag, evaluated PASS at the time. In practice `is_sponsored` almost
+never fires (Instagram-declared paid partnerships only), so a same-session follow-up
+built a Gemini multimodal classifier — but its first prompt flagged any visible brand
+logo as an ad (e.g. a MotoGP racer's sponsor-covered gear scored 98% ads), which is
+this feature's starting problem.
 
 ## Goal
 
-Resolve the key usability flaws, responsive blindspots, interaction bugs, underutilized data, and terminology discrepancies identified during the comprehensive UX audit.
+Replace the over-aggressive ad-detection prompt with a strict, decidable rubric —
+"is a product deliberately featured or mentioned?" — and rename the UI from "Ad" to
+"Paid Media" / "Organic" throughout. Retroactively reclassify every stored post against
+the new rubric, surfacing genuinely ambiguous posts for manual user review instead of
+guessing.
 
 ## Why It Matters / User Problem
 
-1.  **Mobile Triage:** Staff checking metrics on mobile screens are currently blind to overnight delta changes and trends.
-2.  **Chart Usability:** Clicking links inside the engagement chart details box is nearly impossible because mouse movements hijack selection.
-3.  **Findability:** Finding influencers in a growing list without search/filter takes too much time.
-4.  **Information Completeness:** The platform hides influencer bios, followings, and post counts that the daily scraper collects.
-5.  **Perceived Quality:** Page titles and navigations use inconsistent wording ("Tips" vs "Wire").
+Agency managers need to trust the paid/organic split to evaluate genuine audience
+traction vs. commercial engagements. A classifier that treats incidental brand
+visibility (sponsor logos, background signage, venue mentions) as "paid" produces
+unusable, misleading data — a false positive rate the user immediately spotted and
+rejected.
 
 ## Intended User
 
-Agency talent managers reviewing daily roster performance on desktop and mobile viewports.
+Agency talent managers reviewing daily roster performance.
 
-## Design & Interaction Direction
+## Rubric (replaces Feature 017's Gemini prompt)
 
-*   **Global Language Toggle:** Render the bilingual EN/ES toggle inside the global `Nav` header (on the right next to the logout button). Remove the local selectors from "The Dispatch" card on the Roster page, "The Brief" on the Influencer page, and "The Wire" page head to unify the control.
-*   **Term Standardizations:** Rename navigation tab "Tips" to "Wire". The URL remains `/trends`, and the page header stays "The Wire".
-*   **Roster Table Headers & Mobile Layout:**
-    *   Add an uppercase, mono-font table header row: `01 · TALENT · FOLLOWERS · OVERNIGHT CHANGE · TRAJECTORY`.
-    *   Add responsive grid columns. On mobile screens (`max-width: 639px`), the overnight delta value is displayed on a second row stacked underneath the handle or next to the followers count.
-*   **Sort:**
-    *   Introduce client-side sorting: sort by Followers (desc), Overnight Change (desc), or Handle (asc). The "Needs Attention" warnings filter checkbox was removed/omitted to keep the controls simple.
-*   **Influencer Profile Completeness:**
-    *   Expose bio text under the display name.
-    *   Expose "Following" and "Total Posts" count metrics in the stats band.
-*   **Engagement Chart Lock:**
-    *   Implement hover-for-tooltip and click-to-lock interactions.
-    *   Clicking a point sets a `lockedIndex` and renders a persistent guide line. Hovering over adjacent points changes tooltips but *does not* override the locked selection details card at the bottom.
-    *   Add a close button (`×`) in the details card, and support pressing `Escape` or clicking empty chart areas to clear selection lock.
-*   **Skeleton Loading Page:**
-    *   Add a Next.js dynamic loading skeleton component (`loading.tsx`) to show skeleton outlines when fetching data from Supabase.
-*   **Login password field:** Add a show/hide eye-toggle to change input type between `password` and `text`.
+- **paid**: a product is deliberately featured — held up/used/presented as the subject
+  of the shot, or mentioned/promoted in the caption (including discount codes, links,
+  brand @mentions presenting a product, or disclosure tags: #ad, #sponsored, #publi,
+  #publicidad, #colaboración, "paid partnership").
+- **organic**: no product featured or mentioned. Explicitly organic even with visible
+  brand imagery: athletes/public figures in professional gear/uniforms covered in
+  sponsor logos; logos/storefronts/signage in the background; mentioning a venue,
+  event, or friend's account without promoting a product.
+- **unsure**: genuinely ambiguous — never guessed. Collected and reported to the user
+  with the post's Instagram link for a manual verdict.
 
 ## Scope
 
-- `platform/app/components/Nav.tsx`, `platform/app/components/NavLinks.tsx` (global navigation modifications).
-- `platform/app/(app)/page.tsx` (roster filter, sort, headers, and mobile deltas).
-- `platform/app/(app)/influencer/[handle]/page.tsx` (metadata titles, bio display, stats band, language toggle cleanup).
-- `platform/app/(app)/trends/page.tsx` (metadata titles, local language toggle removal, fallback tags).
-- `platform/app/components/EngagementChart.tsx` (hover tooltip + click lock, Escape/close button).
-- `platform/app/login/page.tsx` (password visibility toggle).
-- `platform/app/(app)/loading.tsx` (NEW loader skeleton).
-- `platform/app/trends/` and `platform/app/influencer/` (DELETE placeholder directories).
-- `platform/e2e/dashboard.spec.ts` and `platform/e2e/trends.spec.ts` (E2E assertions update).
+- `scraper/youfirst_scraper/ad_detection.py` — rewritten prompt (reason-first JSON,
+  three-way classification), `detect_ad` returns `"paid" | "organic" | "unsure"`.
+- `scraper/youfirst_scraper/backfill_ads.py` — re-checks every stored post (not just
+  previously-unflagged ones); re-derives media via one profile re-scrape per
+  influencer (post_snapshots never persisted `thumbnail_url`/`video_url`), matching
+  by shortcode with an early-stop once every needed shortcode for that influencer is
+  found; writes `is_ad` back unconditionally per snapshot row; logs a per-influencer
+  paid/organic/unsure breakdown and a full unsure list with Instagram links.
+- `scraper/youfirst_scraper/run_daily.py` — session-expiry notification points at the
+  cookie-import recovery command instead of the blocked `--login` flow.
+- `scraper/youfirst_scraper/instagram_scraper.py`, `config.py`, `scraper/README.md` —
+  documentation updated to `instaloader --load-cookies Chrome` as the only supported
+  auth path; `--login` explicitly called out as broken for this account.
+- `platform/app/components/EngagementChart.tsx` — tooltip shows "· Paid Media" or
+  "· Organic"; `PublicationDetails` badge renders "Paid Media" or an "Organic" variant
+  (muted, no amber fill); dot aria-label says "Paid media, ...".
+- `platform/app/components/RecentPostsTable.tsx`,
+  `platform/app/(app)/influencer/[handle]/page.tsx` — badge text "Ad" → "Paid Media"
+  (shown only on paid posts, per the Signal Rule).
+- `platform/e2e/dashboard.spec.ts` — updated assertions for "Paid Media" text, added an
+  assertion that a non-ad point's tooltip shows "· Organic".
 
 ## Non-Goals / Out of Scope
 
-- No scraper logic modifications or third-party metrics scrapers.
-- No Supabase database schema modifications.
+- No three-way `is_ad` column (stays boolean: paid → true, organic/unsure → false).
+- No automated resolution of "unsure" posts — always a human verdict.
+- No change to how `is_ad` propagates through `data.ts`/`types.ts` (unchanged from
+  Feature 017).
+- No Instagram Graph API migration or paid scraping provider (evaluated as a possible
+  future step in agent-harness/decisions.md, not built).
 
 ## Acceptance Criteria
 
-1.  Language setting is unified in the global header, and all localized card toggles are deleted.
-2.  Navigation link text is "Wire" and routes to `/trends` successfully.
-3.  The Roster page features table headers, warnings filter, and sorting dropdown.
-4.  Follower overnight delta is visible on mobile viewports for each roster row.
-5.  Influencer profile page displays bio text, following count, and post count.
-6.  The engagement chart locks the selection details on click, allowing users to hover other points and click the details links without selection hijacking. An "Escape" key or "x" button clears lock.
-7.  The LoginPage has a password show/hide visibility toggle.
-8.  Next.js loader skeleton renders dynamically during routing delays.
-9.  Orphan empty folders `platform/app/trends` and `platform/app/influencer` are removed.
-10. All Playwright E2E tests, TypeScript compilation, and linting pass green.
+1. `ad_detection.detect_ad` returns "paid"/"organic"/"unsure" per the rubric above; a
+   platform-declared paid partnership (`post.is_sponsored`) short-circuits to "paid".
+2. `backfill_ads.py` re-classifies every unique (influencer, shortcode) pair in
+   `post_snapshots`, updates `is_ad` on all matching rows, and prints a per-influencer
+   paid/organic/unsure count plus a full unsure list with Instagram links.
+3. A post with only incidental brand visibility (e.g. sponsor-logo gear) classifies
+   organic; a post with an explicit disclosure tag or product-holding shot classifies
+   paid.
+4. Chart tooltip/details card show "Paid Media" or "Organic"; table/Greatest Hits show
+   a "Paid Media" badge only (no "Organic" badge, to keep the amber accent scarce).
+5. `pytest`, `npm run lint`, `npx tsc --noEmit`, and `npx playwright test` all pass.
+6. Instagram auth path documented and working end-to-end via cookie import; no code or
+   docs reference `instaloader --login` as the recovery path.
 
 ## Verification Plan
 
-*   Run `npx playwright test` and ensure E2E tests cover search inputs, mobile view changes, and details link clicking.
-*   Manually check localhost behavior on mobile sizes.
+- `pytest` in `scraper/` for unit coverage.
+- `python -m youfirst_scraper.backfill_ads` against real Supabase/Instagram data —
+  review the per-influencer breakdown and the unsure list with the user before
+  committing.
+- `npx playwright test` for the renamed-label e2e coverage.
+- Manual dev-server check: hover a paid vs. organic chart point, confirm labels.

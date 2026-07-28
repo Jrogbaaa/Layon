@@ -37,6 +37,7 @@ create table if not exists post_snapshots (
   caption text,
   posted_at timestamptz not null,
   captured_at timestamptz not null default now(),
+  is_ad boolean not null default false,
   unique (influencer_id, shortcode, captured_at)
 );
 
@@ -103,7 +104,7 @@ create index if not exists post_snapshots_influencer_shortcode_idx
 
 create or replace view top_posts as
 select distinct on (influencer_id, shortcode)
-  influencer_id, shortcode, post_type, likes, comments, views, caption, posted_at,
+  influencer_id, shortcode, post_type, likes, comments, views, caption, posted_at, is_ad,
   likes + comments as engagement
 from post_snapshots
 order by influencer_id, shortcode, (likes + comments) desc, captured_at desc;
