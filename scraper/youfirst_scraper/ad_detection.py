@@ -11,14 +11,31 @@ logger = logging.getLogger(__name__)
 
 GEMINI_MODEL = "gemini-2.5-flash"
 
+# Gemini rejects inline media past ~20MB, and a long Reel can be far larger than that.
+MAX_INLINE_MEDIA_BYTES = 15 * 1024 * 1024
+
 
 def _fetch_media_bytes(post: dict) -> tuple[bytes, str]:
-    """Download the post's video (if any) or thumbnail image. Returns (bytes, mime_type)."""
-    url = post.get("video_url") or post["thumbnail_url"]
-    mime_type = "video/mp4" if post.get("video_url") else "image/jpeg"
-    response = requests.get(url, timeout=30)
+    """Download the post's video (if any) or thumbnail image. Returns (bytes, mime_type).
+
+    Oversized videos fall back to the thumbnail rather than being downloaded and
+    rejected — classifying from the still frame beats failing into "unsure".
+    """
+    if post.get("video_url"):
+        response = requests.get(post["video_url"], timeout=30, stream=True)
+        response.raise_for_status()
+        size = int(response.headers.get("Content-Length", 0))
+        if 0 < size <= MAX_INLINE_MEDIA_BYTES:
+            return response.content, "video/mp4"
+        response.close()
+        logger.info(
+            "Video for post %s is %s bytes — classifying from thumbnail instead",
+            post.get("shortcode"), size or "unknown",
+        )
+
+    response = requests.get(post["thumbnail_url"], timeout=30)
     response.raise_for_status()
-    return response.content, mime_type
+    return response.content, "image/jpeg"
 
 
 def detect_ad(client: genai.Client, post: dict) -> str:
@@ -83,23 +100,30 @@ Answer with a simple JSON object matching this exact schema, with "reason" first
         return "unsure"
 
 
-def detect_ads(posts: list[dict]) -> list[dict]:
+def detect_ads(posts: list[dict], known: dict[str, bool] | None = None) -> list[dict]:
     """Process a list of posts, adding/updating the `is_ad` field for each.
 
-    Posts classified "unsure" are treated as not-ad (is_ad=False) but flagged via the
-    `ad_classification` field so callers can surface them for manual review.
+    Posts classified "unsure" are treated as not-ad (is_ad=False).
+
+    A post's classification never changes, so any shortcode already present in `known`
+    reuses its stored value instead of paying for another Gemini call — the daily job
+    re-scrapes the same recent posts every night.
     """
     if not posts:
         return []
 
-    client = genai.Client(api_key=config.GOOGLE_API_KEY)
+    known = known or {}
+    client = None
 
     updated_posts = []
     for post in posts:
         updated_post = post.copy()
-        classification = detect_ad(client, updated_post)
-        updated_post["ad_classification"] = classification
-        updated_post["is_ad"] = classification == "paid"
+        if post["shortcode"] in known:
+            updated_post["is_ad"] = known[post["shortcode"]]
+        else:
+            if client is None:
+                client = genai.Client(api_key=config.GOOGLE_API_KEY)
+            updated_post["is_ad"] = detect_ad(client, updated_post) == "paid"
         updated_posts.append(updated_post)
 
     return updated_posts

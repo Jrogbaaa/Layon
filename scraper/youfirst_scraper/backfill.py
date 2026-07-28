@@ -37,7 +37,10 @@ def run_backfill_scrape(client) -> None:
                     logger.exception("Failed to update avatar for %s — continuing", handle)
 
             db.insert_profile_snapshot(client, influencer_id, result["profile"])
-            result["posts"] = ad_detection.detect_ads(result["posts"])
+            known_ad_flags = db.get_ad_flags(
+                client, influencer_id, [p["shortcode"] for p in result["posts"]]
+            )
+            result["posts"] = ad_detection.detect_ads(result["posts"], known_ad_flags)
             db.insert_post_snapshots(client, influencer_id, result["posts"])
 
             profile_snapshots = db.get_profile_snapshots(client, influencer_id)

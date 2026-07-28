@@ -38,6 +38,7 @@ def _patch_scrape_db(monkeypatch):
     monkeypatch.setattr(run_daily.db, "insert_profile_snapshot", lambda c, i, p: None)
     monkeypatch.setattr(run_daily.db, "insert_post_snapshots", lambda c, i, p: None)
     monkeypatch.setattr(run_daily.db, "get_analyzed_shortcodes", lambda c, i: set())
+    monkeypatch.setattr(run_daily.db, "get_ad_flags", lambda c, i, s: {})
     monkeypatch.setattr(run_daily.content_analysis, "analyze_posts", lambda posts, analyzed: [])
     monkeypatch.setattr(run_daily.db, "insert_post_content", lambda c, i, a: None)
     monkeypatch.setattr(run_daily.db, "get_profile_snapshots", lambda c, i: [])
@@ -149,6 +150,34 @@ def test_run_instagram_scrape_continues_when_avatar_download_fails(monkeypatch):
         run_daily.run_instagram_scrape(MagicMock())
 
     assert highlight_calls == [7]
+
+
+def test_run_instagram_scrape_reuses_stored_ad_flags(monkeypatch):
+    monkeypatch.setattr(run_daily.config, "load_roster", lambda: ["good_handle"])
+    monkeypatch.setattr(run_daily.config, "PROFILE_REQUEST_DELAY_SECONDS", 0)
+
+    posts = [{"shortcode": "known"}, {"shortcode": "fresh"}]
+    monkeypatch.setattr(
+        run_daily.instagram_scraper,
+        "scrape_profile",
+        lambda loader, handle: {
+            "profile": {"followers": 1, "following": 2, "media_count": 3, "bio": ""},
+            "posts": posts,
+        },
+    )
+
+    _patch_scrape_db(monkeypatch)
+    monkeypatch.setattr(run_daily.db, "get_ad_flags", lambda c, i, s: {"known": True})
+    inserted = []
+    monkeypatch.setattr(run_daily.db, "insert_post_snapshots", lambda c, i, p: inserted.extend(p))
+
+    with patch("instaloader.Instaloader"):
+        with patch("youfirst_scraper.ad_detection.genai.Client", return_value=MagicMock()):
+            with patch("youfirst_scraper.ad_detection.detect_ad", return_value="organic") as detect:
+                run_daily.run_instagram_scrape(MagicMock())
+
+    assert {p["shortcode"]: p["is_ad"] for p in inserted} == {"known": True, "fresh": False}
+    assert [call.args[1]["shortcode"] for call in detect.call_args_list] == ["fresh"]
 
 
 def test_run_trend_scrape_skips_already_scraped_source(monkeypatch):

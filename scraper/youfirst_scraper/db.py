@@ -202,6 +202,21 @@ def get_analyzed_shortcodes(client: Client, influencer_id: int) -> set[str]:
     return {row["shortcode"] for row in result.data}
 
 
+def get_ad_flags(client: Client, influencer_id: int, shortcodes: list[str]) -> dict[str, bool]:
+    """Stored is_ad values for the given shortcodes, so already-classified posts can be
+    reused rather than re-sent to Gemini. Snapshot rows of the same shortcode agree."""
+    if not shortcodes:
+        return {}
+    result = (
+        client.table("post_snapshots")
+        .select("shortcode, is_ad")
+        .eq("influencer_id", influencer_id)
+        .in_("shortcode", shortcodes)
+        .execute()
+    )
+    return {row["shortcode"]: row["is_ad"] for row in result.data}
+
+
 def insert_post_content(client: Client, influencer_id: int, analyzed: list[dict]) -> None:
     if not analyzed:
         return

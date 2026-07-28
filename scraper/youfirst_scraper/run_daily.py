@@ -139,7 +139,10 @@ def run_instagram_scrape(client) -> list[str]:
                     logger.exception("Failed to update avatar for %s — continuing", handle)
 
             db.insert_profile_snapshot(client, influencer_id, result["profile"])
-            result["posts"] = ad_detection.detect_ads(result["posts"])
+            known_ad_flags = db.get_ad_flags(
+                client, influencer_id, [p["shortcode"] for p in result["posts"]]
+            )
+            result["posts"] = ad_detection.detect_ads(result["posts"], known_ad_flags)
             db.insert_post_snapshots(client, influencer_id, result["posts"])
 
             already_analyzed = db.get_analyzed_shortcodes(client, influencer_id)
