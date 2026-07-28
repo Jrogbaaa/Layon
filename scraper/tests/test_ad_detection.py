@@ -243,3 +243,21 @@ def test_classify_posts_cache_ignores_rotating_instagram_url_signatures():
     assert result["classification"] is cached["abc"]
     assert result["is_ad"] is False
     client.models.generate_content.assert_not_called()
+
+
+def test_classify_post_marks_evidence_extraction_failure_for_review():
+    client = MagicMock()
+    post = {
+        **_post(),
+        "caption_mentions": ["person"],
+        "tagged_users": ["person"],
+        "sponsor_users": [],
+    }
+
+    with patch("youfirst_scraper.ad_detection._extract_facts", side_effect=ValueError("malformed JSON")):
+        result = ad_detection.classify_post(client, post)
+
+    assert result["status"] == "needs_review"
+    assert result["decision_code"] == "classification_error"
+    assert result["evidence"]["caption_mentions"] == ["person"]
+    assert result["evidence"]["tagged_users"] == ["person"]

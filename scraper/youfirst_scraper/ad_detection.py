@@ -243,7 +243,27 @@ def classify_post(client: genai.Client, post: dict, loader=None, profile_context
             "classified_at": datetime.now(timezone.utc).isoformat(),
         }
 
-    facts = _extract_facts(client, post, profile_contexts)
+    try:
+        facts = _extract_facts(client, post, profile_contexts)
+    except Exception:
+        logger.exception("Failed to extract classification evidence for post %s", post.get("shortcode"))
+        return {
+            "status": "needs_review",
+            "decision_code": "classification_error",
+            "evidence": {
+                "caption_mentions": _normalize_usernames(post.get("caption_mentions")),
+                "tagged_users": _normalize_usernames(post.get("tagged_users")),
+                "sponsor_users": _normalize_usernames(post.get("sponsor_users")),
+                "caption_brand_mentions": [],
+                "tagged_accounts": [],
+                "visual_brand_mentions": [],
+                "disclosure_terms": [],
+                "summary": "Automated evidence extraction failed, so this post needs manual review.",
+            },
+            "classifier_version": CLASSIFIER_VERSION,
+            "input_hash": input_hash,
+            "classified_at": datetime.now(timezone.utc).isoformat(),
+        }
     facts["input_hash"] = input_hash
     return _decide_classification(post, facts)
 

@@ -39,6 +39,33 @@ def test_snapshot_update_is_scoped_to_influencer_and_shortcode():
     query.execute.assert_called_once_with()
 
 
+def test_persist_classification_writes_evidence_before_snapshot(monkeypatch):
+    calls = []
+    post = {
+        "shortcode": "abc",
+        "classification": {"status": "organic"},
+    }
+    monkeypatch.setattr(
+        backfill_ads.db,
+        "upsert_post_classifications",
+        lambda client, influencer_id, posts: calls.append(("evidence", influencer_id, posts)),
+    )
+    monkeypatch.setattr(
+        backfill_ads,
+        "_update_snapshot_classification",
+        lambda client, influencer_id, shortcode, status: calls.append(
+            ("snapshot", influencer_id, shortcode, status)
+        ),
+    )
+
+    backfill_ads._persist_classification(MagicMock(), 7, post)
+
+    assert calls == [
+        ("evidence", 7, [post]),
+        ("snapshot", 7, "abc", "organic"),
+    ]
+
+
 def test_fetch_post_snapshot_page_uses_stable_range():
     client = MagicMock()
     query = MagicMock()
