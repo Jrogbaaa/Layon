@@ -1,6 +1,10 @@
 import json
+import socket
 from datetime import date, datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
+
+import httpx
+import pytest
 
 from youfirst_scraper import run_daily
 
@@ -705,10 +709,106 @@ def test_run_instagram_scrape_rejects_anomalous_snapshot(monkeypatch):
     assert failed == ["h"]
 
 
+def test_wait_for_network_returns_true_once_dns_resolves(monkeypatch):
+    monkeypatch.setattr(run_daily, "NETWORK_READY_DELAY_SECONDS", 0)
+    attempts = []
+
+    def flaky_getaddrinfo(host, port):
+        attempts.append(host)
+        if len(attempts) < 3:
+            raise socket.gaierror("not ready")
+        return [("info",)]
+
+    monkeypatch.setattr(run_daily.socket, "getaddrinfo", flaky_getaddrinfo)
+
+    assert run_daily.wait_for_network() is True
+    assert len(attempts) == 3
+
+
+def test_wait_for_network_gives_up_after_attempt_cap(monkeypatch):
+    monkeypatch.setattr(run_daily, "NETWORK_READY_DELAY_SECONDS", 0)
+    monkeypatch.setattr(run_daily, "NETWORK_READY_ATTEMPTS", 4)
+
+    def always_fails(host, port):
+        raise socket.gaierror("no dns")
+
+    monkeypatch.setattr(run_daily.socket, "getaddrinfo", always_fails)
+
+    assert run_daily.wait_for_network() is False
+
+
+def test_main_exits_without_marking_done_when_network_never_comes_up(tmp_path, monkeypatch):
+    monkeypatch.setattr(run_daily.config, "LAST_RUN_FILE", tmp_path / ".last_run")
+    monkeypatch.setattr(run_daily, "wait_for_network", lambda: False)
+    scrape_calls = []
+    monkeypatch.setattr(run_daily, "run_instagram_scrape", lambda c: scrape_calls.append(c))
+
+    run_daily.main()
+
+    assert scrape_calls == []
+    assert not (tmp_path / ".last_run").exists()
+
+
+def test_db_with_retry_recovers_from_transient_transport_error(monkeypatch):
+    monkeypatch.setattr(run_daily, "TRANSIENT_RETRY_BACKOFF_SECONDS", 0)
+    calls = []
+
+    def flaky():
+        calls.append(1)
+        if len(calls) < 2:
+            raise httpx.ConnectError("nodename nor servname provided")
+        return 42
+
+    assert run_daily._db_with_retry("influencer lookup", flaky) == 42
+    assert len(calls) == 2
+
+
+def test_db_with_retry_reraises_after_attempt_cap(monkeypatch):
+    monkeypatch.setattr(run_daily, "TRANSIENT_RETRY_BACKOFF_SECONDS", 0)
+
+    def always_fails():
+        raise httpx.ConnectError("nodename nor servname provided")
+
+    with pytest.raises(httpx.ConnectError):
+        run_daily._db_with_retry("influencer lookup", always_fails)
+
+
+def test_run_instagram_scrape_retries_influencer_lookup_before_failing_handle(monkeypatch):
+    monkeypatch.setattr(run_daily.config, "load_roster", lambda: ["good_handle"])
+    monkeypatch.setattr(run_daily.config, "PROFILE_REQUEST_DELAY_SECONDS", 0)
+    monkeypatch.setattr(run_daily, "TRANSIENT_RETRY_BACKOFF_SECONDS", 0)
+    monkeypatch.setattr(
+        run_daily.instagram_scraper,
+        "scrape_profile",
+        lambda loader, handle: {
+            "profile": {"followers": 1, "following": 2, "media_count": 3, "bio": ""},
+            "posts": [],
+        },
+    )
+
+    _patch_scrape_db(monkeypatch)
+    lookups = []
+
+    def flaky_lookup(c, h):
+        lookups.append(h)
+        if len(lookups) < 2:
+            raise httpx.ConnectError("nodename nor servname provided")
+        return 1
+
+    monkeypatch.setattr(run_daily.db, "get_or_create_influencer", flaky_lookup)
+
+    with patch("instaloader.Instaloader"):
+        failed = run_daily.run_instagram_scrape(MagicMock())
+
+    assert failed == []
+    assert len(lookups) == 2
+
+
 def test_main_does_not_mark_done_when_handles_failed(tmp_path, monkeypatch):
     monkeypatch.setattr(run_daily.config, "LAST_RUN_FILE", tmp_path / ".last_run")
     monkeypatch.setattr(run_daily.db, "get_client", lambda: MagicMock())
-    monkeypatch.setattr(run_daily, "run_instagram_scrape", lambda c: ["missed_handle"])
+    monkeypatch.setattr(run_daily, "wait_for_network", lambda: True)
+    monkeypatch.setattr(run_daily, "run_instagram_scrape", lambda c:["missed_handle"])
     monkeypatch.setattr(run_daily, "run_trend_scrape", lambda c: None)
     monkeypatch.setattr(run_daily, "run_trend_headlines", lambda c: None)
     monkeypatch.setattr(run_daily, "run_recommendations", lambda c: None)
@@ -725,7 +825,8 @@ def test_main_does_not_mark_done_when_handles_failed(tmp_path, monkeypatch):
 def test_main_marks_done_when_all_handles_succeed(tmp_path, monkeypatch):
     monkeypatch.setattr(run_daily.config, "LAST_RUN_FILE", tmp_path / ".last_run")
     monkeypatch.setattr(run_daily.db, "get_client", lambda: MagicMock())
-    monkeypatch.setattr(run_daily, "run_instagram_scrape", lambda c: [])
+    monkeypatch.setattr(run_daily, "wait_for_network", lambda: True)
+    monkeypatch.setattr(run_daily, "run_instagram_scrape", lambda c:[])
     monkeypatch.setattr(run_daily, "run_trend_scrape", lambda c: None)
     monkeypatch.setattr(run_daily, "run_trend_headlines", lambda c: None)
     monkeypatch.setattr(run_daily, "run_recommendations", lambda c: None)

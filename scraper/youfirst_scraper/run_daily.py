@@ -1,9 +1,11 @@
 import json
 import logging
+import socket
 import subprocess
 import time
 from datetime import date, datetime, timedelta
 
+import httpx
 import instaloader
 import requests
 
@@ -40,6 +42,13 @@ def mark_ran_today() -> None:
 TRANSIENT_RETRY_ATTEMPTS = 3
 TRANSIENT_RETRY_BACKOFF_SECONDS = 30
 
+# This runs on a laptop, so launchd fires the missed schedule the moment the lid opens —
+# before Wi-Fi has associated, when every DNS lookup fails instantly. Wait for name
+# resolution rather than burning the roster on a network that is seconds away.
+NETWORK_READY_HOST = "www.instagram.com"
+NETWORK_READY_ATTEMPTS = 20
+NETWORK_READY_DELAY_SECONDS = 15
+
 # Reject a profile snapshot whose follower count moved more than this fraction
 # day-over-day — a swing that large is a scrape error, not reality.
 MAX_FOLLOWER_SWING = 0.5
@@ -61,6 +70,40 @@ def _notify(title: str, message: str) -> None:
         )
     except Exception:
         logger.exception("Failed to post macOS notification")
+
+
+def wait_for_network() -> bool:
+    """Block until DNS resolves, up to NETWORK_READY_ATTEMPTS tries. False if it never does."""
+    for attempt in range(1, NETWORK_READY_ATTEMPTS + 1):
+        try:
+            socket.getaddrinfo(NETWORK_READY_HOST, 443)
+            return True
+        except socket.gaierror:
+            if attempt == NETWORK_READY_ATTEMPTS:
+                return False
+            logger.warning(
+                "Network not ready (attempt %d/%d) — retrying in %ds",
+                attempt, NETWORK_READY_ATTEMPTS, NETWORK_READY_DELAY_SECONDS,
+            )
+            time.sleep(NETWORK_READY_DELAY_SECONDS)
+    return False
+
+
+def _db_with_retry(description: str, fn):
+    """Supabase calls in the roster loop sit outside _scrape_with_retry, so a momentary
+    DNS blip on one of them used to discard the handle for the whole fire."""
+    for attempt in range(1, TRANSIENT_RETRY_ATTEMPTS + 1):
+        try:
+            return fn()
+        except httpx.TransportError:
+            if attempt == TRANSIENT_RETRY_ATTEMPTS:
+                raise
+            delay = TRANSIENT_RETRY_BACKOFF_SECONDS * attempt
+            logger.warning(
+                "Transient error on %s (attempt %d/%d) — retrying in %ds",
+                description, attempt, TRANSIENT_RETRY_ATTEMPTS, delay,
+            )
+            time.sleep(delay)
 
 
 def _scrape_with_retry(loader, handle: str) -> dict:
@@ -120,7 +163,9 @@ def run_instagram_scrape(client) -> list[str]:
             failed.append(handle)
             continue
         try:
-            influencer_id = db.get_or_create_influencer(client, handle)
+            influencer_id = _db_with_retry(
+                f"influencer lookup for {handle}", lambda: db.get_or_create_influencer(client, handle)
+            )
             if db.profile_scraped_today(client, influencer_id):
                 logger.info("Already scraped today: %s — skipping", handle)
                 continue
@@ -321,6 +366,11 @@ def run_roster_briefing(client) -> None:
 def main() -> None:
     if already_ran_today():
         logger.info("Already ran today (%s) — skipping.", date.today().isoformat())
+        return
+
+    if not wait_for_network():
+        # Leave .last_run unwritten so the next launchd fire retries the whole run.
+        logger.error("No network after %ds — exiting without running", NETWORK_READY_ATTEMPTS * NETWORK_READY_DELAY_SECONDS)
         return
 
     client = db.get_client()
