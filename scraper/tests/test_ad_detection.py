@@ -261,3 +261,29 @@ def test_classify_post_marks_evidence_extraction_failure_for_review():
     assert result["decision_code"] == "classification_error"
     assert result["evidence"]["caption_mentions"] == ["person"]
     assert result["evidence"]["tagged_users"] == ["person"]
+
+
+def test_classify_post_marks_invalid_evidence_shapes_for_review():
+    client = MagicMock()
+    invalid_evidence = [
+        [],
+        {
+            "caption_brand_mentions": [],
+            "tagged_accounts": None,
+            "visual_brand_mentions": [],
+            "disclosure_terms": [],
+        },
+        {
+            "caption_brand_mentions": [],
+            "tagged_accounts": ["brand"],
+            "visual_brand_mentions": [],
+            "disclosure_terms": [],
+        },
+    ]
+
+    for facts in invalid_evidence:
+        with patch("youfirst_scraper.ad_detection._extract_facts", return_value=facts):
+            result = ad_detection.classify_post(client, _post())
+
+        assert result["status"] == "needs_review"
+        assert result["decision_code"] == "classification_error"

@@ -245,8 +245,12 @@ def classify_post(client: genai.Client, post: dict, loader=None, profile_context
 
     try:
         facts = _extract_facts(client, post, profile_contexts)
+        if not isinstance(facts, dict):
+            raise TypeError("classification evidence must be a JSON object")
+        facts["input_hash"] = input_hash
+        return _decide_classification(post, facts)
     except Exception:
-        logger.exception("Failed to extract classification evidence for post %s", post.get("shortcode"))
+        logger.exception("Failed to process classification evidence for post %s", post.get("shortcode"))
         return {
             "status": "needs_review",
             "decision_code": "classification_error",
@@ -264,8 +268,6 @@ def classify_post(client: genai.Client, post: dict, loader=None, profile_context
             "input_hash": input_hash,
             "classified_at": datetime.now(timezone.utc).isoformat(),
         }
-    facts["input_hash"] = input_hash
-    return _decide_classification(post, facts)
 
 
 def classify_posts(posts: list[dict], client: genai.Client, loader=None, known: dict[str, dict[str, Any]] | None = None) -> list[dict]:
