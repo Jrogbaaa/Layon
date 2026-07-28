@@ -10,6 +10,8 @@ from . import ad_detection, db, instagram_scraper
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
+POST_SNAPSHOT_PAGE_SIZE = 1000
+
 
 def _media_urls_by_shortcode(loader, handle: str, needed: set[str]) -> dict[str, dict]:
     """post_snapshots never stores media URLs, so walk the influencer's recent posts
@@ -39,6 +41,39 @@ def _dedupe_posts(rows: list[dict]) -> list[dict]:
     return list({(row["influencer_id"], row["shortcode"]): row for row in rows}.values())
 
 
+def _fetch_post_snapshot_page(
+    client,
+    active_influencer_ids: list[int],
+    start: int,
+    page_size: int = POST_SNAPSHOT_PAGE_SIZE,
+) -> list[dict]:
+    result = (
+        client.table("post_snapshots")
+        .select("id, shortcode, influencer_id, caption, is_ad")
+        .in_("influencer_id", active_influencer_ids)
+        .order("id")
+        .range(start, start + page_size - 1)
+        .execute()
+    )
+    return result.data
+
+
+def _load_posts_to_backfill(
+    client,
+    active_influencer_ids: list[int],
+    page_size: int = POST_SNAPSHOT_PAGE_SIZE,
+) -> list[dict]:
+    rows: list[dict] = []
+    start = 0
+    while True:
+        page = _fetch_post_snapshot_page(client, active_influencer_ids, start, page_size)
+        rows.extend(page)
+        if len(page) < page_size:
+            break
+        start += page_size
+    return _dedupe_posts(rows)
+
+
 def _update_snapshot_classification(client, influencer_id: int, shortcode: str, status: str) -> None:
     (
         client.table("post_snapshots")
@@ -63,13 +98,7 @@ def main() -> None:
     # Re-check every post; the previous prompt was too aggressive so stored is_ad
     # values are not trustworthy and must be re-derived.
     logger.info("Fetching all posts to classify...")
-    result = (
-        client.table("post_snapshots")
-        .select("shortcode, influencer_id, caption, is_ad")
-        .in_("influencer_id", active_influencer_ids)
-        .execute()
-    )
-    posts_to_check = _dedupe_posts(result.data)
+    posts_to_check = _load_posts_to_backfill(client, active_influencer_ids)
 
     logger.info("Found %d posts to analyze via Gemini.", len(posts_to_check))
     paid, organic, needs_review = [], [], []

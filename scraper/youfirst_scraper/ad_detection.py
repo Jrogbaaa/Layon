@@ -85,12 +85,19 @@ def _profile_context(loader, username: str) -> dict[str, Any]:
 
 def _hash_classification_inputs(post: dict, profile_contexts: list[dict[str, Any]]) -> str:
     payload = {
+        "shortcode": post.get("shortcode"),
         "caption": post.get("caption"),
         "instagram_paid_partnership": bool(post.get("is_ad")),
         "caption_mentions": _normalize_usernames(post.get("caption_mentions")),
         "tagged_users": _normalize_usernames(post.get("tagged_users")),
         "sponsor_users": _normalize_usernames(post.get("sponsor_users")),
-        "media_assets": [asset.get("url") for asset in _fetch_media_parts(post)],
+        # Instagram CDN URLs are signed and rotate even when the post is unchanged.
+        # Media cannot be replaced in-place, so stable shape metadata plus shortcode
+        # identifies the same assets without invalidating the cache every scrape.
+        "media_assets": [
+            {"kind": asset.get("kind"), "mime_type": asset.get("mime_type")}
+            for asset in _fetch_media_parts(post)
+        ],
         "profile_contexts": sorted(profile_contexts, key=lambda item: item.get("username", "")),
     }
     encoded = json.dumps(payload, sort_keys=True, ensure_ascii=False).encode("utf-8")

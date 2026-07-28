@@ -39,6 +39,52 @@ def test_snapshot_update_is_scoped_to_influencer_and_shortcode():
     query.execute.assert_called_once_with()
 
 
+def test_fetch_post_snapshot_page_uses_stable_range():
+    client = MagicMock()
+    query = MagicMock()
+    client.table.return_value.select.return_value = query
+    query.in_.return_value = query
+    query.order.return_value = query
+    query.range.return_value = query
+    query.execute.return_value.data = [{"id": 1001, "shortcode": "a", "influencer_id": 7}]
+
+    rows = backfill_ads._fetch_post_snapshot_page(client, [7, 8], 1000, page_size=500)
+
+    assert rows == [{"id": 1001, "shortcode": "a", "influencer_id": 7}]
+    query.in_.assert_called_once_with("influencer_id", [7, 8])
+    query.order.assert_called_once_with("id")
+    query.range.assert_called_once_with(1000, 1499)
+
+
+def test_load_posts_to_backfill_paginates_before_deduping(monkeypatch):
+    first_page = [
+        {"id": i, "influencer_id": 1, "shortcode": f"post-{i}", "is_ad": False}
+        for i in range(3)
+    ]
+    second_page = [
+        {"id": 4, "influencer_id": 1, "shortcode": "post-1", "is_ad": True},
+        {"id": 5, "influencer_id": 2, "shortcode": "post-x", "is_ad": False},
+    ]
+    fetches = []
+
+    def fetch(client, active_ids, start, page_size):
+        fetches.append((active_ids, start, page_size))
+        return first_page if start == 0 else second_page
+
+    monkeypatch.setattr(backfill_ads, "_fetch_post_snapshot_page", fetch)
+
+    posts = backfill_ads._load_posts_to_backfill(MagicMock(), [1, 2], page_size=3)
+
+    assert fetches == [([1, 2], 0, 3), ([1, 2], 3, 3)]
+    assert {(post["influencer_id"], post["shortcode"]) for post in posts} == {
+        (1, "post-0"),
+        (1, "post-1"),
+        (1, "post-2"),
+        (2, "post-x"),
+    }
+    assert next(post for post in posts if post["shortcode"] == "post-1")["is_ad"] is True
+
+
 def _fake_post(shortcode, is_video=False, video_url=None, url="https://example.com/p.jpg"):
     post = MagicMock()
     post.shortcode = shortcode
