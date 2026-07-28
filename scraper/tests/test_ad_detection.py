@@ -279,6 +279,24 @@ def test_classify_post_marks_invalid_evidence_shapes_for_review():
             "visual_brand_mentions": [],
             "disclosure_terms": [],
         },
+        {
+            "caption_brand_mentions": "none",
+            "tagged_accounts": [],
+            "visual_brand_mentions": [],
+            "disclosure_terms": [],
+        },
+        {
+            "caption_brand_mentions": [],
+            "tagged_accounts": [],
+            "visual_brand_mentions": [],
+            "disclosure_terms": "none",
+        },
+        {
+            "caption_brand_mentions": [],
+            "tagged_accounts": [{"account_type": "company"}],
+            "visual_brand_mentions": [],
+            "disclosure_terms": [],
+        },
     ]
 
     for facts in invalid_evidence:
