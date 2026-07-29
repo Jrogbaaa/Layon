@@ -8,11 +8,17 @@ export async function Tape() {
   const roster = await getRoster();
   if (roster.length === 0) return null;
 
-  const items = roster.map(({ influencer, latestSnapshot, followerDelta }) => ({
-    handle: influencer.handle,
-    followers: latestSnapshot?.followers ?? 0,
-    delta: followerDelta,
-  }));
+  const items = roster.map(({ influencer, latestSnapshot, followerDelta }) => {
+    const followers = latestSnapshot?.followers ?? 0;
+    const threshold = Math.max(5, Math.floor(followers * 0.0001));
+    const meaningful = Math.abs(followerDelta) >= threshold;
+    return {
+      handle: influencer.handle,
+      followers,
+      delta: followerDelta,
+      meaningful,
+    };
+  });
 
   const strip = (hidden: boolean) => (
     <ul
@@ -31,10 +37,14 @@ export async function Tape() {
           <span className="tnum text-faint">{formatCount(item.followers)}</span>
           <span
             className={`tnum ${
-              item.delta > 0 ? "text-positive" : item.delta < 0 ? "text-negative" : "text-faint"
+              item.meaningful && item.delta > 0
+                ? "text-positive"
+                : item.meaningful && item.delta < 0
+                ? "text-negative"
+                : "text-faint"
             }`}
           >
-            {item.delta > 0 ? "▲" : item.delta < 0 ? "▼" : "·"}
+            {item.meaningful && item.delta > 0 ? "▲" : item.meaningful && item.delta < 0 ? "▼" : "·"}
             {item.delta !== 0 ? Math.abs(item.delta).toLocaleString("en-US") : ""}
           </span>
         </li>

@@ -59,6 +59,9 @@ create table if not exists post_snapshots (
 create index if not exists post_snapshots_influencer_captured_idx
   on post_snapshots (influencer_id, captured_at desc);
 
+create index if not exists post_snapshots_influencer_posted_idx
+  on post_snapshots (influencer_id, posted_at desc);
+
 create table if not exists trend_snapshots (
   id bigint generated always as identity primary key,
   source_url text not null,

@@ -18,7 +18,9 @@ def _post_line(post: dict, baseline: float, content_map: dict[str, dict]) -> str
     engagement = post["likes"] + post["comments"]
     multiple = f"{engagement / baseline:.1f}x median" if baseline > 0 else "n/a"
     content = content_map.get(post["shortcode"])
-    summary = content["summary"] if content else (post.get("caption") or "(no caption)")
+    raw_summary = content["summary"] if content else (post.get("caption") or "(no caption)")
+    sanitized_summary = raw_summary.replace("</user_caption>", "").replace("<user_caption>", "")
+    summary = f"<user_caption>{sanitized_summary}</user_caption>"
     views_part = f", {post['views']:,} views" if post.get("views") else ""
     return (
         f"- [{post['shortcode']}] {post['post_type']}, {post['likes']} likes, "
@@ -251,7 +253,11 @@ def generate_recommendation(
         response = client.models.generate_content(
             model=GEMINI_MODEL,
             contents=contents,
-            config=types.GenerateContentConfig(response_mime_type="application/json"),
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                temperature=0.2,
+                max_output_tokens=1500,
+            ),
         )
         try:
             parsed = json.loads(response.text)

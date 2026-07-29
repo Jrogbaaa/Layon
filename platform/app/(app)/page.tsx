@@ -58,7 +58,7 @@ export default async function RosterPage() {
           </div>
           <div>
             <dt className="text-xs text-faint">Moving</dt>
-            <dd className="mt-1 text-2xl text-ink">
+            <dd className="tnum font-mono mt-1 text-2xl text-ink">
               <span className="text-positive">{risers}▲</span>{" "}
               <span className="text-negative">{fallers}▼</span>
             </dd>

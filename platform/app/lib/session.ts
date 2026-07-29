@@ -3,9 +3,16 @@ import { createHmac, timingSafeEqual } from "crypto";
 
 const SESSION_VALUE = "authenticated";
 
+function getSecret(): string {
+  const secret = process.env.SESSION_SECRET;
+  if (!secret) {
+    throw new Error("CRITICAL SECURITY RISK: SESSION_SECRET environment variable is not defined.");
+  }
+  return secret;
+}
+
 function sign(value: string): string {
-  const secret = process.env.SESSION_SECRET ?? "";
-  return createHmac("sha256", secret).update(value).digest("hex");
+  return createHmac("sha256", getSecret()).update(value).digest("hex");
 }
 
 export function createSessionCookieValue(): string {

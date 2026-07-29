@@ -65,22 +65,33 @@ def _normalize_usernames(values: Any) -> list[str]:
     return usernames
 
 
+_PROFILE_CONTEXT_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
+_CACHE_TTL_SECONDS = 3600
+
 def _profile_context(loader, username: str) -> dict[str, Any]:
+    now = time.time()
+    if username in _PROFILE_CONTEXT_CACHE:
+        timestamp, cached_context = _PROFILE_CONTEXT_CACHE[username]
+        if now - timestamp < _CACHE_TTL_SECONDS:
+            return cached_context
+
     try:
         import instaloader
-
+        time.sleep(2.0)
         profile = instaloader.Profile.from_username(loader.context, username)
+        context = {
+            "username": username,
+            "full_name": getattr(profile, "full_name", None),
+            "biography": getattr(profile, "biography", None),
+            "is_business_account": getattr(profile, "is_business_account", None),
+            "business_category_name": getattr(profile, "business_category_name", None),
+            "lookup_status": "ok",
+        }
     except Exception:
-        return {"username": username, "lookup_status": "unavailable"}
+        context = {"username": username, "lookup_status": "unavailable"}
 
-    return {
-        "username": username,
-        "full_name": getattr(profile, "full_name", None),
-        "biography": getattr(profile, "biography", None),
-        "is_business_account": getattr(profile, "is_business_account", None),
-        "business_category_name": getattr(profile, "business_category_name", None),
-        "lookup_status": "ok",
-    }
+    _PROFILE_CONTEXT_CACHE[username] = (now, context)
+    return context
 
 
 def _hash_classification_inputs(post: dict, profile_contexts: list[dict[str, Any]]) -> str:

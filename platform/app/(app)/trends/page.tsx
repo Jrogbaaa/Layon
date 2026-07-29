@@ -53,7 +53,7 @@ export default async function TrendsPage() {
                     .toLocaleDateString("en-US", { month: "short", day: "numeric" })
                     .toUpperCase()}
                 </span>
-                <span className="text-accent-deep border border-border-faint px-1 rounded-[2px] text-[8px] tracking-wide">
+                <span className="text-accent border border-border-faint px-1.5 py-0.5 rounded-[2px] text-[10px] tracking-wide font-mono">
                   RAW REPORT · ORIGINAL SPANISH
                 </span>
               </p>
