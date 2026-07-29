@@ -104,6 +104,6 @@
     "schema": "additive period_start/period_end columns and partial unique week index applied live; legacy rows readable",
     "manual": "A marked historical week inserted once, rejected a duplicate, and exact cleanup returned zero rows. After remediation, real stored roster evidence again produced a valid bilingual seven-section Gemini payload with complete stale/due/evaluated sections and no current-week database mutation.",
     "evaluator": "PASS on independent re-evaluation — 4.5/5, Goal Alignment 5; all three blockers and the follower-provenance follow-up independently closed",
-    "pr_review": "Two CHANGES_REQUESTED passes: shortcode/referent/partial-strategy issues and an oldest-500 snapshot cutoff. All remediated with newest-window history, paginated complete shortcode provenance, 230 pytest, 33 Playwright, static/build, and live reads; re-review pending"
+    "pr_review": "APPROVE at 9fa066c after two remediation passes; direct 500+/pagination/live provenance probes, 230 pytest, 33 Playwright, lint/tsc/build, Vercel, and GitGuardian pass"
   }
 }

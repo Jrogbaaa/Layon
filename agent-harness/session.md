@@ -10,7 +10,7 @@ All four features have independent PASS verdicts. PR review remediation now cove
 shortcode provenance, feedback/outcome idea referents, partial strategy coverage, and the integrated
 oldest-500 snapshot cutoff. Weekly evidence uses the newest bounded snapshot window plus a paginated
 complete stored-shortcode index. Pytest is 230/230, Playwright 33/33, lint/type-check/build pass,
-and live newest-window/index reads match. PR re-review is pending before merge.
+and live newest-window/index reads match. Independent PR re-review returned APPROVE at 9fa066c.
 
 ## Generator Guardrails
 
@@ -25,5 +25,4 @@ and live newest-window/index reads match. PR re-review is pending before merge.
 
 ## Next Action
 
-Commit and push the verified PR-review remediation, then obtain an independent APPROVE before
-marking PR #19 ready and merging.
+Merge approved PR #19 into main.
