@@ -440,7 +440,7 @@
         "No API changes or external third-party metric integrations",
         "No styling overrides violating the Medianoche garnet/amber scheme"
       ],
-      "status": "in_progress",
+      "status": "built_and_verified",
       "priority": "medium",
       "owner_agent": "generator",
       "acceptance_criteria": [
@@ -458,7 +458,7 @@
       "dependencies": [
         "feature_015"
       ],
-      "verification": "Pending Generator and Evaluator passes 2026-07-14",
+      "verification": "Playwright 17/17, build, lint, and type-check pass; independent Evaluator PASS 5.0/5 (see progress.json/findings history).",
       "notes": "Spec: agent-harness/spec.md (rewritten 2026-07-14). Clean codebase is maintained by deleting placeholder empty directories."
     },
     {
@@ -471,7 +471,7 @@
         "No change to public Instagram data scraping restrictions (only public post.is_sponsored data is used)",
         "No changes to page layouts other than adding text labels or tags for ads"
       ],
-      "status": "in_progress",
+      "status": "built_and_verified",
       "priority": "medium",
       "owner_agent": "generator",
       "acceptance_criteria": [
@@ -515,6 +515,115 @@
         "feature_017"
       ],
       "notes": "Spec: agent-harness/spec.md (rewritten 2026-07-15). Discovered mid-session that post_snapshots never stored media URLs (Feature 017 gap) and that Post.from_shortcode in a loop gets the scraping account checkpoint-locked - see agent-harness/decisions.md 2026-07-15 entries. Live backfill run 2026-07-15: dante_caro paid=15/organic=36 (1 unsure resolved organic by user), mariavalero paid=12/organic=42 (1 unsure resolved organic by user), antonlofer paid=21/organic=31, ferminaldeguer_54 paid=20/organic=30, cristipedroche paid=21/organic=32. First Evaluator pass (feature_018) returned NEEDS REVISION: backfill_ads.py silently skipped the is_ad write when a shortcode's media couldn't be re-located (leaving stale values unreviewed) and neither new module had test coverage despite the featurelist claiming pytest was green. Both fixed same session: the skip path now explicitly writes is_ad=False, and test_ad_detection.py / test_backfill_ads.py were added (11 new tests covering the rubric short-circuit, classification fallback-to-unsure paths, dedup, and early-stop shortcode matching). Re-evaluation PASS (4.875/5): both fixes verified against current code, full suite re-run clean (158/158 pytest, lint/tsc/18/18 playwright)."
+    },
+    {
+      "id": "feature_019",
+      "name": "Shared talent strategy and trust foundation",
+      "goal": "Add a shared, editable current-strategy profile for every talent and make data freshness visible on roster and talent-detail surfaces.",
+      "why_it_matters": "Recommendations need current agency/talent goals in addition to stable persona and public performance, and users need to know when the evidence or recommendation is stale.",
+      "non_goals": [
+        "No recommendation feedback, experiments, post tagging, weekly review, or prompt changes",
+        "No individual accounts, roles, private notes, or separate talent view",
+        "No external notifications, CRM, campaign management, brand matching, or new social networks",
+        "No invented initial strategy values or scraper behavior changes"
+      ],
+      "status": "built_and_live_verified",
+      "priority": "high",
+      "owner_agent": "generator",
+      "acceptance_criteria": [
+        "Additive idempotent talent_strategies table with one row per influencer",
+        "Authenticated bounded server action saves shared strategy through server-only Supabase and revalidates routes",
+        "Bilingual inline strategy view/edit panel includes visibility notice and safe empty/pending/error states",
+        "Authored text remains verbatim while interface labels follow the global language toggle",
+        "Roster and talent pages show missing/stale snapshot state; talent page flags stale strategy and recommendation",
+        "Existing persona and all current analytics/recommendation behavior remain unchanged",
+        "Security docs permit only non-sensitive shared authored context and continue to forbid confidential data",
+        "Lint, type-check, build, Playwright, running-dev-server check, and independent Evaluator pass"
+      ],
+      "dependencies": ["feature_018"],
+      "notes": "Program plan approved by user 2026-07-29; spec.md rewritten for feature_019. Independent Evaluator PASS 4.5/5: pytest 190/190, Playwright 21/21, lint/tsc/build, live table read, and tracked-secret scan passed."
+    },
+    {
+      "id": "feature_020",
+      "name": "Recommendation feedback and deterministic next actions",
+      "goal": "Let shared-dashboard users respond to structured recommendation bullets, reuse bounded response context in future prompts, and surface one deterministic next action per talent.",
+      "why_it_matters": "Passive recommendations do not capture whether advice was useful or convert evidence into an explicit next move.",
+      "non_goals": [
+        "No post linking, seven-day evaluation, content tagging, pillar baselines, or weekly review",
+        "No task owners, private comments, individual accounts, external notifications, or CRM",
+        "No model training or autonomous preference inference",
+        "No migration or rewrite of legacy recommendation content"
+      ],
+      "status": "built_and_live_verified",
+      "priority": "high",
+      "owner_agent": "generator",
+      "acceptance_criteria": [
+        "Additive recommendation_actions schema with unique recommendation/bullet response and planned experiment state",
+        "Authenticated action validates ownership, bullet, decision, note, and revisit date before upsert",
+        "Bilingual compact feedback UI works for structured bullets while legacy markdown remains read-only",
+        "Recommendation prompt uses explicit strategy plus bounded recent feedback/outcome context with stated precedence",
+        "Deterministic next action appears on talent and roster surfaces",
+        "Attention is roster default sort while prior sorts remain",
+        "Pytest and platform coverage exercise prompt limits, validation, legacy fallback, and precedence branches",
+        "All automated/live checks and independent Evaluator pass"
+      ],
+      "dependencies": ["feature_019"],
+      "notes": "Independent re-evaluation PASS 4.625/5 after strict calendar validation and complete next-action/action transition coverage. Pytest 194/194, Playwright 27/27, lint/tsc/build, live schema integrity, temporary cleanup, and secret scan passed."
+    },
+    {
+      "id": "feature_021",
+      "name": "Experiments and strategy-aware performance",
+      "goal": "Turn planned recommendation actions into linked, seven-day experiments and evaluate them against strategy-aware like-for-like evidence without causal claims.",
+      "why_it_matters": "The agency needs to learn whether chosen ideas worked, using comparable public performance evidence rather than unstructured hindsight.",
+      "non_goals": [
+        "No weekly portfolio review, Slack/email/export, CRM, campaign workflow, or brand matching",
+        "No additional Instagram requests for tagging or evaluation",
+        "No causal lift claims, statistical significance claims, or model training",
+        "No individual accounts, private notes, task owners, or private talent data"
+      ],
+      "status": "built_and_live_verified",
+      "priority": "high",
+      "owner_agent": "generator",
+      "acceptance_criteria": [
+        "Additive action lifecycle and post_strategy_tags schema preserve existing feedback and manual overrides",
+        "Authenticated actions link only a talent-owned scraped post, abandon experiments, acknowledge outcomes, and override a post pillar",
+        "Publication sets a seven-day review time and daily evaluation is idempotent",
+        "Seven-day snapshot selection uses the closest capture within plus or minus 36 hours",
+        "Baselines prefer format plus paid/organic plus pillar with at least three comparisons, then fall back to format plus paid/organic",
+        "Outcomes compare interactions and available views, label insufficient/directional/strong confidence at under 3, 3-5, and 6+ samples, and avoid causal language",
+        "AI tagging uses stored captions/content analysis only, re-tags automatic classifications after strategy changes, preserves manual overrides, and flags removed-pillars",
+        "Talent pages show pillar performance, paid/organic separation, sample size/confidence, active experiments, and evaluated outcomes",
+        "Scraper/platform/live checks and independent Evaluator pass"
+      ],
+      "dependencies": ["feature_020"],
+      "notes": "Independent re-evaluation PASS 4.625/5 after zero-pillar, manual-null, and outcome-less queue remediation. Pytest 207/207, Playwright 30/30, lint/tsc/build, live integrity/cleanup and production fixture isolation passed."
+    },
+    {
+      "id": "feature_022",
+      "name": "Weekly portfolio review",
+      "goal": "Generate one idempotent bilingual Madrid-week coaching review and surface roster priorities, conversations, and portfolio operating metrics on the shared dashboard.",
+      "why_it_matters": "The agency needs a reliable weekly operating ritual that consolidates talent evidence and experiment learning into portfolio-level conversations.",
+      "non_goals": [
+        "No Slack, email, export, reminders, or separate talent portal",
+        "No CRM, brand matching, campaign management, or additional social platforms",
+        "No individual accounts, task owners, private notes, or private talent data",
+        "No daily duplicate briefing or rewrite of legacy briefing rows"
+      ],
+      "status": "built_and_live_verified",
+      "priority": "high",
+      "owner_agent": "generator",
+      "acceptance_criteria": [
+        "Additive briefing period fields and Madrid-week uniqueness preserve legacy rows",
+        "First successful daily run in each Madrid calendar week creates exactly one review, including missed-Monday recovery",
+        "Bilingual payload includes top three priorities, strongest creative win, primary risk, due/recent experiments, stale strategies, suggested conversations, and supporting handles/metrics/post links",
+        "Generator is idempotent and failures preserve the previous review without blocking the daily run",
+        "Legacy briefing payloads and rows without period fields still render",
+        "Roster shows weekly review plus strategy coverage, unresolved recommendations, active experiments, and experiment hit rate",
+        "Delivery remains platform-only",
+        "Pytest/platform/live checks and independent Evaluator pass"
+      ],
+      "dependencies": ["feature_021"],
+      "notes": "Final approved program slice opened only after Feature 021 independent PASS on 2026-07-29."
     }
   ]
 }

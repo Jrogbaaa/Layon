@@ -6,6 +6,8 @@ import { ViewTransition } from "react";
 import { Avatar } from "@/app/components/Avatar";
 import { Sparkline } from "@/app/components/Sparkline";
 import { Reveal } from "@/app/components/Reveal";
+import { useLanguage } from "@/app/components/LanguageProvider";
+import { getCaptureFreshness } from "@/app/lib/freshness";
 import type { RosterEntry } from "@/app/lib/types";
 
 type RosterIndexListProps = {
@@ -13,10 +15,15 @@ type RosterIndexListProps = {
 };
 
 export function RosterIndexList({ initialRoster }: RosterIndexListProps) {
-  const [sortBy, setSortBy] = useState<"audience" | "delta" | "name">("audience");
+  const { lang } = useLanguage();
+  const [sortBy, setSortBy] = useState<"attention" | "audience" | "delta" | "name">("attention");
 
   // Sorting
   const sorted = [...initialRoster].sort((a, b) => {
+    if (sortBy === "attention") {
+      return b.nextAction.priority - a.nextAction.priority
+        || (b.latestSnapshot?.followers ?? 0) - (a.latestSnapshot?.followers ?? 0);
+    }
     if (sortBy === "audience") {
       return (b.latestSnapshot?.followers ?? 0) - (a.latestSnapshot?.followers ?? 0);
     }
@@ -36,9 +43,10 @@ export function RosterIndexList({ initialRoster }: RosterIndexListProps) {
           <span className="text-faint font-mono text-xs">SORT:</span>
           <select
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as "audience" | "delta" | "name")}
+            onChange={(e) => setSortBy(e.target.value as "attention" | "audience" | "delta" | "name")}
             className="bg-transparent text-ink border-b border-border-faint outline-none py-1 cursor-pointer hover:border-accent focus:border-accent transition-colors font-mono text-xs"
           >
+            <option value="attention" className="bg-surface">ATTENTION PRIORITY</option>
             <option value="audience" className="bg-surface">AUDIENCE SIZE</option>
             <option value="delta" className="bg-surface">OVERNIGHT GROWTH</option>
             <option value="name" className="bg-surface">ALPHABETICAL</option>
@@ -68,9 +76,10 @@ export function RosterIndexList({ initialRoster }: RosterIndexListProps) {
             </div>
 
             <ol className="divide-y divide-border-faint">
-              {sorted.map(({ influencer, latestSnapshot, followerDelta, recentHighlights, history }, i) => {
+              {sorted.map(({ influencer, latestSnapshot, followerDelta, recentHighlights, history, nextAction }, i) => {
                 const hasWarning = recentHighlights.some((h) => h.metric?.severity === "warning");
                 const hasGood = recentHighlights.some((h) => h.metric?.severity === "good");
+                const freshness = getCaptureFreshness(latestSnapshot?.captured_at);
                 const followers = latestSnapshot?.followers ?? 0;
                 const meaningful = Math.abs(followerDelta) >= Math.max(5, followers * 0.0001);
                 const sparkValues = history.map((h) => h.followers);
@@ -112,6 +121,17 @@ export function RosterIndexList({ initialRoster }: RosterIndexListProps) {
                               breakout
                             </span>
                           ) : null}
+                          {freshness !== "current" ? (
+                            <span className="inline-flex items-center gap-1 text-negative">
+                              <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-negative" />
+                              {freshness === "missing"
+                                ? lang === "en" ? "data missing" : "sin datos"
+                                : lang === "en" ? "data stale" : "datos desactualizados"}
+                            </span>
+                          ) : null}
+                        </span>
+                        <span className="mt-1 block truncate text-xs text-muted">
+                          {lang === "en" ? "Next: " : "Siguiente: "}{nextAction.label[lang]}
                         </span>
                       </span>
 

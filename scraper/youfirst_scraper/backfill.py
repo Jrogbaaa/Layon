@@ -73,6 +73,9 @@ def run_recommendations(client) -> None:
             highlights = db.get_latest_highlights(client, influencer["id"])
             content_map = db.get_post_content_map(client, influencer["id"])
             alltime_top_posts = db.get_top_posts(client, influencer["id"])
+            strategy = db.get_talent_strategy(client, influencer["id"])
+            feedback = db.get_recent_recommendation_actions(client, influencer["id"], limit=10)
+            experiment_outcomes = db.get_recent_evaluated_experiments(client, influencer["id"], limit=5)
             content = recommendations.generate_recommendation(
                 handle,
                 profile_snapshots,
@@ -81,6 +84,10 @@ def run_recommendations(client) -> None:
                 highlights,
                 content_map,
                 alltime_top_posts,
+                None,
+                strategy,
+                feedback,
+                experiment_outcomes,
             )
             db.insert_recommendation(client, influencer["id"], recommendations.GEMINI_MODEL, content)
             logger.info("Generated recommendation for %s", handle)

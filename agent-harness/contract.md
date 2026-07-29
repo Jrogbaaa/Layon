@@ -44,7 +44,10 @@ and short notes.
 ## Data Constraints
 
 Respect the schema in `scraper/schema.sql`; do not create duplicate sources of truth.
-Every new persisted field needs a reason. Only public Instagram data may be stored.
+Every new persisted field needs a reason. Instagram collection remains public-only.
+Non-sensitive strategy/feedback deliberately authored for every dashboard user may be
+stored; private notes, contacts, contracts, payments, DMs, and confidential obligations
+may not.
 
 ## Testing Requirements
 

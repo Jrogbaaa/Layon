@@ -44,7 +44,9 @@ this flow — see the Triviality Threshold in contract.md.
 ## Data & Security
 
 - Supabase service key is server-side only — never exposed to the browser or committed.
-- Only public Instagram data is stored (no private accounts, no DMs).
+- Public Instagram data plus non-sensitive, intentionally shared strategy/feedback may be
+  stored. Never store private-account data, DMs, private notes, contacts, contracts,
+  payments, or confidential obligations.
 - Platform auth is a single shared password (`LAYCC`) via middleware — not per-user
   accounts. Do not add email/OAuth login without a new spec.
 - Never commit `.env` files or API keys.

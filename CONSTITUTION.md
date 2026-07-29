@@ -38,9 +38,10 @@ answer three questions for each influencer on the roster:
   Meta's Terms of Service. This is a deliberate, informed choice for a small (6-profile),
   low-frequency (daily), internal tool. If this ever needs to scale or become
   ToS-compliant, the Instagram Graph API is the documented upgrade path.
-- **Talent data privacy** — only public Instagram data is collected. No private account
-  data, DMs, or non-public information. The platform is password-gated, not open to the
-  public internet.
+- **Talent data privacy** — Instagram collection remains public-only. The platform may
+  additionally store non-sensitive strategy/feedback intentionally authored for everyone
+  with dashboard access. No private-account data, DMs, private notes, contacts, contracts,
+  payments, or confidential obligations. The platform is password-gated, not public.
 - **Bilingual** — recommendations and platform copy should work in Spanish and English;
   the agency and its talent operate in both.
 - **No influencer-brand matching** — that capability already exists in Project-X

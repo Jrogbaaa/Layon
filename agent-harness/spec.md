@@ -1,101 +1,91 @@
-# Spec - Feature 018: Accurate Paid Media / Organic Classification
-
-## Previous Feature Context
-
-Feature_017 added an `is_ad` boolean column and UI badges driven by Instaloader's
-`post.is_sponsored` flag, evaluated PASS at the time. In practice `is_sponsored` almost
-never fires (Instagram-declared paid partnerships only), so a same-session follow-up
-built a Gemini multimodal classifier — but its first prompt flagged any visible brand
-logo as an ad (e.g. a MotoGP racer's sponsor-covered gear scored 98% ads), which is
-this feature's starting problem.
+# Spec — Feature 022: Weekly Portfolio Review
 
 ## Goal
 
-Replace the over-aggressive ad-detection prompt with a strict, decidable rubric —
-"is a product deliberately featured or mentioned?" — and rename the UI from "Ad" to
-"Paid Media" / "Organic" throughout. Retroactively reclassify every stored post against
-the new rubric, surfacing genuinely ambiguous posts for manual user review instead of
-guessing.
+Generate exactly one evidence-backed bilingual coaching review per Madrid calendar week on the
+first successful daily run, and make portfolio review health visible on the shared roster.
 
-## Why It Matters / User Problem
+## Why It Matters
 
-Agency managers need to trust the paid/organic split to evaluate genuine audience
-traction vs. commercial engagements. A classifier that treats incidental brand
-visibility (sponsor logos, background signage, venue mentions) as "paid" produces
-unusable, misleading data — a false positive rate the user immediately spotted and
-rejected.
+Talent strategy, feedback, and experiments are useful individually, but an agency also needs a
+weekly ritual: which three conversations matter most, what worked, what is at risk, and where
+the operating system is stale. The review turns daily evidence into that portfolio agenda.
 
-## Intended User
+## Intended Users
 
-Agency talent managers reviewing daily roster performance.
-
-## Rubric (replaces Feature 017's Gemini prompt)
-
-- **paid**: a product is deliberately featured — held up/used/presented as the subject
-  of the shot, or mentioned/promoted in the caption (including discount codes, links,
-  brand @mentions presenting a product, or disclosure tags: #ad, #sponsored, #publi,
-  #publicidad, #colaboración, "paid partnership").
-- **organic**: no product featured or mentioned. Explicitly organic even with visible
-  brand imagery: athletes/public figures in professional gear/uniforms covered in
-  sponsor logos; logos/storefronts/signage in the background; mentioning a venue,
-  event, or friend's account without promoting a product.
-- **unsure**: genuinely ambiguous — never guessed. Collected and reported to the user
-  with the post's Instagram link for a manual verdict.
+Agency managers and talent sharing the existing password-gated product. The review contains
+only non-sensitive strategy, feedback, experiment, and public Instagram evidence.
 
 ## Scope
 
-- `scraper/youfirst_scraper/ad_detection.py` — rewritten prompt (reason-first JSON,
-  three-way classification), `detect_ad` returns `"paid" | "organic" | "unsure"`.
-- `scraper/youfirst_scraper/backfill_ads.py` — re-checks every stored post (not just
-  previously-unflagged ones); re-derives media via one profile re-scrape per
-  influencer (post_snapshots never persisted `thumbnail_url`/`video_url`), matching
-  by shortcode with an early-stop once every needed shortcode for that influencer is
-  found; writes `is_ad` back unconditionally per snapshot row; logs a per-influencer
-  paid/organic/unsure breakdown and a full unsure list with Instagram links.
-- `scraper/youfirst_scraper/run_daily.py` — session-expiry notification points at the
-  cookie-import recovery command instead of the blocked `--login` flow.
-- `scraper/youfirst_scraper/instagram_scraper.py`, `config.py`, `scraper/README.md` —
-  documentation updated to `instaloader --load-cookies Chrome` as the only supported
-  auth path; `--login` explicitly called out as broken for this account.
-- `platform/app/components/EngagementChart.tsx` — tooltip shows "· Paid Media" or
-  "· Organic"; `PublicationDetails` badge renders "Paid Media" or an "Organic" variant
-  (muted, no amber fill); dot aria-label says "Paid media, ...".
-- `platform/app/components/RecentPostsTable.tsx`,
-  `platform/app/(app)/influencer/[handle]/page.tsx` — badge text "Ad" → "Paid Media"
-  (shown only on paid posts, per the Signal Rule).
-- `platform/e2e/dashboard.spec.ts` — updated assertions for "Paid Media" text, added an
-  assertion that a non-ad point's tooltip shows "· Organic".
+- Add nullable `period_start` and `period_end` to `roster_briefings`, plus uniqueness for rows
+  with a period start. Legacy rows remain unchanged and readable.
+- Compute Madrid calendar-week Monday/Sunday boundaries. On every successful daily pipeline,
+  check whether the current week exists; generate only when absent. This naturally recovers on
+  Tuesday or later after a missed Monday.
+- Build structured evidence from current roster state, public performance, latest unanswered
+  recommendation bullets, strategy freshness, warning signals, experiment review dates, and
+  evaluated outcomes.
+- Gemini returns one bilingual JSON payload with top three priorities, strongest creative win,
+  primary risk, due/recently evaluated experiments, stale strategy profiles, suggested talent
+  conversations, and supporting handles/metrics/post links.
+- Upsert/insert the review idempotently by Madrid-week period. A generation/validation/storage
+  failure keeps the previous review and does not fail the daily pipeline.
+- The roster renders the new weekly payload and legacy briefing format. It also shows strategy
+  coverage, unresolved recommendation count, active experiment count, and experiment hit rate.
 
-## Non-Goals / Out of Scope
+## Non-Goals
 
-- No three-way `is_ad` column (stays boolean: paid → true, organic/unsure → false).
-- No automated resolution of "unsure" posts — always a human verdict.
-- No change to how `is_ad` propagates through `data.ts`/`types.ts` (unchanged from
-  Feature 017).
-- No Instagram Graph API migration or paid scraping provider (evaluated as a possible
-  future step in agent-harness/decisions.md, not built).
+- No Slack, email, export, reminder, calendar event, or external delivery.
+- No separate talent portal, individual accounts, roles, task owners, or private notes.
+- No CRM, campaign management, brand matching, or additional social networks.
+- No rewrite/backfill of legacy briefing content or daily duplicate review.
+
+## Decisions and Invariants
+
+1. Madrid-week periods are Monday 00:00 through Sunday 23:59:59.999 by calendar date; stored
+   period fields are inclusive date values (`YYYY-MM-DD`).
+2. Uniqueness is on `period_start` only for non-null rows, so legacy null-period rows coexist.
+3. Generation is attempted after scrape, tagging, experiment evaluation, and recommendations,
+   so the review sees the newest successful-run evidence.
+4. A week is considered present only after a valid review row is stored. A failed Monday run
+   therefore retries on the next successful daily fire.
+5. Hit rate denominator includes evaluated outcomes with a non-null interaction delta; a hit is
+   directional/strong evidence with positive interaction delta. Empty denominator displays `—`,
+   never 0%.
+6. Strategy coverage is profiles with at least one substantive current field divided by active
+   talent count. Unresolved recommendations count current structured bullets lacking an action.
+7. All payload evidence links use stored shortcodes/source URLs; Gemini may summarize but may not
+   invent handles, metrics, or links.
 
 ## Acceptance Criteria
 
-1. `ad_detection.detect_ad` returns "paid"/"organic"/"unsure" per the rubric above; a
-   platform-declared paid partnership (`post.is_sponsored`) short-circuits to "paid".
-2. `backfill_ads.py` re-classifies every unique (influencer, shortcode) pair in
-   `post_snapshots`, updates `is_ad` on all matching rows, and prints a per-influencer
-   paid/organic/unsure count plus a full unsure list with Instagram links.
-3. A post with only incidental brand visibility (e.g. sponsor-logo gear) classifies
-   organic; a post with an explicit disclosure tag or product-holding shot classifies
-   paid.
-4. Chart tooltip/details card show "Paid Media" or "Organic"; table/Greatest Hits show
-   a "Paid Media" badge only (no "Organic" badge, to keep the amber accent scarce).
-5. `pytest`, `npm run lint`, `npx tsc --noEmit`, and `npx playwright test` all pass.
-6. Instagram auth path documented and working end-to-end via cookie import; no code or
-   docs reference `instaloader --login` as the recovery path.
+1. Additive/idempotent schema adds nullable period dates and a partial unique Madrid-week index;
+   legacy rows and content formats remain intact.
+2. Pure Madrid-week calculation passes Sunday/Monday, month/year, DST, and timezone-boundary
+   tests for `Europe/Madrid`.
+3. The daily pipeline checks after current evidence stages and creates at most one review for the
+   current week; missed Monday recovers later; failures log/continue and do not mark a phantom week.
+4. Weekly evidence and validated bilingual payload contain all seven required sections with
+   supporting handles, metrics, and post links constrained to supplied evidence.
+5. Existing legacy `summary/patterns/actions` briefing JSON still renders, while the new payload
+   renders bilingual sections and period labels safely.
+6. Roster KPI calculations correctly handle zero roster/strategy/experiment denominators and
+   report strategy coverage, unresolved bullets, active experiments, and experiment hit rate.
+7. Platform delivery is the only delivery; no connector, notification, export, account, or CRM
+   code is added.
+8. Scraper tests cover week boundaries, first-run/recovery/idempotency, payload validation,
+   evidence shaping, and failure preservation. Platform tests cover both briefing formats,
+   bilingual review, period display, and KPI edge states.
+9. Pytest, lint, TypeScript, build, Playwright, live additive schema/read verification, a marked
+   weekly idempotency check with exact cleanup, and independent Evaluator review pass.
 
 ## Verification Plan
 
-- `pytest` in `scraper/` for unit coverage.
-- `python -m youfirst_scraper.backfill_ads` against real Supabase/Instagram data —
-  review the per-influencer breakdown and the unsure list with the user before
-  committing.
-- `npx playwright test` for the renamed-label e2e coverage.
-- Manual dev-server check: hover a paid vs. organic chart point, confirm labels.
+- Scraper: pure timezone/period/evidence/payload tests and mocked daily idempotency/failure tests;
+  full pytest.
+- Platform: deterministic legacy/new review and KPI fixtures; full Playwright/lint/tsc/build.
+- Live: apply additive schema; insert/upsert the same marked non-current historical period twice,
+  prove one row, then remove only that marker row. Do not create the real current-week review as
+  part of testing.
+- Evaluator: fresh independent subagent must record PASS before the program is complete.

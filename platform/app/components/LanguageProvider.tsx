@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 
 export type Lang = "en" | "es";
 
@@ -13,16 +13,17 @@ const LanguageContext = createContext<{ lang: Lang; toggle: () => void }>({
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [lang, setLang] = useState<Lang>("en");
+  const interacted = useRef(false);
 
   useEffect(() => {
     const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (stored === "en" || stored === "es") {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing from localStorage, an external system, on mount
+    if (!interacted.current && (stored === "en" || stored === "es")) {
       setLang(stored);
     }
   }, []);
 
   const toggle = () => {
+    interacted.current = true;
     setLang((prev) => {
       const next = prev === "en" ? "es" : "en";
       window.localStorage.setItem(STORAGE_KEY, next);

@@ -69,7 +69,10 @@ def test_run_recommendations_calls_generate_recommendation_with_current_signatur
 
     calls = {}
 
-    def fake_generate(handle, profile_snapshots, posts, persona=None, highlights=None, content_map=None, alltime_top_posts=None):
+    def fake_generate(
+        handle, profile_snapshots, posts, persona=None, highlights=None, content_map=None,
+        alltime_top_posts=None, trend_items=None, strategy=None, feedback=None, experiment_outcomes=None,
+    ):
         calls["args"] = (handle, persona, highlights, content_map, alltime_top_posts)
         return "content"
 

@@ -261,3 +261,106 @@ dead handles for diminishing returns. The gate can add up to 5 minutes before a 
 The fix cannot be verified against the condition it targets except by observing a real
 launchd fire on a waking laptop. It also does not address the `ProfileNotExistsException`
 failures for live handles, which are Instagram soft-blocking the session — a separate issue.
+
+### 2026-07-29 — Shared strategy context is visible and editable to every dashboard user
+
+**Decision:** Store only non-sensitive current strategy in Supabase and expose the same
+view/edit controls to every visitor authenticated by the existing shared password. Keep
+the current roster and talent-detail information architecture; do not add roles or a
+separate talent portal.
+
+**Reason:** The user explicitly wants one shared dashboard that agency staff and talent can
+all use and chose universal editing over an additional manager credential.
+
+**Tradeoffs:** There is no per-user attribution or edit isolation. Private notes, contact
+details, contracts, payments, DMs, and confidential obligations remain prohibited. Every
+form states that its contents are shared with everyone who has dashboard access.
+
+### 2026-07-29 — Recommendation feedback is one shared decision per stored bullet
+
+**Decision:** Key feedback by stored recommendation ID plus bullet index. Keep the five
+approved decisions, optional shared note and revisit date on the same row; set `try` to a
+planned experiment state that Feature 021 will extend. Legacy prose stays readable but cannot
+receive feedback because it has no stable bullet identity.
+
+**Reason:** This is the smallest durable bridge from advice to action. It prevents duplicate
+responses, gives future prompts bounded agency context, and avoids inventing a migration for
+old free-form content.
+
+**Tradeoffs:** Decisions have no individual author because the product deliberately retains
+one shared password and universal editing. Prompt context is capped at ten recent decisions
+and five evaluated experiments; explicit current strategy always wins over inferred feedback.
+
+### 2026-07-29 — Next action uses fixed operational precedence
+
+**Decision:** Resolve exactly one action in this order: missing/stale evidence, evaluated
+experiment review, warning signal, active experiment, unanswered current recommendation,
+then no immediate action. Make that priority the roster default sort while retaining audience,
+growth, and alphabetical sorts.
+
+**Reason:** A deterministic queue is explainable and stable across page loads; it does not ask
+Gemini to make operational prioritization decisions.
+
+**Tradeoffs:** A higher-precedence state intentionally hides lower-priority work until it is
+resolved. Feature 021 will add richer experiment readiness and acknowledgement semantics.
+
+### 2026-07-29 — Experiments extend recommendation actions and compare seven-day maturity
+
+**Decision:** Keep one experiment on the existing recommendation-action row. Link only a
+talent-owned stored shortcode, copy its publication timestamp, and evaluate the target and every
+comparator at the closest stored snapshot to seven days after publication within ±36 hours.
+
+**Reason:** The action already holds the intent and shared feedback. Extending it prevents a
+second source of truth, while equal-age snapshots avoid comparing a mature post with a newly
+published one.
+
+**Tradeoffs:** Experiments without a qualifying seven-day snapshot remain pending. Evaluation
+is directional and median-based; it intentionally does not claim statistical or causal lift.
+
+### 2026-07-29 — Manual pillar overrides survive strategy changes
+
+**Decision:** Store automatic/manual source and strategy version on one post tag. Daily tagging
+refreshes stale automatic rows from stored content only. Strategy saves flag manual tags whose
+pillar was removed but never overwrite them.
+
+**Reason:** Strategy edits should improve automatic classification without erasing a human
+judgment or causing extra Instagram traffic.
+
+**Tradeoffs:** A removed manual pillar can remain visible as a warning until a user chooses an
+active replacement. Null automatic tags are allowed when evidence does not fit a pillar.
+
+### 2026-07-29 — Weekly review is keyed by Madrid Monday and recovers after missed runs
+
+**Decision:** Store inclusive Madrid-week start/end dates and use a partial unique index on
+non-null `period_start`. Check/generate on every successful daily pipeline rather than only on
+Monday.
+
+**Reason:** A Monday-only cron check cannot recover from a sleeping laptop or failed scrape. A
+presence check on each successful run produces exactly one review at the earliest opportunity.
+
+**Tradeoffs:** A review generated later in the week includes newer evidence than a Monday review,
+which is desirable recovery behavior. Legacy rows keep null periods and are not deduplicated.
+
+### 2026-07-29 — Portfolio KPIs are deterministic and denominator-safe
+
+**Decision:** Compute strategy coverage, unresolved current bullets, active experiments, and hit
+rate in application code. Hit rate counts positive evaluated interaction deltas only when an
+outcome exists; no evaluated denominator renders an em dash.
+
+**Reason:** These operating metrics should be explainable and stable, not generated by Gemini.
+
+**Tradeoffs:** Hit rate is a directional operating signal, not causal efficacy or statistical
+significance. Acknowledgement does not remove outcomes from the denominator.
+
+### 2026-07-29 — Weekly narrative is validated against section-specific evidence
+
+**Decision:** Require exactly three priorities when the roster has at least three talents, reject
+unknown metrics/shortcodes/handles, and constrain stale-strategy and experiment sections to the
+matching supplied evidence subsets. Malformed stored weekly JSON falls back without crashing.
+
+**Reason:** A valid roster handle alone is not evidence that its strategy is stale or its
+experiment is due. Section-specific validation keeps the generated agenda trustworthy while the
+legacy parser preserves old briefings.
+
+**Tradeoffs:** Gemini may need one bounded retry when it paraphrases a metric or omits a priority;
+the previous review remains visible if both attempts fail.

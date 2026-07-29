@@ -35,6 +35,9 @@ def build_prompt(
     content_map: dict[str, dict] | None = None,
     alltime_top_posts: list[dict] | None = None,
     trend_items: list[str] | None = None,
+    strategy: dict | None = None,
+    feedback: list[dict] | None = None,
+    experiment_outcomes: list[dict] | None = None,
 ) -> str:
     content_map = content_map or {}
     deduped: dict[str, dict] = {}
@@ -94,10 +97,42 @@ from this list in the recommendation text itself. Never write a vague placeholde
 the persona, base the recommendation on the performance data instead of inventing a trend.
 """
 
+    strategy_section = ""
+    if strategy:
+        strategy_section = f"""
+CURRENT SHARED STRATEGY (explicit agency direction; treat verbatim as current context):
+{json.dumps(strategy, ensure_ascii=False, default=str)}
+This explicit current strategy takes precedence over persona assumptions and any patterns
+you might infer from prior feedback. Respect its objective, audience, pillars, tone,
+guardrails, commercial direction, constraints, and horizon.
+"""
+
+    feedback_section = ""
+    bounded_feedback = (feedback or [])[:10]
+    if bounded_feedback:
+        feedback_section = f"""
+TEN MOST RECENT OR FEWER SHARED FEEDBACK DECISIONS (signals, not strategy):
+{json.dumps(bounded_feedback, ensure_ascii=False, default=str)}
+Use these decisions to avoid repeating rejected or already-planned ideas. Never let inferred
+preferences from this feedback override the explicit current strategy above.
+"""
+
+    outcomes_section = ""
+    bounded_outcomes = (experiment_outcomes or [])[:5]
+    if bounded_outcomes:
+        outcomes_section = f"""
+FIVE MOST RECENT OR FEWER EVALUATED EXPERIMENTS (directional lessons, not causal proof):
+{json.dumps(bounded_outcomes, ensure_ascii=False, default=str)}
+Use outcomes as supporting evidence only; do not claim they caused the observed result.
+"""
+
     return f"""You are an emotionally intelligent creative strategist for @{handle}, an Instagram influencer.
 
 Influencer: @{handle}
 {persona_section}
+{strategy_section}
+{feedback_section}
+{outcomes_section}
 Metrics (from real scraped data):
 - Engagement rate: {computed_metrics['engagement_rate_pct']}%
 - Follower change since last snapshot: {computed_metrics['follower_delta']}
@@ -172,6 +207,9 @@ def generate_recommendation(
     content_map: dict[str, dict] | None = None,
     alltime_top_posts: list[dict] | None = None,
     trend_items: list[str] | None = None,
+    strategy: dict | None = None,
+    feedback: list[dict] | None = None,
+    experiment_outcomes: list[dict] | None = None,
 ) -> str | None:
     computed_metrics = metrics.compute_metrics(profile_snapshots, posts)
     prompt = build_prompt(
@@ -183,6 +221,9 @@ def generate_recommendation(
         content_map,
         alltime_top_posts,
         trend_items,
+        strategy,
+        feedback,
+        experiment_outcomes,
     )
 
     client = genai.Client(api_key=config.GOOGLE_API_KEY)

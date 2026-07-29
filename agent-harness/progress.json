@@ -60,5 +60,49 @@
     "tsc": "pass",
     "evaluator": "PASS — 5.0/5 average score; findings written to findings.md",
     "manual": "Verified global language toggle navigation placement, client-side roster filter/sort (without search bar), mobile delta stacking, dynamic metadata page titles, biography, following/posts counts, hover-and-click engagement chart locking (Escape/close button), and password show/hide eye icon toggle."
+  },
+  "feature_019": {
+    "status": "built_and_live_verified",
+    "pytest": "n/a (platform/schema feature; no scraper behavior change)",
+    "playwright": "21/21 passed against a clean running Next.js dev server",
+    "build": "pass",
+    "lint": "pass — 0 errors, 1 unrelated existing Avatar warning",
+    "tsc": "pass",
+    "schema": "additive schema.sql applied to live Supabase; talent_strategies reachable",
+    "manual": "Protected saveTalentStrategy action wrote a marked temporary objective through the live UI, the row was confirmed in Supabase, then the temporary row was deleted; final strategy row count returned to 0. Impeccable dual-agent critique recorded 23/40 and shaped the decision-first placement.",
+    "evaluator": "PASS — 4.5/5 average, Goal Alignment 5; no critical/privacy issues; findings.md updated"
+  },
+  "feature_020": {
+    "status": "built_and_live_verified",
+    "pytest": "194/194 passed",
+    "playwright": "27/27 passed against a clean Next.js dev server after evaluator remediation",
+    "build": "pass",
+    "lint": "pass — 0 errors, 1 unrelated existing Avatar warning",
+    "tsc": "pass",
+    "schema": "additive recommendation_actions schema applied to live Supabase",
+    "manual": "Protected response action created a marked temporary planned experiment through the live UI, SQL confirmed it, and exact-marker cleanup returned zero rows. Targeted real Gemini generation used real stored performance evidence plus temporary in-memory strategy and cited both without storing output.",
+    "evaluator": "PASS on independent re-evaluation — 4.625/5, Goal Alignment 5"
+  },
+  "feature_021": {
+    "status": "built_and_live_verified",
+    "pytest": "206/206 passed",
+    "playwright": "30/30 passed against a clean Next.js dev server",
+    "build": "pass",
+    "lint": "pass — 0 errors, 1 unrelated existing Avatar warning",
+    "tsc": "pass",
+    "schema": "additive action lifecycle columns and post_strategy_tags table applied live; existing records intact",
+    "manual": "Live protected lifecycle rejected foreign posts, linked owned posts at exactly +7 days, abandoned and acknowledged outcomes; manual overrides survived strategy edits and were flagged when removed. Stored-evidence Gemini wrote 6 valid automatic tags with 0 Instagram requests, then cleaned. A marked due experiment evaluated once with n=5 directional confidence and returned 0 on repeat, then cleaned. All Feature 021 markers returned zero.",
+    "evaluator": "PASS on independent re-evaluation — 4.625/5, Goal Alignment 5"
+  },
+  "feature_022": {
+    "status": "built_and_live_verified",
+    "pytest": "220/220 passed after evaluator remediation",
+    "playwright": "32/32 passed against a clean Next.js development server",
+    "build": "pass",
+    "lint": "pass — 0 errors, 1 unrelated existing Avatar warning",
+    "tsc": "pass",
+    "schema": "additive period_start/period_end columns and partial unique week index applied live; legacy rows readable",
+    "manual": "A marked historical week inserted once, rejected a duplicate, and exact cleanup returned zero rows. After remediation, real stored roster evidence again produced a valid bilingual seven-section Gemini payload with complete stale/due/evaluated sections and no current-week database mutation.",
+    "evaluator": "PASS on independent re-evaluation — 4.5/5, Goal Alignment 5; all three blockers and the follower-provenance follow-up independently closed"
   }
 }

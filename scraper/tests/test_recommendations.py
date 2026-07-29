@@ -97,6 +97,43 @@ def test_build_prompt_requests_bilingual_output():
     assert "BOTH English and Spanish" in prompt
 
 
+def test_build_prompt_gives_explicit_strategy_precedence_over_feedback():
+    prompt = recommendations.build_prompt(
+        "handle",
+        _metrics(),
+        [],
+        persona="Legacy persona",
+        strategy={"current_objective": "Grow authority", "content_pillars": ["craft"]},
+        feedback=[{"decision": "not_relevant", "shared_note": "avoid trends"}],
+    )
+    assert "CURRENT SHARED STRATEGY" in prompt
+    assert "Grow authority" in prompt
+    assert "takes precedence" in prompt
+    assert "avoid trends" in prompt
+    assert prompt.index("CURRENT SHARED STRATEGY") < prompt.index("SHARED FEEDBACK DECISIONS")
+
+
+def test_build_prompt_bounds_feedback_and_evaluated_experiments():
+    feedback = [{"decision": "revisit", "shared_note": f"feedback-{i}"} for i in range(12)]
+    outcomes = [{"shared_note": f"outcome-{i}"} for i in range(7)]
+    prompt = recommendations.build_prompt(
+        "handle", _metrics(), [], feedback=feedback, experiment_outcomes=outcomes
+    )
+    assert "feedback-9" in prompt
+    assert "feedback-10" not in prompt
+    assert "outcome-4" in prompt
+    assert "outcome-5" not in prompt
+
+
+def test_build_prompt_omits_shared_context_when_empty():
+    prompt = recommendations.build_prompt(
+        "handle", _metrics(), [], strategy=None, feedback=[], experiment_outcomes=[]
+    )
+    assert "CURRENT SHARED STRATEGY" not in prompt
+    assert "SHARED FEEDBACK DECISIONS" not in prompt
+    assert "EVALUATED EXPERIMENTS" not in prompt
+
+
 def test_build_prompt_omits_trend_section_when_no_trend_items():
     prompt = recommendations.build_prompt("handle", _metrics(), [], trend_items=None)
     assert "trending in Spain" not in prompt
