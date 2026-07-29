@@ -2,31 +2,27 @@
 
 ## Current Goal
 
-feature_014 review remediation — strict publication timestamps, persistent all-invalid
-details, usable dense mobile selection, and deterministic edge-case browser coverage.
+Talent Coaching Cockpit Program — Features 019 through 022 complete.
 
 ## Current State
 
-**Built, locally verified, and independently evaluated PASS (4.75/5).**
+All four features have independent PASS verdicts. PR review remediation now covers recommendation
+shortcode provenance, feedback/outcome idea referents, partial strategy coverage, and the integrated
+oldest-500 snapshot cutoff. Weekly evidence uses the newest bounded snapshot window plus a paginated
+complete stored-shortcode index. Pytest is 230/230, Playwright 33/33, lint/type-check/build pass,
+and live newest-window/index reads match. Independent PR re-review returned APPROVE at 9fa066c.
 
-- `EngagementChart.tsx` accepts only explicit-timezone ISO/Supabase timestamps and
-  reuses parsed instants for date and interval formatting.
-- All-invalid posts remain selectable and retain engagement details.
-- Dense layouts keep aligned visual markers and use 44px previous/next controls below
-  the large breakpoint; desktop keeps aligned keyboard-accessible marker buttons.
-- A development-only fixture route covers dense, malformed, all-invalid, one-post, and
-  no-post inputs without querying Supabase and returns 404 in production.
-- Type-check, lint, production build, and all 16 Playwright tests pass; the fixture
-  route returns 404 from the production server. Live desktop and 390px localhost checks
-  pass without browser console errors or horizontal overflow.
-- The initial evaluator found parallel default Playwright execution and incomplete
-  dense-mobile correspondence assertions. The suite is now configured for one worker,
-  and the dense fixture proves point, marker, position, persistent details, and tooltip
-  content all describe the same selected post. The default suite passes 16/16.
-- A fresh independent evaluator reran the default suite and all required checks, found
-  no actionable defects, and recorded PASS in `findings.md`.
+## Generator Guardrails
+
+- Goal: create one bilingual Madrid-week portfolio review on the first successful run and make
+  portfolio coaching health visible on the shared roster.
+- Non-goals: no notifications/exports, portal/accounts, CRM/campaigns/brand matching, private
+  notes, new networks, or legacy briefing rewrites.
+- Likely files: additive briefing schema/types, weekly evidence builder/generator and daily-run
+  guard, roster data/KPI aggregation and review UI, plus scraper/Playwright tests.
+- Risk areas: timezone/week boundaries, missed-Monday recovery, duplicate generation, legacy JSON,
+  small/zero experiment denominator, stale-strategy definitions, and evidence-link integrity.
 
 ## Next Action
 
-Stage and commit the scoped Feature 014 remediation files, including the untracked
-development fixture route, when the user is ready to update the PR.
+Merge approved PR #19 into main.

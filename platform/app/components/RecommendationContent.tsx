@@ -2,6 +2,8 @@
 
 import ReactMarkdown from "react-markdown";
 import { useLanguage } from "@/app/components/LanguageProvider";
+import { RecommendationFeedback } from "@/app/components/RecommendationFeedback";
+import type { RecommendationAction } from "@/app/lib/types";
 
 type BilingualText = { en: string; es: string };
 type Bullet = {
@@ -28,7 +30,19 @@ function pick(value: string | BilingualText | null | undefined, lang: "en" | "es
   return typeof value === "string" ? value : value[lang];
 }
 
-export function RecommendationContent({ content }: { content: string }) {
+export function RecommendationContent({
+  content,
+  recommendationId,
+  influencerId,
+  handle,
+  actions = [],
+}: {
+  content: string;
+  recommendationId?: number;
+  influencerId?: number;
+  handle?: string;
+  actions?: RecommendationAction[];
+}) {
   const { lang } = useLanguage();
   const bullets = parseBullets(content);
 
@@ -71,6 +85,15 @@ export function RecommendationContent({ content }: { content: string }) {
                 >
                   Ver post →
                 </a>
+              ) : null}
+              {recommendationId && influencerId && handle ? (
+                <RecommendationFeedback
+                  recommendationId={recommendationId}
+                  influencerId={influencerId}
+                  handle={handle}
+                  bulletIndex={i}
+                  current={actions.find((action) => action.bullet_index === i) ?? null}
+                />
               ) : null}
             </div>
           </li>

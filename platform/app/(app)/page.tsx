@@ -1,15 +1,16 @@
 import Link from "next/link";
-import { getLatestBriefing, getRoster } from "@/app/lib/data";
+import { getLatestBriefing, getPortfolioKpis, getRoster } from "@/app/lib/data";
 import { HighlightContent } from "@/app/components/HighlightContent";
 import { RosterBriefing } from "@/app/components/RosterBriefing";
 import { CountUp } from "@/app/components/CountUp";
 import { Reveal } from "@/app/components/Reveal";
 import { RosterIndexList } from "@/app/components/RosterIndexList";
+import { PortfolioHealth } from "@/app/components/PortfolioHealth";
 
 export const dynamic = "force-dynamic";
 
 export default async function RosterPage() {
-  const [roster, briefing] = await Promise.all([getRoster(), getLatestBriefing()]);
+  const [roster, briefing, portfolioKpis] = await Promise.all([getRoster(), getLatestBriefing(), getPortfolioKpis()]);
 
   const ranked = [...roster].sort(
     (a, b) => (b.latestSnapshot?.followers ?? 0) - (a.latestSnapshot?.followers ?? 0),
@@ -74,7 +75,7 @@ export default async function RosterPage() {
       >
         {briefing ? (
           <Reveal>
-            <RosterBriefing content={briefing.content} generatedAt={briefing.generated_at} />
+            <RosterBriefing content={briefing.content} generatedAt={briefing.generated_at} periodStart={briefing.period_start} periodEnd={briefing.period_end} />
           </Reveal>
         ) : null}
 
@@ -104,6 +105,8 @@ export default async function RosterPage() {
           </Reveal>
         ) : null}
       </div>
+
+      <PortfolioHealth kpis={portfolioKpis} />
 
       {/* The index */}
       {roster.length === 0 ? (

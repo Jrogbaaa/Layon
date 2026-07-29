@@ -18,6 +18,9 @@ import { RecentPostsTable } from "@/app/components/RecentPostsTable";
 import { RecommendationContent } from "@/app/components/RecommendationContent";
 import { CountUp } from "@/app/components/CountUp";
 import { Reveal } from "@/app/components/Reveal";
+import { StrategyPanel } from "@/app/components/StrategyPanel";
+import { NextActionPanel } from "@/app/components/NextActionPanel";
+import { ExperimentPanel } from "@/app/components/ExperimentPanel";
 import { getListPostStatusLabel, getPostStatus, getPostStatusBadgeClass } from "@/app/lib/post-status";
 
 export async function generateMetadata({ params }: { params: Promise<{ handle: string }> }): Promise<Metadata> {
@@ -36,7 +39,20 @@ export default async function InfluencerPage({ params }: { params: Promise<{ han
     notFound();
   }
 
-  const { influencer, profileHistory, recentPosts, chartPosts, latestRecommendation, highlights, topPosts } = dashboard;
+  const {
+    influencer,
+    profileHistory,
+    recentPosts,
+    chartPosts,
+    latestRecommendation,
+    recommendationActions,
+    nextAction,
+    postStrategyTags,
+    pillarPerformance,
+    strategy,
+    highlights,
+    topPosts,
+  } = dashboard;
   const latestSnapshot = profileHistory[profileHistory.length - 1] ?? null;
   const followers = latestSnapshot?.followers ?? 0;
   const rate = followers > 0 ? engagementRate(recentPosts, followers) : 0;
@@ -105,8 +121,17 @@ export default async function InfluencerPage({ params }: { params: Promise<{ han
         </div>
       </div>
 
+      <StrategyPanel
+        influencer={influencer}
+        strategy={strategy}
+        latestCaptureAt={latestSnapshot?.captured_at ?? null}
+        recommendationGeneratedAt={latestRecommendation?.generated_at ?? null}
+      />
+
+      <NextActionPanel action={nextAction} />
+
       {/* Stat band */}
-      <dl className="mt-10 mb-14 grid grid-cols-2 gap-x-4 gap-y-8 border-y border-border-faint py-6 sm:grid-cols-6 sm:divide-x sm:divide-border-faint">
+      <dl className="mb-14 grid grid-cols-2 gap-x-4 gap-y-8 border-y border-border-faint py-6 sm:grid-cols-6 sm:divide-x sm:divide-border-faint">
         <div className="sm:pr-4">
           <dt className="text-xs text-faint">Followers</dt>
           <dd className="font-mono mt-2 text-3xl text-ink">
@@ -294,7 +319,15 @@ export default async function InfluencerPage({ params }: { params: Promise<{ han
         </div>
         {latestRecommendation ? (
           <>
-            <RecommendationContent content={latestRecommendation.content} />
+            <RecommendationContent
+              content={latestRecommendation.content}
+              recommendationId={latestRecommendation.id}
+              influencerId={influencer.id}
+              handle={influencer.handle}
+              actions={recommendationActions.filter(
+                (action) => action.recommendation_id === latestRecommendation.id,
+              )}
+            />
             <p className="font-mono mt-6 text-xs text-faint">
               Updated{" "}
               {new Date(latestRecommendation.generated_at).toLocaleDateString("en-US", {
@@ -309,6 +342,15 @@ export default async function InfluencerPage({ params }: { params: Promise<{ han
           </p>
         )}
       </Reveal>
+
+      <ExperimentPanel
+        influencer={influencer}
+        actions={recommendationActions}
+        posts={recentPosts}
+        tags={postStrategyTags}
+        pillars={strategy?.content_pillars ?? []}
+        performance={pillarPerformance}
+      />
 
       <Reveal as="section" className="mb-14">
         <h2 className="font-mono mb-6 text-xs tracking-widest text-faint">THE LOG · RECENT POSTS</h2>

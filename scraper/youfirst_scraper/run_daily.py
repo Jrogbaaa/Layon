@@ -3,7 +3,7 @@ import logging
 import socket
 import subprocess
 import time
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from urllib.parse import urlparse
 
 import httpx
@@ -12,16 +12,17 @@ import requests
 
 from . import (
     ad_detection,
-    briefing,
     config,
     content_analysis,
     db,
+    experiment_evaluation,
     instagram_scraper,
     metrics,
+    post_strategy,
     recommendations,
-    roster_patterns,
     trend_headlines,
     trend_scraper,
+    weekly_review,
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -312,6 +313,9 @@ def run_recommendations(client) -> None:
             highlights = db.get_latest_highlights(client, influencer["id"])
             content_map = db.get_post_content_map(client, influencer["id"])
             alltime_top_posts = db.get_top_posts(client, influencer["id"])
+            strategy = db.get_talent_strategy(client, influencer["id"])
+            feedback = db.get_recent_recommendation_actions(client, influencer["id"], limit=10)
+            experiment_outcomes = db.get_recent_evaluated_experiments(client, influencer["id"], limit=5)
             content = recommendations.generate_recommendation(
                 handle,
                 profile_snapshots,
@@ -321,6 +325,9 @@ def run_recommendations(client) -> None:
                 content_map,
                 alltime_top_posts,
                 trend_items,
+                strategy,
+                feedback,
+                experiment_outcomes,
             )
             if content is None:
                 logger.warning("No valid recommendation generated for %s — keeping previous", handle)
@@ -331,53 +338,80 @@ def run_recommendations(client) -> None:
             logger.exception("Failed to generate recommendation for %s — skipping", handle)
 
 
-def _first_recommendation_text(content: str | None) -> str | None:
-    """Pull the first bullet's English text out of a stored recommendation JSON string."""
-    if not content:
-        return None
+def run_roster_briefing(client, now: datetime | None = None) -> None:
     try:
-        bullets = json.loads(content)["bullets"]
-        return bullets[0]["text"]["en"]
-    except (json.JSONDecodeError, KeyError, IndexError, TypeError):
-        return None
-
-
-def run_roster_briefing(client) -> None:
-    influencers = db.list_influencers(client)
-    if not influencers:
-        logger.info("No influencers — skipping roster briefing")
-        return
-
-    try:
-        profile_snapshots_by_id = {}
-        post_snapshots_by_id = {}
-        content_map_by_id = {}
-        recommendations_by_handle = {}
-
-        for influencer in influencers:
-            influencer_id = influencer["id"]
-            profile_snapshots_by_id[influencer_id] = db.get_profile_snapshots(client, influencer_id)
-            post_snapshots_by_id[influencer_id] = db.get_all_post_snapshots(client, influencer_id)
-            content_map_by_id[influencer_id] = db.get_post_content_map(client, influencer_id)
-
-            latest_recommendation = db.get_latest_recommendation(client, influencer_id)
-            text = _first_recommendation_text(latest_recommendation["content"] if latest_recommendation else None)
-            if text:
-                recommendations_by_handle[influencer["handle"]] = text
-
-        pattern_facts = roster_patterns.compute_roster_patterns(
-            influencers, profile_snapshots_by_id, post_snapshots_by_id, content_map_by_id
-        )
-
-        content = briefing.generate_briefing(pattern_facts, recommendations_by_handle)
-        if content is None:
-            logger.warning("No valid roster briefing generated — keeping previous")
+        now = now or datetime.now(timezone.utc)
+        period_start, period_end = weekly_review.madrid_week(now)
+        if db.weekly_review_exists(client, period_start.isoformat()):
+            logger.info("Weekly portfolio review already exists for %s", period_start)
             return
 
-        db.insert_roster_briefing(client, briefing.GEMINI_MODEL, content)
-        logger.info("Generated roster briefing")
+        influencers = db.list_influencers(client)
+        if not influencers:
+            logger.info("No influencers — skipping weekly portfolio review")
+            return
+
+        profiles_by_id = {}
+        posts_by_id = {}
+        highlights_by_id = {}
+        strategies_by_id = {}
+        recommendations_by_id = {}
+        actions_by_id = {}
+        stored_shortcodes_by_id = {}
+        for influencer in influencers:
+            influencer_id = influencer["id"]
+            profiles_by_id[influencer_id] = db.get_profile_snapshots(client, influencer_id)
+            posts_by_id[influencer_id] = db.get_all_post_snapshots(client, influencer_id)
+            highlights_by_id[influencer_id] = db.get_latest_highlights(client, influencer_id)
+            strategies_by_id[influencer_id] = db.get_talent_strategy(client, influencer_id)
+            recommendations_by_id[influencer_id] = db.get_latest_recommendation(client, influencer_id)
+            actions_by_id[influencer_id] = db.get_weekly_review_actions(client, influencer_id)
+            stored_shortcodes_by_id[influencer_id] = db.get_stored_post_shortcodes(
+                client, influencer_id
+            )
+
+        evidence = weekly_review.build_evidence(
+            influencers,
+            profiles_by_id,
+            posts_by_id,
+            highlights_by_id,
+            strategies_by_id,
+            recommendations_by_id,
+            actions_by_id,
+            now,
+            stored_shortcodes_by_id,
+        )
+        content = weekly_review.generate_weekly_review(evidence)
+        if content is None:
+            logger.warning("No valid weekly portfolio review generated — keeping previous")
+            return
+        db.insert_roster_briefing(
+            client,
+            weekly_review.GEMINI_MODEL,
+            content,
+            period_start.isoformat(),
+            period_end.isoformat(),
+        )
+        logger.info("Generated weekly portfolio review for %s", period_start)
     except Exception:
-        logger.exception("Failed to generate roster briefing — keeping previous")
+        logger.exception("Failed to generate weekly portfolio review — keeping previous")
+
+
+def run_experiment_evaluations(client) -> None:
+    try:
+        completed = experiment_evaluation.evaluate_due_experiments(client, db)
+        logger.info("Evaluated %d due experiments", completed)
+    except Exception:
+        logger.exception("Failed to evaluate due experiments — daily run continues")
+
+
+def run_post_strategy_tagging(client) -> None:
+    for influencer in db.list_influencers(client):
+        try:
+            count = post_strategy.tag_influencer(client, db, influencer["id"])
+            logger.info("Tagged %d stored posts for %s", count, influencer["handle"])
+        except Exception:
+            logger.exception("Failed to tag posts for %s — continuing", influencer["handle"])
 
 
 def main() -> None:
@@ -396,7 +430,8 @@ def main() -> None:
     run_trend_scrape(client)
     run_trend_headlines(client)
     run_recommendations(client)
-    run_roster_briefing(client)
+    run_post_strategy_tagging(client)
+    run_experiment_evaluations(client)
     if failed_handles:
         # Leave .last_run unwritten so a later launchd fire retries the missed
         # handles today (already-scraped handles are skipped per-handle).
@@ -409,6 +444,7 @@ def main() -> None:
             f"Missing: {', '.join(failed_handles)}",
         )
     else:
+        run_roster_briefing(client)
         mark_ran_today()
         logger.info("Daily run complete at %s", datetime.now().isoformat())
 

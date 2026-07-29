@@ -312,7 +312,7 @@ def test_run_recommendations_passes_latest_trend_headline_texts(monkeypatch):
 
     def fake_generate(
         handle, profile_snapshots, posts, persona=None, highlights=None, content_map=None,
-        alltime_top_posts=None, trend_items=None,
+        alltime_top_posts=None, trend_items=None, strategy=None, feedback=None, experiment_outcomes=None,
     ):
         calls["trend_items"] = trend_items
         return "content"
@@ -338,7 +338,7 @@ def test_run_recommendations_passes_none_when_no_headlines(monkeypatch):
 
     def fake_generate(
         handle, profile_snapshots, posts, persona=None, highlights=None, content_map=None,
-        alltime_top_posts=None, trend_items=None,
+        alltime_top_posts=None, trend_items=None, strategy=None, feedback=None, experiment_outcomes=None,
     ):
         calls["trend_items"] = trend_items
         return "content"
@@ -374,7 +374,7 @@ def test_run_recommendations_passes_none_when_headlines_are_stale(monkeypatch):
 
     def fake_generate(
         handle, profile_snapshots, posts, persona=None, highlights=None, content_map=None,
-        alltime_top_posts=None, trend_items=None,
+        alltime_top_posts=None, trend_items=None, strategy=None, feedback=None, experiment_outcomes=None,
     ):
         calls["trend_items"] = trend_items
         return "content"
@@ -403,7 +403,7 @@ def test_run_recommendations_continues_when_headline_fetch_raises(monkeypatch):
 
     def fake_generate(
         handle, profile_snapshots, posts, persona=None, highlights=None, content_map=None,
-        alltime_top_posts=None, trend_items=None,
+        alltime_top_posts=None, trend_items=None, strategy=None, feedback=None, experiment_outcomes=None,
     ):
         calls["trend_items"] = trend_items
         return "content"
@@ -435,7 +435,7 @@ def test_run_recommendations_passes_alltime_top_posts(monkeypatch):
 
     def fake_generate(
         handle, profile_snapshots, posts, persona=None, highlights=None, content_map=None,
-        alltime_top_posts=None, trend_items=None,
+        alltime_top_posts=None, trend_items=None, strategy=None, feedback=None, experiment_outcomes=None,
     ):
         calls["alltime_top_posts"] = alltime_top_posts
         return "content"
@@ -445,6 +445,33 @@ def test_run_recommendations_passes_alltime_top_posts(monkeypatch):
     run_daily.run_recommendations(MagicMock())
 
     assert calls["alltime_top_posts"] == top_posts
+
+
+def test_run_recommendations_passes_bounded_strategy_feedback_and_outcomes(monkeypatch):
+    strategy = {"current_objective": "Grow authority"}
+    feedback = [{"decision": "revisit"}]
+    outcomes = [{"shared_note": "Directional win"}]
+    monkeypatch.setattr(run_daily.db, "list_influencers", lambda c: [{"id": 1, "handle": "h", "persona": None}])
+    monkeypatch.setattr(run_daily.db, "get_profile_snapshots", lambda c, i: [{"followers": 100}])
+    monkeypatch.setattr(run_daily.db, "get_recent_posts", lambda c, i: [])
+    monkeypatch.setattr(run_daily.db, "get_latest_highlights", lambda c, i: [])
+    monkeypatch.setattr(run_daily.db, "get_post_content_map", lambda c, i: {})
+    monkeypatch.setattr(run_daily.db, "get_top_posts", lambda c, i: [])
+    monkeypatch.setattr(run_daily.db, "get_latest_trend_headlines", lambda c: None)
+    monkeypatch.setattr(run_daily.db, "get_talent_strategy", lambda c, i: strategy)
+    monkeypatch.setattr(run_daily.db, "get_recent_recommendation_actions", lambda c, i, limit: feedback)
+    monkeypatch.setattr(run_daily.db, "get_recent_evaluated_experiments", lambda c, i, limit: outcomes)
+    monkeypatch.setattr(run_daily.db, "insert_recommendation", lambda *args: None)
+    calls = {}
+
+    def fake_generate(*args):
+        calls["strategy"], calls["feedback"], calls["outcomes"] = args[-3:]
+        return "content"
+
+    monkeypatch.setattr(run_daily.recommendations, "generate_recommendation", fake_generate)
+    run_daily.run_recommendations(MagicMock())
+
+    assert calls == {"strategy": strategy, "feedback": feedback, "outcomes": outcomes}
 
 
 def test_run_recommendations_skips_insert_when_generation_returns_none(monkeypatch):
@@ -466,10 +493,11 @@ def test_run_recommendations_skips_insert_when_generation_returns_none(monkeypat
 
 
 def test_run_roster_briefing_skips_when_no_influencers(monkeypatch):
+    monkeypatch.setattr(run_daily.db, "weekly_review_exists", lambda c, p: False)
     monkeypatch.setattr(run_daily.db, "list_influencers", lambda c: [])
     monkeypatch.setattr(
-        run_daily.briefing,
-        "generate_briefing",
+        run_daily.weekly_review,
+        "generate_weekly_review",
         lambda *a, **k: (_ for _ in ()).throw(AssertionError("should not be called")),
     )
 
@@ -477,48 +505,69 @@ def test_run_roster_briefing_skips_when_no_influencers(monkeypatch):
 
 
 def test_run_roster_briefing_generates_and_stores(monkeypatch):
+    monkeypatch.setattr(run_daily.db, "weekly_review_exists", lambda c, p: False)
     monkeypatch.setattr(
         run_daily.db, "list_influencers", lambda c: [{"id": 1, "handle": "a"}, {"id": 2, "handle": "b"}]
     )
     monkeypatch.setattr(run_daily.db, "get_profile_snapshots", lambda c, i: [])
     monkeypatch.setattr(run_daily.db, "get_all_post_snapshots", lambda c, i: [])
-    monkeypatch.setattr(run_daily.db, "get_post_content_map", lambda c, i: {})
+    monkeypatch.setattr(run_daily.db, "get_latest_highlights", lambda c, i: [])
+    monkeypatch.setattr(run_daily.db, "get_talent_strategy", lambda c, i: None)
     monkeypatch.setattr(
         run_daily.db,
         "get_latest_recommendation",
-        lambda c, i: {"content": json.dumps({"bullets": [{"text": {"en": "Do X", "es": "Haz X"}}]})},
+        lambda c, i: {"id": i, "content": json.dumps({"bullets": [{"text": {"en": "Current idea", "es": "Idea actual"}, "shortcode": "NEWEST123"}]})},
     )
+    monkeypatch.setattr(run_daily.db, "get_weekly_review_actions", lambda c, i: [])
+    monkeypatch.setattr(run_daily.db, "get_stored_post_shortcodes", lambda c, i: {"NEWEST123"})
 
     calls = {}
 
-    def fake_generate(pattern_facts, recommendations_by_handle=None):
-        calls["recs"] = recommendations_by_handle
-        return json.dumps({"summary": {"en": "ok", "es": "ok"}, "patterns": [], "actions": []})
+    def fake_generate(evidence):
+        calls["period"] = (evidence["period_start"], evidence["period_end"])
+        calls["shortcodes"] = evidence["allowed_shortcodes"]
+        return json.dumps({"top_priorities": [], "strongest_creative_win": None, "primary_risk": None, "experiments": {"due": [], "recently_evaluated": []}, "stale_strategies": [], "suggested_conversations": []})
 
-    monkeypatch.setattr(run_daily.briefing, "generate_briefing", fake_generate)
+    monkeypatch.setattr(run_daily.weekly_review, "generate_weekly_review", fake_generate)
 
     insert_calls = []
     monkeypatch.setattr(
-        run_daily.db, "insert_roster_briefing", lambda c, model, content: insert_calls.append((model, content))
+        run_daily.db, "insert_roster_briefing", lambda c, model, content, start, end: insert_calls.append((model, content, start, end))
     )
 
-    run_daily.run_roster_briefing(MagicMock())
+    run_daily.run_roster_briefing(MagicMock(), datetime(2026, 7, 29, tzinfo=timezone.utc))
 
-    assert calls["recs"] == {"a": "Do X", "b": "Do X"}
+    assert calls["period"] == ("2026-07-27", "2026-08-02")
+    assert calls["shortcodes"] == ["NEWEST123"]
     assert len(insert_calls) == 1
 
 
+def test_run_roster_briefing_is_idempotent_and_recovers_after_missed_monday(monkeypatch):
+    seen = {"exists": True}
+    monkeypatch.setattr(run_daily.db, "weekly_review_exists", lambda c, p: seen["exists"])
+    monkeypatch.setattr(run_daily.db, "list_influencers", lambda c: (_ for _ in ()).throw(AssertionError("must skip")))
+    run_daily.run_roster_briefing(MagicMock(), datetime(2026, 7, 27, tzinfo=timezone.utc))
+
+    seen["exists"] = False
+    monkeypatch.setattr(run_daily.db, "list_influencers", lambda c: [])
+    run_daily.run_roster_briefing(MagicMock(), datetime(2026, 7, 29, tzinfo=timezone.utc))
+
+
 def test_run_roster_briefing_skips_insert_when_generation_returns_none(monkeypatch):
+    monkeypatch.setattr(run_daily.db, "weekly_review_exists", lambda c, p: False)
     monkeypatch.setattr(run_daily.db, "list_influencers", lambda c: [{"id": 1, "handle": "a"}])
     monkeypatch.setattr(run_daily.db, "get_profile_snapshots", lambda c, i: [])
     monkeypatch.setattr(run_daily.db, "get_all_post_snapshots", lambda c, i: [])
-    monkeypatch.setattr(run_daily.db, "get_post_content_map", lambda c, i: {})
+    monkeypatch.setattr(run_daily.db, "get_latest_highlights", lambda c, i: [])
+    monkeypatch.setattr(run_daily.db, "get_talent_strategy", lambda c, i: None)
     monkeypatch.setattr(run_daily.db, "get_latest_recommendation", lambda c, i: None)
-    monkeypatch.setattr(run_daily.briefing, "generate_briefing", lambda *a, **k: None)
+    monkeypatch.setattr(run_daily.db, "get_weekly_review_actions", lambda c, i: [])
+    monkeypatch.setattr(run_daily.db, "get_stored_post_shortcodes", lambda c, i: set())
+    monkeypatch.setattr(run_daily.weekly_review, "generate_weekly_review", lambda *a, **k: None)
 
     insert_calls = []
     monkeypatch.setattr(
-        run_daily.db, "insert_roster_briefing", lambda c, model, content: insert_calls.append(content)
+        run_daily.db, "insert_roster_briefing", lambda *args: insert_calls.append(args)
     )
 
     run_daily.run_roster_briefing(MagicMock())
@@ -527,26 +576,40 @@ def test_run_roster_briefing_skips_insert_when_generation_returns_none(monkeypat
 
 
 def test_run_roster_briefing_does_not_crash_pipeline_on_unexpected_error(monkeypatch):
+    monkeypatch.setattr(run_daily.db, "weekly_review_exists", lambda c, p: False)
     monkeypatch.setattr(run_daily.db, "list_influencers", lambda c: [{"id": 1, "handle": "a"}])
     monkeypatch.setattr(run_daily.db, "get_profile_snapshots", lambda c, i: [])
     monkeypatch.setattr(run_daily.db, "get_all_post_snapshots", lambda c, i: [])
-    monkeypatch.setattr(run_daily.db, "get_post_content_map", lambda c, i: {})
+    monkeypatch.setattr(run_daily.db, "get_latest_highlights", lambda c, i: [])
+    monkeypatch.setattr(run_daily.db, "get_talent_strategy", lambda c, i: None)
     monkeypatch.setattr(run_daily.db, "get_latest_recommendation", lambda c, i: None)
+    monkeypatch.setattr(run_daily.db, "get_weekly_review_actions", lambda c, i: [])
+    monkeypatch.setattr(run_daily.db, "get_stored_post_shortcodes", lambda c, i: set())
 
     def raise_unexpected(*args, **kwargs):
         raise KeyError("handles")
 
-    monkeypatch.setattr(run_daily.briefing, "generate_briefing", raise_unexpected)
+    monkeypatch.setattr(run_daily.weekly_review, "generate_weekly_review", raise_unexpected)
 
     insert_calls = []
     monkeypatch.setattr(
-        run_daily.db, "insert_roster_briefing", lambda c, model, content: insert_calls.append(content)
+        run_daily.db, "insert_roster_briefing", lambda *args: insert_calls.append(args)
     )
 
     # Must not raise — an unexpected failure here shouldn't crash main()'s daily run.
     run_daily.run_roster_briefing(MagicMock())
 
     assert insert_calls == []
+
+
+def test_run_roster_briefing_does_not_crash_when_week_lookup_fails(monkeypatch):
+    monkeypatch.setattr(
+        run_daily.db,
+        "weekly_review_exists",
+        lambda c, p: (_ for _ in ()).throw(RuntimeError("database unavailable")),
+    )
+
+    run_daily.run_roster_briefing(MagicMock())
 
 
 def test_run_trend_headlines_skips_when_no_snapshots(monkeypatch):
@@ -1006,7 +1069,8 @@ def test_main_does_not_mark_done_when_handles_failed(tmp_path, monkeypatch):
     monkeypatch.setattr(run_daily, "run_trend_scrape", lambda c: None)
     monkeypatch.setattr(run_daily, "run_trend_headlines", lambda c: None)
     monkeypatch.setattr(run_daily, "run_recommendations", lambda c: None)
-    monkeypatch.setattr(run_daily, "run_roster_briefing", lambda c: None)
+    briefing_calls = []
+    monkeypatch.setattr(run_daily, "run_roster_briefing", lambda c: briefing_calls.append(c))
     notify_calls = []
     monkeypatch.setattr(run_daily, "_notify", lambda title, message: notify_calls.append(message))
 
@@ -1014,6 +1078,7 @@ def test_main_does_not_mark_done_when_handles_failed(tmp_path, monkeypatch):
 
     assert not (tmp_path / ".last_run").exists()
     assert notify_calls == ["Missing: missed_handle"]
+    assert briefing_calls == []
 
 
 def test_main_marks_done_when_all_handles_succeed(tmp_path, monkeypatch):
@@ -1024,8 +1089,10 @@ def test_main_marks_done_when_all_handles_succeed(tmp_path, monkeypatch):
     monkeypatch.setattr(run_daily, "run_trend_scrape", lambda c: None)
     monkeypatch.setattr(run_daily, "run_trend_headlines", lambda c: None)
     monkeypatch.setattr(run_daily, "run_recommendations", lambda c: None)
-    monkeypatch.setattr(run_daily, "run_roster_briefing", lambda c: None)
+    briefing_calls = []
+    monkeypatch.setattr(run_daily, "run_roster_briefing", lambda c: briefing_calls.append(c))
 
     run_daily.main()
 
     assert (tmp_path / ".last_run").read_text().strip() == date.today().isoformat()
+    assert len(briefing_calls) == 1

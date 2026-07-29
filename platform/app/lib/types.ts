@@ -5,6 +5,21 @@ export type Influencer = {
   avatar_url: string | null;
 };
 
+export type TalentStrategy = {
+  influencer_id: number;
+  current_objective: string;
+  horizon: string | null;
+  target_audience: string;
+  content_pillars: string[];
+  development_formats: PostSnapshot["post_type"][];
+  tone: string;
+  guardrails: string;
+  commercial_direction: string;
+  posting_constraints: string;
+  updated_at: string;
+  reviewed_at: string;
+};
+
 export type PostClassificationStatus = "paid" | "organic" | "needs_review";
 
 export type PostClassification = {
@@ -78,9 +93,84 @@ export type TrendHeadlinesPayload = {
 };
 
 export type Recommendation = {
+  id: number;
   generated_at: string;
   model: string;
   content: string;
+};
+
+export type RecommendationDecision =
+  | "try"
+  | "not_relevant"
+  | "already_planned"
+  | "talent_declined"
+  | "revisit";
+
+export type RecommendationAction = {
+  id: number;
+  recommendation_id: number;
+  influencer_id: number;
+  bullet_index: number;
+  decision: RecommendationDecision;
+  shared_note: string;
+  revisit_on: string | null;
+  experiment_status: "planned" | "published" | "evaluated" | "abandoned" | null;
+  linked_shortcode: string | null;
+  published_at: string | null;
+  review_at: string | null;
+  baseline: ContentExperimentOutcome["baseline"] | null;
+  outcome: ContentExperimentOutcome | null;
+  evaluated_at: string | null;
+  acknowledged_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ExperimentConfidence = "insufficient" | "directional" | "strong";
+
+export type ContentExperimentOutcome = {
+  target: { interactions: number; views: number | null; captured_at: string };
+  baseline: {
+    interactions_median: number | null;
+    views_median: number | null;
+    sample_size: number;
+    cohort: "format_paid_pillar" | "format_paid";
+    post_type: PostSnapshot["post_type"];
+    paid_status: PostClassificationStatus;
+    pillar: string | null;
+  };
+  interaction_delta_pct: number | null;
+  views_delta_pct: number | null;
+  confidence: ExperimentConfidence;
+  disclaimer: string;
+};
+
+export type PostStrategyTag = {
+  id: number;
+  influencer_id: number;
+  shortcode: string;
+  pillar: string | null;
+  source: "automatic" | "manual";
+  strategy_updated_at: string | null;
+  removed_pillar: boolean;
+  tagged_at: string;
+  updated_at: string;
+};
+
+export type PillarPerformance = {
+  pillar: string;
+  paidStatus: PostClassificationStatus;
+  interactionsMedian: number;
+  viewsMedian: number | null;
+  sampleSize: number;
+  confidence: ExperimentConfidence;
+};
+
+export type AttentionPriority = {
+  kind: "missing_data" | "stale_data" | "review_experiment" | "warning" | "active_experiment" | "recommendation" | "none";
+  priority: number;
+  label: Bilingual;
+  detail: Bilingual | null;
 };
 
 export type TopPost = PostSnapshot & { engagement: number };
@@ -90,13 +180,47 @@ export type Bilingual = { en: string; es: string };
 export type RosterBriefing = {
   generated_at: string;
   model: string;
-  content: string;
+  content: string | Record<string, unknown>;
+  period_start: string | null;
+  period_end: string | null;
 };
 
 export type BriefingPayload = {
   summary: Bilingual;
   patterns: { finding: Bilingual; evidence: string; handles: string[] }[];
   actions: { handle: string; action: Bilingual; reason: Bilingual; shortcode: string | null }[];
+};
+
+export type WeeklyReviewItem = {
+  title: Bilingual;
+  handles: string[];
+  metric: string | null;
+  shortcode: string | null;
+};
+
+export type WeeklyReviewPayload = {
+  top_priorities: WeeklyReviewItem[];
+  strongest_creative_win: WeeklyReviewItem | null;
+  primary_risk: WeeklyReviewItem | null;
+  experiments: { due: WeeklyReviewItem[]; recently_evaluated: WeeklyReviewItem[] };
+  stale_strategies: { handle: string; status: Bilingual }[];
+  suggested_conversations: {
+    handle: string;
+    topic: Bilingual;
+    reason: Bilingual;
+    metric: string | null;
+    shortcode: string | null;
+  }[];
+};
+
+export type PortfolioKpis = {
+  rosterSize: number;
+  strategyProfiles: number;
+  unresolvedRecommendations: number;
+  activeExperiments: number;
+  evaluatedExperiments: number;
+  experimentHits: number;
+  experimentHitRate: number | null;
 };
 
 export type RosterEntry = {
@@ -106,6 +230,7 @@ export type RosterEntry = {
   recentHighlights: Highlight[];
   /** Recent snapshots, oldest→newest, for the roster sparkline. */
   history: ProfileSnapshot[];
+  nextAction: AttentionPriority;
 };
 
 export type InfluencerDashboard = {
@@ -114,6 +239,11 @@ export type InfluencerDashboard = {
   recentPosts: PostSnapshot[];
   chartPosts: PostSnapshot[];
   latestRecommendation: Recommendation | null;
+  recommendationActions: RecommendationAction[];
+  nextAction: AttentionPriority;
+  postStrategyTags: PostStrategyTag[];
+  pillarPerformance: PillarPerformance[];
+  strategy: TalentStrategy | null;
   highlights: Highlight[];
   topPosts: TopPost[];
 };

@@ -1,3 +1,4 @@
+import json
 from unittest.mock import MagicMock
 
 from youfirst_scraper import db
@@ -99,3 +100,62 @@ def test_get_latest_trend_headlines_returns_first_row():
     result = db.get_latest_trend_headlines(client)
 
     assert result["content"] == '{"headlines": []}'
+
+
+def test_recommendation_context_attaches_bullet_and_linked_post_referent():
+    rows = [
+        {
+            "recommendation_id": 7,
+            "bullet_index": 1,
+            "decision": "not_relevant",
+            "shared_note": "",
+            "linked_shortcode": "POST456",
+            "recommendations": {
+                "content": json.dumps(
+                    {
+                        "bullets": [
+                            {"text": {"en": "First", "es": "Primera"}, "shortcode": "POST123"},
+                            {"text": {"en": "Rejected idea", "es": "Idea rechazada"}, "shortcode": "POST456"},
+                        ]
+                    }
+                )
+            },
+        }
+    ]
+
+    enriched = db._with_recommendation_context(rows)
+
+    assert enriched[0]["recommendation_text"] == {"en": "Rejected idea", "es": "Idea rechazada"}
+    assert enriched[0]["recommendation_shortcode"] == "POST456"
+    assert enriched[0]["linked_shortcode"] == "POST456"
+    assert "recommendations" not in enriched[0]
+
+
+def test_get_all_post_snapshots_keeps_newest_window_in_chronological_order():
+    client = MagicMock()
+    query = client.table.return_value.select.return_value.eq.return_value.order.return_value.limit.return_value
+    query.execute.return_value.data = [
+        {"shortcode": "newest", "captured_at": "2026-07-29T00:00:00Z"},
+        {"shortcode": "older", "captured_at": "2026-07-28T00:00:00Z"},
+    ]
+
+    rows = db.get_all_post_snapshots(client, 7, limit=500)
+
+    client.table.return_value.select.return_value.eq.return_value.order.assert_called_with(
+        "captured_at", desc=True
+    )
+    assert [row["shortcode"] for row in rows] == ["older", "newest"]
+
+
+def test_get_stored_post_shortcodes_paginates_complete_history():
+    client = MagicMock()
+    execute = client.table.return_value.select.return_value.eq.return_value.range.return_value.execute
+    first = MagicMock(data=[{"shortcode": "A"}, {"shortcode": "B"}])
+    second = MagicMock(data=[{"shortcode": "C"}])
+    execute.side_effect = [first, second]
+
+    shortcodes = db.get_stored_post_shortcodes(client, 7, page_size=2)
+
+    assert shortcodes == {"A", "B", "C"}
+    ranges = client.table.return_value.select.return_value.eq.return_value.range.call_args_list
+    assert [call.args for call in ranges] == [(0, 1), (2, 3)]

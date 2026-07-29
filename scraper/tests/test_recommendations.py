@@ -97,6 +97,72 @@ def test_build_prompt_requests_bilingual_output():
     assert "BOTH English and Spanish" in prompt
 
 
+def test_build_prompt_gives_explicit_strategy_precedence_over_feedback():
+    prompt = recommendations.build_prompt(
+        "handle",
+        _metrics(),
+        [],
+        persona="Legacy persona",
+        strategy={"current_objective": "Grow authority", "content_pillars": ["craft"]},
+        feedback=[{"decision": "not_relevant", "shared_note": "avoid trends"}],
+    )
+    assert "CURRENT SHARED STRATEGY" in prompt
+    assert "Grow authority" in prompt
+    assert "takes precedence" in prompt
+    assert "avoid trends" in prompt
+    assert prompt.index("CURRENT SHARED STRATEGY") < prompt.index("SHARED FEEDBACK DECISIONS")
+
+
+def test_build_prompt_bounds_feedback_and_evaluated_experiments():
+    feedback = [{"decision": "revisit", "shared_note": f"feedback-{i}"} for i in range(12)]
+    outcomes = [{"shared_note": f"outcome-{i}"} for i in range(7)]
+    prompt = recommendations.build_prompt(
+        "handle", _metrics(), [], feedback=feedback, experiment_outcomes=outcomes
+    )
+    assert "feedback-9" in prompt
+    assert "feedback-10" not in prompt
+    assert "outcome-4" in prompt
+    assert "outcome-5" not in prompt
+
+
+def test_build_prompt_keeps_feedback_and_outcome_referents_when_notes_are_empty():
+    prompt = recommendations.build_prompt(
+        "handle",
+        _metrics(),
+        [],
+        feedback=[
+            {
+                "decision": "not_relevant",
+                "shared_note": "",
+                "recommendation_text": {"en": "Daily dance recap", "es": "Resumen diario de baile"},
+                "recommendation_shortcode": "POST123",
+            }
+        ],
+        experiment_outcomes=[
+            {
+                "shared_note": "",
+                "recommendation_text": {"en": "Craft carousel", "es": "Carrusel de oficio"},
+                "linked_shortcode": "POST456",
+                "outcome": {"interaction_delta_pct": 25.0},
+            }
+        ],
+    )
+
+    assert "Daily dance recap" in prompt
+    assert "POST123" in prompt
+    assert "Craft carousel" in prompt
+    assert "POST456" in prompt
+
+
+def test_build_prompt_omits_shared_context_when_empty():
+    prompt = recommendations.build_prompt(
+        "handle", _metrics(), [], strategy=None, feedback=[], experiment_outcomes=[]
+    )
+    assert "CURRENT SHARED STRATEGY" not in prompt
+    assert "SHARED FEEDBACK DECISIONS" not in prompt
+    assert "EVALUATED EXPERIMENTS" not in prompt
+
+
 def test_build_prompt_omits_trend_section_when_no_trend_items():
     prompt = recommendations.build_prompt("handle", _metrics(), [], trend_items=None)
     assert "trending in Spain" not in prompt
@@ -274,3 +340,36 @@ def test_generate_recommendation_returns_none_when_bullet_missing_kind():
         result = recommendations.generate_recommendation("handle", profile_snapshots, posts)
 
     assert result is None
+
+
+def test_generate_recommendation_rejects_shortcode_not_present_in_stored_posts():
+    profile_snapshots = [{"followers": 1000}]
+    posts = [{"shortcode": "REAL123", "post_type": "reel", "likes": 10, "comments": 1, "posted_at": "2026-07-01T00:00:00Z", "caption": "hi"}]
+    response = MagicMock()
+    response.text = json.dumps({"bullets": [{"kind": "past_success", "text": {"en": "Idea", "es": "Idea"}, "reason": {"en": "Evidence", "es": "Evidencia"}, "shortcode": "INVENTED999"}]})
+    client = MagicMock()
+    client.models.generate_content.return_value = response
+
+    with patch("youfirst_scraper.recommendations.genai.Client", return_value=client):
+        result = recommendations.generate_recommendation("handle", profile_snapshots, posts)
+
+    assert result is None
+    assert client.models.generate_content.call_count == 2
+
+
+def test_generate_recommendation_accepts_shortcode_from_all_time_stored_post():
+    profile_snapshots = [{"followers": 1000}]
+    response = MagicMock()
+    response.text = json.dumps({"bullets": [{"kind": "past_success", "text": {"en": "Idea", "es": "Idea"}, "reason": {"en": "Evidence", "es": "Evidencia"}, "shortcode": "ARCHIVE123"}]})
+    client = MagicMock()
+    client.models.generate_content.return_value = response
+
+    with patch("youfirst_scraper.recommendations.genai.Client", return_value=client):
+        result = recommendations.generate_recommendation(
+            "handle",
+            profile_snapshots,
+            [],
+            alltime_top_posts=[{"shortcode": "ARCHIVE123", "post_type": "reel", "likes": 10, "comments": 1, "views": None, "caption": "x"}],
+        )
+
+    assert json.loads(result)["bullets"][0]["shortcode"] == "ARCHIVE123"
