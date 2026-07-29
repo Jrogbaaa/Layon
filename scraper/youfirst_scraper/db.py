@@ -137,11 +137,30 @@ def get_all_post_snapshots(client: Client, influencer_id: int, limit: int = 500)
         client.table("post_snapshots")
         .select("shortcode, post_type, likes, comments, views, caption, posted_at, captured_at, is_ad")
         .eq("influencer_id", influencer_id)
-        .order("captured_at", desc=False)
+        .order("captured_at", desc=True)
         .limit(limit)
         .execute()
     )
-    return result.data
+    return list(reversed(result.data))
+
+
+def get_stored_post_shortcodes(
+    client: Client, influencer_id: int, page_size: int = 1000
+) -> set[str]:
+    shortcodes: set[str] = set()
+    offset = 0
+    while True:
+        result = (
+            client.table("post_snapshots")
+            .select("shortcode")
+            .eq("influencer_id", influencer_id)
+            .range(offset, offset + page_size - 1)
+            .execute()
+        )
+        shortcodes.update(row["shortcode"] for row in result.data)
+        if len(result.data) < page_size:
+            return shortcodes
+        offset += page_size
 
 
 def insert_highlights(client: Client, influencer_id: int, highlights: list[dict]) -> None:

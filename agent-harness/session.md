@@ -6,11 +6,11 @@ Talent Coaching Cockpit Program — Features 019 through 022 complete.
 
 ## Current State
 
-All four features have independent PASS verdicts. A separate PR review subsequently requested
-changes for recommendation shortcode provenance, missing feedback/outcome idea referents, and
-partial strategies being excluded from coverage. All three are remediated. Pytest is 228/228,
-Playwright 33/33, lint/type-check/build pass, and the live bounded relation reads include their
-recommendation referents. PR re-review is pending before merge.
+All four features have independent PASS verdicts. PR review remediation now covers recommendation
+shortcode provenance, feedback/outcome idea referents, partial strategy coverage, and the integrated
+oldest-500 snapshot cutoff. Weekly evidence uses the newest bounded snapshot window plus a paginated
+complete stored-shortcode index. Pytest is 230/230, Playwright 33/33, lint/type-check/build pass,
+and live newest-window/index reads match. PR re-review is pending before merge.
 
 ## Generator Guardrails
 

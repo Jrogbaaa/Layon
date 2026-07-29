@@ -357,6 +357,7 @@ def run_roster_briefing(client, now: datetime | None = None) -> None:
         strategies_by_id = {}
         recommendations_by_id = {}
         actions_by_id = {}
+        stored_shortcodes_by_id = {}
         for influencer in influencers:
             influencer_id = influencer["id"]
             profiles_by_id[influencer_id] = db.get_profile_snapshots(client, influencer_id)
@@ -365,6 +366,9 @@ def run_roster_briefing(client, now: datetime | None = None) -> None:
             strategies_by_id[influencer_id] = db.get_talent_strategy(client, influencer_id)
             recommendations_by_id[influencer_id] = db.get_latest_recommendation(client, influencer_id)
             actions_by_id[influencer_id] = db.get_weekly_review_actions(client, influencer_id)
+            stored_shortcodes_by_id[influencer_id] = db.get_stored_post_shortcodes(
+                client, influencer_id
+            )
 
         evidence = weekly_review.build_evidence(
             influencers,
@@ -375,6 +379,7 @@ def run_roster_briefing(client, now: datetime | None = None) -> None:
             recommendations_by_id,
             actions_by_id,
             now,
+            stored_shortcodes_by_id,
         )
         content = weekly_review.generate_weekly_review(evidence)
         if content is None:

@@ -75,6 +75,7 @@ def build_evidence(
     recommendations_by_id: dict[int, dict | None],
     actions_by_id: dict[int, list[dict]],
     now: datetime | None = None,
+    stored_shortcodes_by_id: dict[int, set[str]] | None = None,
 ) -> dict:
     now = now or datetime.now(timezone.utc)
     if now.tzinfo is None:
@@ -95,7 +96,11 @@ def build_evidence(
         handle = influencer["handle"]
         profiles = profiles_by_id.get(influencer_id, [])
         posts = posts_by_id.get(influencer_id, [])
-        stored_shortcodes = {post["shortcode"] for post in posts}
+        stored_shortcodes = (
+            {post["shortcode"] for post in posts}
+            if stored_shortcodes_by_id is None
+            else stored_shortcodes_by_id.get(influencer_id, set())
+        )
         computed = metrics.compute_metrics(profiles, posts) if profiles else {
             "engagement_rate_pct": 0,
             "follower_delta": 0,

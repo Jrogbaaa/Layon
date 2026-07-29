@@ -513,13 +513,19 @@ def test_run_roster_briefing_generates_and_stores(monkeypatch):
     monkeypatch.setattr(run_daily.db, "get_all_post_snapshots", lambda c, i: [])
     monkeypatch.setattr(run_daily.db, "get_latest_highlights", lambda c, i: [])
     monkeypatch.setattr(run_daily.db, "get_talent_strategy", lambda c, i: None)
-    monkeypatch.setattr(run_daily.db, "get_latest_recommendation", lambda c, i: None)
+    monkeypatch.setattr(
+        run_daily.db,
+        "get_latest_recommendation",
+        lambda c, i: {"id": i, "content": json.dumps({"bullets": [{"text": {"en": "Current idea", "es": "Idea actual"}, "shortcode": "NEWEST123"}]})},
+    )
     monkeypatch.setattr(run_daily.db, "get_weekly_review_actions", lambda c, i: [])
+    monkeypatch.setattr(run_daily.db, "get_stored_post_shortcodes", lambda c, i: {"NEWEST123"})
 
     calls = {}
 
     def fake_generate(evidence):
         calls["period"] = (evidence["period_start"], evidence["period_end"])
+        calls["shortcodes"] = evidence["allowed_shortcodes"]
         return json.dumps({"top_priorities": [], "strongest_creative_win": None, "primary_risk": None, "experiments": {"due": [], "recently_evaluated": []}, "stale_strategies": [], "suggested_conversations": []})
 
     monkeypatch.setattr(run_daily.weekly_review, "generate_weekly_review", fake_generate)
@@ -532,6 +538,7 @@ def test_run_roster_briefing_generates_and_stores(monkeypatch):
     run_daily.run_roster_briefing(MagicMock(), datetime(2026, 7, 29, tzinfo=timezone.utc))
 
     assert calls["period"] == ("2026-07-27", "2026-08-02")
+    assert calls["shortcodes"] == ["NEWEST123"]
     assert len(insert_calls) == 1
 
 
@@ -555,6 +562,7 @@ def test_run_roster_briefing_skips_insert_when_generation_returns_none(monkeypat
     monkeypatch.setattr(run_daily.db, "get_talent_strategy", lambda c, i: None)
     monkeypatch.setattr(run_daily.db, "get_latest_recommendation", lambda c, i: None)
     monkeypatch.setattr(run_daily.db, "get_weekly_review_actions", lambda c, i: [])
+    monkeypatch.setattr(run_daily.db, "get_stored_post_shortcodes", lambda c, i: set())
     monkeypatch.setattr(run_daily.weekly_review, "generate_weekly_review", lambda *a, **k: None)
 
     insert_calls = []
@@ -576,6 +584,7 @@ def test_run_roster_briefing_does_not_crash_pipeline_on_unexpected_error(monkeyp
     monkeypatch.setattr(run_daily.db, "get_talent_strategy", lambda c, i: None)
     monkeypatch.setattr(run_daily.db, "get_latest_recommendation", lambda c, i: None)
     monkeypatch.setattr(run_daily.db, "get_weekly_review_actions", lambda c, i: [])
+    monkeypatch.setattr(run_daily.db, "get_stored_post_shortcodes", lambda c, i: set())
 
     def raise_unexpected(*args, **kwargs):
         raise KeyError("handles")

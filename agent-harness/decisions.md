@@ -389,3 +389,15 @@ formats-only, commercial-only, or constraints-only profile as missing contradict
 
 **Tradeoffs:** Even a single concise field counts toward coverage; freshness and 90-day review
 signals still show whether that strategy needs attention.
+
+### 2026-07-29 — Bounded performance history stays current; shortcode provenance is complete
+
+**Decision:** Read the newest 500 post snapshots and restore chronological order for performance
+calculations. Separately page through all stored shortcode rows for weekly link provenance.
+
+**Reason:** The previous ascending limit selected the oldest 500 rows and would freeze weekly
+evidence as the table grew. Current performance needs a bounded recent window, while validating a
+recommendation link needs the complete set of posts ever stored for that talent.
+
+**Tradeoffs:** The weekly run performs a lightweight paginated shortcode read per talent. Duplicate
+daily snapshots are collapsed into a set in memory; no new table or Instagram request is needed.
