@@ -6,11 +6,11 @@ Talent Coaching Cockpit Program — Features 019 through 022 complete.
 
 ## Current State
 
-Feature 022 passed fresh independent re-evaluation at 4.5/5 after closing handle-scoped evidence,
-required-section completeness, and Madrid-local evaluated-at boundary findings. The evaluator
-also confirmed the final follower-provenance follow-up. Pytest is 220/220, Playwright 32/32, and
-lint/type-check/build, live schema/idempotency/cleanup, current-week preservation, and strict real
-Gemini checks are green. Features 019, 020, 021, and 022 all have independent PASS verdicts.
+All four features have independent PASS verdicts. A separate PR review subsequently requested
+changes for recommendation shortcode provenance, missing feedback/outcome idea referents, and
+partial strategies being excluded from coverage. All three are remediated. Pytest is 228/228,
+Playwright 33/33, lint/type-check/build pass, and the live bounded relation reads include their
+recommendation referents. PR re-review is pending before merge.
 
 ## Generator Guardrails
 
@@ -25,5 +25,5 @@ Gemini checks are green. Features 019, 020, 021, and 022 all have independent PA
 
 ## Next Action
 
-No implementation work remains. The next successful daily run will create the first missing
-Madrid-week review; normal dashboard freshness and experiment signals provide ongoing monitoring.
+Commit and push the verified PR-review remediation, then obtain an independent APPROVE before
+marking PR #19 ready and merging.

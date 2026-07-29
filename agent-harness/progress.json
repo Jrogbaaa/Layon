@@ -96,13 +96,14 @@
   },
   "feature_022": {
     "status": "built_and_live_verified",
-    "pytest": "220/220 passed after evaluator remediation",
-    "playwright": "32/32 passed against a clean Next.js development server",
+    "pytest": "228/228 passed after PR review remediation",
+    "playwright": "33/33 passed against a clean Next.js development server",
     "build": "pass",
     "lint": "pass — 0 errors, 1 unrelated existing Avatar warning",
     "tsc": "pass",
     "schema": "additive period_start/period_end columns and partial unique week index applied live; legacy rows readable",
     "manual": "A marked historical week inserted once, rejected a duplicate, and exact cleanup returned zero rows. After remediation, real stored roster evidence again produced a valid bilingual seven-section Gemini payload with complete stale/due/evaluated sections and no current-week database mutation.",
-    "evaluator": "PASS on independent re-evaluation — 4.5/5, Goal Alignment 5; all three blockers and the follower-provenance follow-up independently closed"
+    "evaluator": "PASS on independent re-evaluation — 4.5/5, Goal Alignment 5; all three blockers and the follower-provenance follow-up independently closed",
+    "pr_review": "Initial CHANGES_REQUESTED for shortcode provenance, feedback/outcome referents, and partial-strategy coverage; all three remediated with 228 pytest, 33 Playwright, static/build, and live relation checks; re-review pending"
   }
 }

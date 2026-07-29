@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timezone
 
 from supabase import Client, create_client
@@ -309,29 +310,57 @@ def get_talent_strategy(client: Client, influencer_id: int) -> dict | None:
     return result.data[0] if result.data else None
 
 
+def _with_recommendation_context(rows: list[dict]) -> list[dict]:
+    enriched = []
+    for source in rows:
+        row = dict(source)
+        recommendation = row.pop("recommendations", None)
+        if isinstance(recommendation, list):
+            recommendation = recommendation[0] if recommendation else None
+        content = recommendation.get("content") if isinstance(recommendation, dict) else None
+        try:
+            parsed = json.loads(content) if isinstance(content, str) else content
+            bullets = parsed.get("bullets", []) if isinstance(parsed, dict) else []
+            index = row.get("bullet_index")
+            bullet = bullets[index] if isinstance(index, int) and 0 <= index < len(bullets) else None
+        except (json.JSONDecodeError, TypeError):
+            bullet = None
+        if isinstance(bullet, dict):
+            row["recommendation_text"] = bullet.get("text")
+            row["recommendation_shortcode"] = bullet.get("shortcode")
+        enriched.append(row)
+    return enriched
+
+
 def get_recent_recommendation_actions(client: Client, influencer_id: int, limit: int = 10) -> list[dict]:
     result = (
         client.table("recommendation_actions")
-        .select("decision, shared_note, revisit_on, experiment_status, updated_at")
+        .select(
+            "recommendation_id, bullet_index, decision, shared_note, revisit_on, "
+            "experiment_status, linked_shortcode, updated_at, recommendations(content)"
+        )
         .eq("influencer_id", influencer_id)
         .order("updated_at", desc=True)
         .limit(min(max(limit, 0), 10))
         .execute()
     )
-    return result.data
+    return _with_recommendation_context(result.data)
 
 
 def get_recent_evaluated_experiments(client: Client, influencer_id: int, limit: int = 5) -> list[dict]:
     result = (
         client.table("recommendation_actions")
-        .select("decision, shared_note, outcome, baseline, evaluated_at, updated_at")
+        .select(
+            "recommendation_id, bullet_index, decision, shared_note, linked_shortcode, outcome, "
+            "baseline, evaluated_at, updated_at, recommendations(content)"
+        )
         .eq("influencer_id", influencer_id)
         .eq("experiment_status", "evaluated")
         .order("updated_at", desc=True)
         .limit(min(max(limit, 0), 5))
         .execute()
     )
-    return result.data
+    return _with_recommendation_context(result.data)
 
 
 def get_due_experiments(client: Client, now_iso: str) -> list[dict]:

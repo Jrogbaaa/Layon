@@ -22,6 +22,24 @@ def test_madrid_week_boundaries(now, start, end):
     assert actual_end.isoformat() == end
 
 
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("development_formats", ["reel"]),
+        ("commercial_direction", "Selective partnerships"),
+        ("posting_constraints", "Weekdays only"),
+    ],
+)
+def test_strategy_status_counts_every_substantive_field(field, value):
+    strategy = {field: value, "reviewed_at": "2026-07-28T00:00:00Z"}
+
+    assert weekly_review._strategy_status(
+        strategy,
+        datetime(2026, 7, 29, tzinfo=timezone.utc).date(),
+        datetime(2026, 7, 29, tzinfo=timezone.utc),
+    ) == "current"
+
+
 def _evidence():
     return {
         "period_start": "2026-07-27",
@@ -138,11 +156,28 @@ def test_build_evidence_shapes_unresolved_experiments_strategy_and_allowed_value
     assert evidence["eligible_due"] == [{"handle": "talent", "shortcode": "abc"}]
 
 
+def test_build_evidence_does_not_trust_recommendation_shortcode_without_stored_post():
+    evidence = weekly_review.build_evidence(
+        [{"id": 1, "handle": "talent"}],
+        {1: []},
+        {1: [{"shortcode": "REAL123", "post_type": "reel", "likes": 10, "comments": 1, "views": 100, "caption": "x", "posted_at": "2026-07-20T00:00:00Z", "captured_at": "2026-07-28T00:00:00Z", "is_ad": False}]},
+        {1: []},
+        {1: None},
+        {1: {"id": 9, "content": json.dumps({"bullets": [{"text": {"en": "Do it", "es": "Hazlo"}, "shortcode": "INVENTED999"}]})}},
+        {1: []},
+        datetime(2026, 7, 29, tzinfo=timezone.utc),
+    )
+
+    assert evidence["talents"][0]["unresolved_recommendations"][0]["shortcode"] is None
+    assert "INVENTED999" not in evidence["allowed_shortcodes"]
+    assert "INVENTED999" not in evidence["evidence_by_handle"]["talent"]["shortcodes"]
+
+
 def test_recent_evaluation_uses_madrid_date_at_monday_boundary():
     evidence = weekly_review.build_evidence(
         [{"id": 1, "handle": "talent"}],
         {1: []},
-        {1: []},
+        {1: [{"shortcode": "abc", "post_type": "reel", "likes": 1, "comments": 0, "views": 10, "caption": "x", "posted_at": "2026-07-20T00:00:00Z", "captured_at": "2026-07-27T00:00:00Z", "is_ad": False}]},
         {1: []},
         {1: None},
         {1: None},

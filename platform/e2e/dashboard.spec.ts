@@ -87,6 +87,21 @@ test("strategy trust strip distinguishes missing and stale evidence", async ({ p
   await expect(stalePanel.getByText("Refresh needed")).toBeVisible();
 });
 
+test("every substantive strategy field counts as current strategy", async ({ page }) => {
+  await login(page);
+  for (const [scenario, evidence] of [
+    ["formats", "reel"],
+    ["commercial", "Selective partnerships only."],
+    ["constraints", "Weekdays only."],
+  ]) {
+    await page.goto(`/test-fixtures/strategy-panel?scenario=${scenario}`);
+    const panel = page.getByTestId("strategy-panel");
+    await expect(panel.getByText(evidence, { exact: true })).toBeVisible();
+    await expect(panel.getByRole("button", { name: "Edit strategy" })).toBeVisible();
+    await expect(panel.getByText(/No current strategy has been set/)).toHaveCount(0);
+  }
+});
+
 test("recommendation feedback is bilingual and legacy recommendations remain read-only", async ({ page }) => {
   await login(page);
   await page.goto("/test-fixtures/recommendation-feedback");

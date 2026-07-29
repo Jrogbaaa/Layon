@@ -364,3 +364,28 @@ legacy parser preserves old briefings.
 
 **Tradeoffs:** Gemini may need one bounded retry when it paraphrases a metric or omits a priority;
 the previous review remains visible if both attempts fail.
+
+### 2026-07-29 — Recommendation evidence retains stored-post and idea provenance
+
+**Decision:** Validate every newly generated non-null recommendation shortcode against stored
+recent/all-time posts, discard invalid legacy recommendation/action links from weekly evidence,
+and enrich feedback/outcome prompt rows with their bilingual recommendation bullet and linked post.
+
+**Reason:** A real-looking shortcode is not evidence unless it belongs to a scraped post, and a
+decision or outcome cannot guide future recommendations without the idea it refers to.
+
+**Tradeoffs:** Legacy actions whose linked post is no longer present remain usable as qualitative
+feedback but do not produce a weekly Instagram link. The PostgREST reads include the existing
+recommendation relation but remain capped at ten feedback rows and five outcomes.
+
+### 2026-07-29 — Every authored strategy field is substantive
+
+**Decision:** Objective, audience, pillars, development formats, tone, guardrails, commercial
+direction, and posting constraints all independently establish strategy presence in scraper,
+talent UI, and portfolio coverage calculations.
+
+**Reason:** The shared edit form intentionally allows any combination of these fields. Treating a
+formats-only, commercial-only, or constraints-only profile as missing contradicts saved content.
+
+**Tradeoffs:** Even a single concise field counts toward coverage; freshness and 90-day review
+signals still show whether that strategy needs attention.

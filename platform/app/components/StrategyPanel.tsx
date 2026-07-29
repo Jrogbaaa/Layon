@@ -5,6 +5,7 @@ import { saveTalentStrategy, type StrategyActionState } from "@/app/actions/stra
 import { useLanguage } from "@/app/components/LanguageProvider";
 import {
   getCaptureFreshness,
+  hasSubstantiveStrategy,
   isRecommendationOlderThanStrategy,
   isStrategyHorizonExpired,
   isStrategyReviewStale,
@@ -211,10 +212,7 @@ export function StrategyPanel({
   const reviewStale = isStrategyReviewStale(strategy?.reviewed_at);
   const horizonExpired = isStrategyHorizonExpired(strategy?.horizon);
   const recommendationStale = isRecommendationOlderThanStrategy(recommendationGeneratedAt, strategy?.updated_at);
-  const hasStrategy = Boolean(
-    strategy &&
-      (strategy.current_objective || strategy.target_audience || strategy.content_pillars.length || strategy.tone || strategy.guardrails),
-  );
+  const hasStrategy = hasSubstantiveStrategy(strategy);
 
   const rows = strategy
     ? [

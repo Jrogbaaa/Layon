@@ -1,7 +1,37 @@
+import type { TalentStrategy } from "@/app/lib/types";
+
 export type FreshnessStatus = "current" | "stale" | "missing";
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
+
+type StrategyContent = Pick<
+  TalentStrategy,
+  | "current_objective"
+  | "target_audience"
+  | "content_pillars"
+  | "development_formats"
+  | "tone"
+  | "guardrails"
+  | "commercial_direction"
+  | "posting_constraints"
+>;
+
+export function hasSubstantiveStrategy(strategy: StrategyContent | null | undefined): boolean {
+  return Boolean(
+    strategy
+      && (
+        strategy.current_objective
+        || strategy.target_audience
+        || strategy.content_pillars.length
+        || strategy.development_formats.length
+        || strategy.tone
+        || strategy.guardrails
+        || strategy.commercial_direction
+        || strategy.posting_constraints
+      ),
+  );
+}
 
 export function getCaptureFreshness(
   capturedAt: string | null | undefined,

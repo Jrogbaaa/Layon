@@ -35,7 +35,16 @@ def _parse_time(value: str | None) -> datetime | None:
 def _strategy_status(strategy: dict | None, today: date, now: datetime) -> str:
     if not strategy or not any(
         strategy.get(key)
-        for key in ("current_objective", "target_audience", "content_pillars", "tone", "guardrails")
+        for key in (
+            "current_objective",
+            "target_audience",
+            "content_pillars",
+            "development_formats",
+            "tone",
+            "guardrails",
+            "commercial_direction",
+            "posting_constraints",
+        )
     ):
         return "missing"
     horizon = strategy.get("horizon")
@@ -86,6 +95,7 @@ def build_evidence(
         handle = influencer["handle"]
         profiles = profiles_by_id.get(influencer_id, [])
         posts = posts_by_id.get(influencer_id, [])
+        stored_shortcodes = {post["shortcode"] for post in posts}
         computed = metrics.compute_metrics(profiles, posts) if profiles else {
             "engagement_rate_pct": 0,
             "follower_delta": 0,
@@ -112,7 +122,8 @@ def build_evidence(
         for index, bullet in enumerate(_recommendation_bullets(latest_recommendation)):
             if index in answered:
                 continue
-            shortcode = bullet.get("shortcode")
+            candidate_shortcode = bullet.get("shortcode")
+            shortcode = candidate_shortcode if candidate_shortcode in stored_shortcodes else None
             if shortcode:
                 allowed_shortcodes.add(shortcode)
                 talent_shortcodes.add(shortcode)
@@ -130,7 +141,8 @@ def build_evidence(
         evaluated = []
         for action in actions:
             status = action.get("experiment_status")
-            shortcode = action.get("linked_shortcode")
+            candidate_shortcode = action.get("linked_shortcode")
+            shortcode = candidate_shortcode if candidate_shortcode in stored_shortcodes else None
             if shortcode:
                 allowed_shortcodes.add(shortcode)
                 talent_shortcodes.add(shortcode)

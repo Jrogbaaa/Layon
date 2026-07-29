@@ -3,6 +3,7 @@ import { cache } from "react";
 import { getSupabaseClient } from "@/app/lib/supabase";
 import { latestFollowerDelta } from "@/app/lib/metrics";
 import { deriveNextAction } from "@/app/lib/next-action";
+import { hasSubstantiveStrategy } from "@/app/lib/freshness";
 import type {
   Highlight,
   Influencer,
@@ -286,7 +287,7 @@ export async function getPortfolioKpis(): Promise<PortfolioKpis> {
   const [{ data: strategies }, { data: recommendationRows }, { data: actionRows }] = await Promise.all([
     client
       .from("talent_strategies")
-      .select("influencer_id, current_objective, target_audience, content_pillars, tone, guardrails")
+      .select("influencer_id, current_objective, target_audience, content_pillars, development_formats, tone, guardrails, commercial_direction, posting_constraints")
       .in("influencer_id", influencerIds),
     client
       .from("recommendations")
@@ -299,15 +300,7 @@ export async function getPortfolioKpis(): Promise<PortfolioKpis> {
       .in("influencer_id", influencerIds),
   ]);
 
-  const strategyProfiles = (strategies ?? []).filter((strategy) =>
-    Boolean(
-      strategy.current_objective
-      || strategy.target_audience
-      || (Array.isArray(strategy.content_pillars) && strategy.content_pillars.length)
-      || strategy.tone
-      || strategy.guardrails,
-    ),
-  ).length;
+  const strategyProfiles = (strategies ?? []).filter(hasSubstantiveStrategy).length;
 
   const latestByInfluencer = new Map<number, { id: number; content: string }>();
   for (const row of recommendationRows ?? []) {

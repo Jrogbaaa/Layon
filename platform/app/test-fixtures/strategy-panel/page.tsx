@@ -26,6 +26,20 @@ const strategy: TalentStrategy = {
   reviewed_at: "2026-07-29T08:00:00.000Z",
 };
 
+function partialStrategy(scenario: string): TalentStrategy {
+  return {
+    ...strategy,
+    current_objective: "",
+    target_audience: "",
+    content_pillars: [],
+    development_formats: scenario === "formats" ? ["reel"] : [],
+    tone: "",
+    guardrails: "",
+    commercial_direction: scenario === "commercial" ? "Selective partnerships only." : "",
+    posting_constraints: scenario === "constraints" ? "Weekdays only." : "",
+  };
+}
+
 export default async function StrategyPanelFixture({
   searchParams,
 }: {
@@ -35,6 +49,9 @@ export default async function StrategyPanelFixture({
   const { scenario = "current" } = await searchParams;
   const isEmpty = scenario === "empty";
   const isStale = scenario === "stale";
+  const selectedStrategy = ["formats", "commercial", "constraints"].includes(scenario)
+    ? partialStrategy(scenario)
+    : strategy;
 
   return (
     <LanguageProvider>
@@ -45,7 +62,7 @@ export default async function StrategyPanelFixture({
         </div>
         <StrategyPanel
           influencer={influencer}
-          strategy={isEmpty ? null : strategy}
+          strategy={isEmpty ? null : selectedStrategy}
           latestCaptureAt={isStale ? "2020-01-01T00:00:00.000Z" : new Date().toISOString()}
           recommendationGeneratedAt={isStale ? "2026-07-01T00:00:00.000Z" : "2099-01-01T00:00:00.000Z"}
         />

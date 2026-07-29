@@ -1,3 +1,4 @@
+import json
 from unittest.mock import MagicMock
 
 from youfirst_scraper import db
@@ -99,3 +100,32 @@ def test_get_latest_trend_headlines_returns_first_row():
     result = db.get_latest_trend_headlines(client)
 
     assert result["content"] == '{"headlines": []}'
+
+
+def test_recommendation_context_attaches_bullet_and_linked_post_referent():
+    rows = [
+        {
+            "recommendation_id": 7,
+            "bullet_index": 1,
+            "decision": "not_relevant",
+            "shared_note": "",
+            "linked_shortcode": "POST456",
+            "recommendations": {
+                "content": json.dumps(
+                    {
+                        "bullets": [
+                            {"text": {"en": "First", "es": "Primera"}, "shortcode": "POST123"},
+                            {"text": {"en": "Rejected idea", "es": "Idea rechazada"}, "shortcode": "POST456"},
+                        ]
+                    }
+                )
+            },
+        }
+    ]
+
+    enriched = db._with_recommendation_context(rows)
+
+    assert enriched[0]["recommendation_text"] == {"en": "Rejected idea", "es": "Idea rechazada"}
+    assert enriched[0]["recommendation_shortcode"] == "POST456"
+    assert enriched[0]["linked_shortcode"] == "POST456"
+    assert "recommendations" not in enriched[0]
