@@ -256,7 +256,8 @@ def generate_recommendation(
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
                 temperature=0.2,
-                max_output_tokens=1500,
+                max_output_tokens=2000,
+                thinking_config=types.ThinkingConfig(thinking_budget=0),
             ),
         )
         try:

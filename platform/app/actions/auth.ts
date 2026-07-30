@@ -15,7 +15,11 @@ export type LoginState = { error?: string } | undefined;
 
 export async function login(_prevState: LoginState, formData: FormData): Promise<LoginState> {
   const password = formData.get("password");
-  const sitePassword = process.env.SITE_PASSWORD ?? "";
+  const sitePassword = process.env.SITE_PASSWORD;
+
+  if (!sitePassword) {
+    throw new Error("SITE_PASSWORD environment variable is not configured.");
+  }
 
   if (typeof password !== "string" || !safeCompare(password, sitePassword)) {
     return { error: "Incorrect password." };

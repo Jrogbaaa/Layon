@@ -10,7 +10,7 @@ export default function RootError({
   reset: () => void;
 }) {
   useEffect(() => {
-    // Log sanitized error metrics to monitoring service
+    // Sanitized log — full error server-side only, never rendered to the client.
     console.error("Unhandled platform error:", error.digest || error.message);
   }, [error]);
 

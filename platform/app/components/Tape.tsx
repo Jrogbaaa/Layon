@@ -45,7 +45,7 @@ export async function Tape() {
             }`}
           >
             {item.meaningful && item.delta > 0 ? "▲" : item.meaningful && item.delta < 0 ? "▼" : "·"}
-            {item.delta !== 0 ? Math.abs(item.delta).toLocaleString("en-US") : ""}
+            {item.meaningful ? Math.abs(item.delta).toLocaleString("en-US") : ""}
           </span>
         </li>
       ))}

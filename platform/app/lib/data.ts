@@ -50,35 +50,47 @@ export const getRoster = cache(async function getRoster(): Promise<RosterEntry[]
 
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
+  // Explicit per-influencer-scaled caps so PostgREST's default max-rows limit
+  // (1000) can't silently truncate a bulk .in() query before it reaches every
+  // influencer's rows.
+  const SNAPSHOT_CAP_PER_INFLUENCER = 14;
+  const HIGHLIGHT_CAP_PER_INFLUENCER = 5;
+  const RECOMMENDATION_CAP_PER_INFLUENCER = 5;
+  const ACTION_CAP_PER_INFLUENCER = 200;
+
   const [snapshotsRes, highlightsRes, recommendationsRes, actionsRes] = await Promise.all([
     client
       .from("profile_snapshots")
       .select("influencer_id, followers, following, media_count, bio, captured_at")
       .in("influencer_id", influencerIds)
-      .order("captured_at", { ascending: false }),
+      .order("captured_at", { ascending: false })
+      .limit(influencerIds.length * SNAPSHOT_CAP_PER_INFLUENCER),
     client
       .from("highlights")
       .select("influencer_id, content, metric, captured_at")
       .in("influencer_id", influencerIds)
       .gte("captured_at", sevenDaysAgo)
-      .order("captured_at", { ascending: false }),
+      .order("captured_at", { ascending: false })
+      .limit(influencerIds.length * HIGHLIGHT_CAP_PER_INFLUENCER),
     client
       .from("recommendations")
       .select("id, influencer_id, generated_at, model, content")
       .in("influencer_id", influencerIds)
-      .order("generated_at", { ascending: false }),
+      .order("generated_at", { ascending: false })
+      .limit(influencerIds.length * RECOMMENDATION_CAP_PER_INFLUENCER),
     client
       .from("recommendation_actions")
       .select(`influencer_id, ${ACTION_FIELDS}`)
       .in("influencer_id", influencerIds)
-      .order("updated_at", { ascending: false }),
+      .order("updated_at", { ascending: false })
+      .limit(influencerIds.length * ACTION_CAP_PER_INFLUENCER),
   ]);
 
   const snapshotsByInfluencer = new Map<number, ProfileSnapshot[]>();
   for (const row of snapshotsRes.data ?? []) {
     const id = row.influencer_id as number;
     const list = snapshotsByInfluencer.get(id) ?? [];
-    if (list.length < 14) list.push(row as ProfileSnapshot);
+    if (list.length < SNAPSHOT_CAP_PER_INFLUENCER) list.push(row as ProfileSnapshot);
     snapshotsByInfluencer.set(id, list);
   }
 
@@ -86,7 +98,7 @@ export const getRoster = cache(async function getRoster(): Promise<RosterEntry[]
   for (const row of highlightsRes.data ?? []) {
     const id = row.influencer_id as number;
     const list = highlightsByInfluencer.get(id) ?? [];
-    if (list.length < 5) list.push(row as Highlight);
+    if (list.length < HIGHLIGHT_CAP_PER_INFLUENCER) list.push(row as Highlight);
     highlightsByInfluencer.set(id, list);
   }
 
