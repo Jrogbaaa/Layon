@@ -45,49 +45,89 @@ export const getRoster = cache(async function getRoster(): Promise<RosterEntry[]
     .eq("active", true)
     .order("handle");
 
-  if (!influencers) return [];
+  if (!influencers || influencers.length === 0) return [];
+  const influencerIds = (influencers as Influencer[]).map((i) => i.id);
 
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  const entries: RosterEntry[] = [];
-  for (const influencer of influencers as Influencer[]) {
-    const { data: snapshots } = await client
-      .from("profile_snapshots")
-      .select("followers, following, media_count, bio, captured_at")
-      .eq("influencer_id", influencer.id)
-      .order("captured_at", { ascending: false })
-      .limit(14);
+  // Explicit per-influencer-scaled caps so PostgREST's default max-rows limit
+  // (1000) can't silently truncate a bulk .in() query before it reaches every
+  // influencer's rows.
+  const SNAPSHOT_CAP_PER_INFLUENCER = 14;
+  const HIGHLIGHT_CAP_PER_INFLUENCER = 5;
+  const RECOMMENDATION_CAP_PER_INFLUENCER = 5;
+  const ACTION_CAP_PER_INFLUENCER = 200;
 
-    const rows = (snapshots ?? []) as ProfileSnapshot[];
+  const [snapshotsRes, highlightsRes, recommendationsRes, actionsRes] = await Promise.all([
+    client
+      .from("profile_snapshots")
+      .select("influencer_id, followers, following, media_count, bio, captured_at")
+      .in("influencer_id", influencerIds)
+      .order("captured_at", { ascending: false })
+      .limit(influencerIds.length * SNAPSHOT_CAP_PER_INFLUENCER),
+    client
+      .from("highlights")
+      .select("influencer_id, content, metric, captured_at")
+      .in("influencer_id", influencerIds)
+      .gte("captured_at", sevenDaysAgo)
+      .order("captured_at", { ascending: false })
+      .limit(influencerIds.length * HIGHLIGHT_CAP_PER_INFLUENCER),
+    client
+      .from("recommendations")
+      .select("id, influencer_id, generated_at, model, content")
+      .in("influencer_id", influencerIds)
+      .order("generated_at", { ascending: false })
+      .limit(influencerIds.length * RECOMMENDATION_CAP_PER_INFLUENCER),
+    client
+      .from("recommendation_actions")
+      .select(`influencer_id, ${ACTION_FIELDS}`)
+      .in("influencer_id", influencerIds)
+      .order("updated_at", { ascending: false })
+      .limit(influencerIds.length * ACTION_CAP_PER_INFLUENCER),
+  ]);
+
+  const snapshotsByInfluencer = new Map<number, ProfileSnapshot[]>();
+  for (const row of snapshotsRes.data ?? []) {
+    const id = row.influencer_id as number;
+    const list = snapshotsByInfluencer.get(id) ?? [];
+    if (list.length < SNAPSHOT_CAP_PER_INFLUENCER) list.push(row as ProfileSnapshot);
+    snapshotsByInfluencer.set(id, list);
+  }
+
+  const highlightsByInfluencer = new Map<number, Highlight[]>();
+  for (const row of highlightsRes.data ?? []) {
+    const id = row.influencer_id as number;
+    const list = highlightsByInfluencer.get(id) ?? [];
+    if (list.length < HIGHLIGHT_CAP_PER_INFLUENCER) list.push(row as Highlight);
+    highlightsByInfluencer.set(id, list);
+  }
+
+  const latestRecByInfluencer = new Map<number, Recommendation>();
+  for (const row of recommendationsRes.data ?? []) {
+    const id = row.influencer_id as number;
+    if (!latestRecByInfluencer.has(id)) {
+      latestRecByInfluencer.set(id, row as Recommendation);
+    }
+  }
+
+  const actionsByInfluencer = new Map<number, RecommendationAction[]>();
+  for (const row of actionsRes.data ?? []) {
+    const id = row.influencer_id as number;
+    const list = actionsByInfluencer.get(id) ?? [];
+    list.push(row as RecommendationAction);
+    actionsByInfluencer.set(id, list);
+  }
+
+  return (influencers as Influencer[]).map((influencer) => {
+    const rows = snapshotsByInfluencer.get(influencer.id) ?? [];
     const latestSnapshot = rows[0] ?? null;
     const history = [...rows].reverse();
     const followerDelta = latestFollowerDelta(history);
+    const highlights = highlightsByInfluencer.get(influencer.id) ?? [];
+    const latestRecommendation = latestRecByInfluencer.get(influencer.id) ?? null;
+    const recommendationActions = actionsByInfluencer.get(influencer.id) ?? [];
 
-    const { data: recentHighlights } = await client
-      .from("highlights")
-      .select("content, metric, captured_at")
-      .eq("influencer_id", influencer.id)
-      .gte("captured_at", sevenDaysAgo)
-      .order("captured_at", { ascending: false })
-      .limit(5);
-
-    const { data: recommendations } = await client
-      .from("recommendations")
-      .select("id, generated_at, model, content")
-      .eq("influencer_id", influencer.id)
-      .order("generated_at", { ascending: false })
-      .limit(1);
-    const latestRecommendation = ((recommendations ?? [])[0] as Recommendation) ?? null;
-
-    const { data: actionRows } = await client
-      .from("recommendation_actions")
-      .select(ACTION_FIELDS)
-      .eq("influencer_id", influencer.id)
-      .order("updated_at", { ascending: false });
-    const recommendationActions = (actionRows ?? []) as RecommendationAction[];
-    const highlights = (recentHighlights ?? []) as Highlight[];
-
-    entries.push({
+    return {
       influencer,
       latestSnapshot,
       followerDelta,
@@ -99,10 +139,8 @@ export const getRoster = cache(async function getRoster(): Promise<RosterEntry[]
         recommendation: latestRecommendation,
         actions: recommendationActions,
       }),
-    });
-  }
-
-  return entries;
+    };
+  });
 });
 
 export async function getInfluencerDashboard(handle: string): Promise<InfluencerDashboard | null> {

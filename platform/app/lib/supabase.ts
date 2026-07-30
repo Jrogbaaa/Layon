@@ -1,6 +1,11 @@
 import "server-only";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
+
+let clientInstance: SupabaseClient | null = null;
 
 export function getSupabaseClient() {
-  return createClient(process.env.SUPABASE_URL ?? "", process.env.SUPABASE_SERVICE_KEY ?? "");
+  if (!clientInstance) {
+    clientInstance = createClient(process.env.SUPABASE_URL ?? "", process.env.SUPABASE_SERVICE_KEY ?? "");
+  }
+  return clientInstance;
 }

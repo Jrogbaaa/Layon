@@ -232,6 +232,14 @@ def run_instagram_scrape(client) -> list[str]:
             )
             failed.append(handle)
             session_dead = True
+        except instaloader.exceptions.TooManyRequestsException:
+            logger.error("Instagram HTTP 429 Rate Limit hit on %s — aborting roster loop to prevent ban", handle)
+            _notify(
+                "You First scraper: Rate limited (429)",
+                f"Rate limit hit while scraping {handle}. Aborting roster loop to protect IP.",
+            )
+            failed.append(handle)
+            session_dead = True
         except Exception:
             logger.exception("Failed to scrape %s — skipping", handle)
             failed.append(handle)

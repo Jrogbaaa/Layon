@@ -1,6 +1,7 @@
 import hashlib
 import json
 import logging
+import time
 from datetime import datetime, timezone
 from typing import Any
 
@@ -65,22 +66,44 @@ def _normalize_usernames(values: Any) -> list[str]:
     return usernames
 
 
+_PROFILE_CONTEXT_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
+_CACHE_TTL_SECONDS = 3600
+_FAILURE_CACHE_TTL_SECONDS = 60
+_CACHE_MAX_ENTRIES = 500
+
 def _profile_context(loader, username: str) -> dict[str, Any]:
+    now = time.time()
+    if username in _PROFILE_CONTEXT_CACHE:
+        timestamp, cached_context = _PROFILE_CONTEXT_CACHE[username]
+        ttl = (
+            _CACHE_TTL_SECONDS
+            if cached_context["lookup_status"] == "ok"
+            else _FAILURE_CACHE_TTL_SECONDS
+        )
+        if now - timestamp < ttl:
+            return cached_context
+
     try:
         import instaloader
-
+        time.sleep(2.0)
         profile = instaloader.Profile.from_username(loader.context, username)
+        context = {
+            "username": username,
+            "full_name": getattr(profile, "full_name", None),
+            "biography": getattr(profile, "biography", None),
+            "is_business_account": getattr(profile, "is_business_account", None),
+            "business_category_name": getattr(profile, "business_category_name", None),
+            "lookup_status": "ok",
+        }
     except Exception:
-        return {"username": username, "lookup_status": "unavailable"}
+        context = {"username": username, "lookup_status": "unavailable"}
 
-    return {
-        "username": username,
-        "full_name": getattr(profile, "full_name", None),
-        "biography": getattr(profile, "biography", None),
-        "is_business_account": getattr(profile, "is_business_account", None),
-        "business_category_name": getattr(profile, "business_category_name", None),
-        "lookup_status": "ok",
-    }
+    if len(_PROFILE_CONTEXT_CACHE) >= _CACHE_MAX_ENTRIES and username not in _PROFILE_CONTEXT_CACHE:
+        oldest_username = min(_PROFILE_CONTEXT_CACHE, key=lambda u: _PROFILE_CONTEXT_CACHE[u][0])
+        del _PROFILE_CONTEXT_CACHE[oldest_username]
+
+    _PROFILE_CONTEXT_CACHE[username] = (now, context)
+    return context
 
 
 def _hash_classification_inputs(post: dict, profile_contexts: list[dict[str, Any]]) -> str:
