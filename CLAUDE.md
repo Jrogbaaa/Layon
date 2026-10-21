@@ -42,7 +42,7 @@ this flow — see the Triviality Threshold in contract.md.
   mechanism, new filename/export), reads from Supabase server-side.
 - `agent-harness/` — Planner/Generator/Evaluator process state and prompts.
 - `docs/superpowers/` — historical design docs and plans; kept for reference, add nothing
-  new there. New design docs go in `agent-harness/<slug>/spec.md`.
+  new there. New design work goes in the Planner's `agent-harness/spec.md`.
 
 ## Data & Security
 
