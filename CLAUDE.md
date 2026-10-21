@@ -17,16 +17,18 @@ file is the operating manual for working in this repo.
 
 ## Process: Spec-Driven Development via agent-harness/
 
-Every feature-sized or multi-file change goes through
-[`agent-harness/`](./agent-harness/):
+Every feature-sized or multi-file change must go through the 3-phase
+[`agent-harness/`](./agent-harness/) workflow:
 
 1. **Planner** (`agent-harness/prompts/planner.md`) turns a request into `spec.md` +
-   `featurelist.json` — goal, why, non-goals, acceptance criteria.
+   `featurelist.json` — goal, why, non-goals, acceptance criteria — and gets the user's
+   approval on the plan before any coding.
 2. **Generator** (`agent-harness/prompts/generator.md`) builds the smallest version that
    satisfies the spec.
-3. **Evaluator** (`agent-harness/prompts/evaluator.md`) runs as a separate subagent,
-   attacks the implementation, runs tests, scores `agent-harness/rubric.md`, writes
-   `agent-harness/findings.md`.
+3. **Evaluator — mandatory before proposing a merge** (`agent-harness/prompts/evaluator.md`).
+   Before declaring a feature finished or proposing a merge, proactively spawn it as a
+   separate subagent; never wait to be asked. It attacks the implementation, runs the
+   tests, scores `agent-harness/rubric.md`, and writes `agent-harness/findings.md`.
 
 Guardrails live in `agent-harness/contract.md`. One-line fixes, typos, and doc edits skip
 this flow — see the Triviality Threshold in contract.md.
@@ -39,7 +41,8 @@ this flow — see the Triviality Threshold in contract.md.
   gated (`LAYCC`) via `proxy.ts` (Next.js 16 renamed Middleware to Proxy — same
   mechanism, new filename/export), reads from Supabase server-side.
 - `agent-harness/` — Planner/Generator/Evaluator process state and prompts.
-- `docs/superpowers/specs/` — design docs from brainstorming sessions.
+- `docs/superpowers/` — historical design docs and plans; kept for reference, add nothing
+  new there. New design work goes in the Planner's `agent-harness/spec.md`.
 
 ## Data & Security
 

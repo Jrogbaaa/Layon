@@ -17,11 +17,18 @@ file is the operating manual for working in this repo.
 
 ## Process: Spec-Driven Development via agent-harness/
 
-Every feature-sized or multi-file change must strictly and proactively go through the complete 3-phase [`agent-harness/`](./agent-harness/) workflow:
+Every feature-sized or multi-file change must go through the 3-phase
+[`agent-harness/`](./agent-harness/) workflow:
 
-1. **Planner Phase:** Run first to turn the request into `spec.md` and `featurelist.json` (defining goals, non-goals, and acceptance criteria). Obtains user approval on the plan before any coding.
-2. **Generator Phase:** Builds the surgical code changes to satisfy the spec.
-3. **Evaluator Phase (MANDATORY & PROACTIVE):** Before declaring any task finished, proposing a merge, or ending a feature turn, the agent **MUST proactively spawn a separate Evaluator subagent** using `agent-harness/prompts/evaluator.md`. The Evaluator runs the tests, evaluates the implementation against the rubric, and writes/updates `agent-harness/findings.md`. The agent must never wait for the user to prompt or ask for the evaluation; it is a required blocker before completion.
+1. **Planner** (`agent-harness/prompts/planner.md`) turns a request into `spec.md` +
+   `featurelist.json` — goal, why, non-goals, acceptance criteria — and gets the user's
+   approval on the plan before any coding.
+2. **Generator** (`agent-harness/prompts/generator.md`) builds the smallest version that
+   satisfies the spec.
+3. **Evaluator — mandatory before proposing a merge** (`agent-harness/prompts/evaluator.md`).
+   Before declaring a feature finished or proposing a merge, proactively spawn it as a
+   separate subagent; never wait to be asked. It attacks the implementation, runs the
+   tests, scores `agent-harness/rubric.md`, and writes `agent-harness/findings.md`.
 
 Guardrails live in `agent-harness/contract.md`. One-line fixes, typos, and doc edits skip
 this flow — see the Triviality Threshold in contract.md.
@@ -34,7 +41,8 @@ this flow — see the Triviality Threshold in contract.md.
   gated (`LAYCC`) via `proxy.ts` (Next.js 16 renamed Middleware to Proxy — same
   mechanism, new filename/export), reads from Supabase server-side.
 - `agent-harness/` — Planner/Generator/Evaluator process state and prompts.
-- `docs/superpowers/specs/` — design docs from brainstorming sessions.
+- `docs/superpowers/` — historical design docs and plans; kept for reference, add nothing
+  new there. New design work goes in the Planner's `agent-harness/spec.md`.
 
 ## Data & Security
 
@@ -55,7 +63,7 @@ this flow — see the Triviality Threshold in contract.md.
 ## Design Context
 
 `platform/` frontend work should follow [PRODUCT.md](./PRODUCT.md) and [DESIGN.md](./DESIGN.md)
-(managed via the `impeccable` skill — see `.Codex/skills/impeccable/`). North Star: "Medianoche" —
+(managed via the `impeccable` skill — see `.claude/skills/impeccable/`). North Star: "Medianoche" —
 a nocturnal, editorial triage tool; a couture house's internal terminal, still triage-first. Key
 rules: one accent, Gilded Amber `#e3b04b`, kept scarce (the Signal Rule); amber fills take
 near-black text, never white; garnet-black canvas `#120b0d`, never warmed toward brown/cream; no
